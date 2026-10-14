@@ -1,0 +1,20 @@
+model synthetic_robertson
+time_unit = s
+description = "Classic stiff numerical benchmark; no drug-specific interpretation."
+parameters
+  k1 = 0.04 [1/s] log
+  k2 = 10000 [1/s] log
+  k3 = 30000000 [1/s] log
+states
+  a = 1 [1]
+  b = 0 [1]
+  c = 0 [1]
+dynamics
+  d/dt(a) = (-k1 * a) + (k2 * b * c)
+  d/dt(b) = (k1 * a) - (k2 * b * c) - (k3 * b * b)
+  d/dt(c) = k3 * b * b
+outputs
+  a_out = a [1]
+  b_out = b [1]
+  c_out = c [1]
+end

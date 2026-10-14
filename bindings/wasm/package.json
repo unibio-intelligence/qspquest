@@ -1,0 +1,26 @@
+{
+  "name": "@qspquest/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./js/index.d.mts",
+      "import": "./js/index.mjs"
+    },
+    "./worker": "./js/engine-worker.mjs"
+  },
+  "files": [
+    "js/index.mjs",
+    "js/index.d.mts",
+    "js/client.mjs",
+    "js/client.d.mts",
+    "js/engine-worker.mjs",
+    "pkg/engine/qspquest_wasm.js",
+    "pkg/engine/qspquest_wasm_bg.wasm",
+    "pkg/engine/qspquest_wasm.d.ts",
+    "README.md",
+    "LICENSE"
+  ]
+}

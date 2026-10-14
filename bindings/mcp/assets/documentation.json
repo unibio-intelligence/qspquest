@@ -1,0 +1,829 @@
+{
+  "schema": "qspquest.documentation/v1",
+  "package_version": "0.1.0",
+  "scope": "Structural model, request, unit, error and source-declared capability guidance; documentation is not model or release qualification.",
+  "capabilities_uri": "qspquest://capabilities",
+  "capability_catalog_uri": "qspquest://capability-catalog",
+  "topics": {
+    "model": "qspquest://guide/model",
+    "request": "qspquest://guide/requests",
+    "security": "qspquest://guide/security",
+    "units": "qspquest://guide/units",
+    "errors": "qspquest://guide/language#formatting-and-diagnostics"
+  },
+  "examples": [
+    {
+      "id": "synthetic-one-compartment",
+      "model_uri": "qspquest://examples/synthetic-model",
+      "request_uri": "qspquest://examples/synthetic-run",
+      "operation": "simulate",
+      "scope": "Synthetic analytical concentration example; no clinical model qualification."
+    }
+  ],
+  "resources": [
+    {
+      "uri": "qspquest://capability-catalog",
+      "title": "capabilities.json",
+      "mime_type": "application/json",
+      "asset": "guides/spec/capabilities.json",
+      "source": "spec/capabilities.json",
+      "source_sha256": "678397402f9e9bce6445c00cf85487d9607143b4b663b11f73408d0ca8ff892d",
+      "content_sha256": "678397402f9e9bce6445c00cf85487d9607143b4b663b11f73408d0ca8ff892d",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/bindings/mcp/assets/fits/population.json",
+      "title": "population.json",
+      "mime_type": "application/json",
+      "asset": "guides/bindings/mcp/assets/fits/population.json",
+      "source": "bindings/mcp/assets/fits/population.json",
+      "source_sha256": "2458ee34085f17a20ef3db4a687adbbad5bdb5945c2b47251cbad212da89f0ed",
+      "content_sha256": "2458ee34085f17a20ef3db4a687adbbad5bdb5945c2b47251cbad212da89f0ed",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/conformance/models/paired-antibody-cell.json",
+      "title": "paired-antibody-cell.json",
+      "mime_type": "application/json",
+      "asset": "guides/conformance/models/paired-antibody-cell.json",
+      "source": "conformance/models/paired-antibody-cell.json",
+      "source_sha256": "83ea0a540855bbe3b2aa1c937f7379287b620f765cc818b7abe2d4ff643c69a0",
+      "content_sha256": "83ea0a540855bbe3b2aa1c937f7379287b620f765cc818b7abe2d4ff643c69a0",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/conformance/models/synthetic-one-compartment.qsp",
+      "title": "synthetic-one-compartment.qsp",
+      "mime_type": "text/plain",
+      "asset": "guides/conformance/models/synthetic-one-compartment.qsp",
+      "source": "conformance/models/synthetic-one-compartment.qsp",
+      "source_sha256": "bcf658b7b7a21b968330c79951ee832f98f5523407a8ffd42fb9738eed4063cc",
+      "content_sha256": "bcf658b7b7a21b968330c79951ee832f98f5523407a8ffd42fb9738eed4063cc",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/LINEAR-PK-KERNELS.md",
+      "title": "Linear PK interval kernels",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/LINEAR-PK-KERNELS.md",
+      "source": "docs/LINEAR-PK-KERNELS.md",
+      "source_sha256": "685b955574b5334df8ce59e46f3c88d95960c2440768aec6a5e0365ffa630283",
+      "content_sha256": "685b955574b5334df8ce59e46f3c88d95960c2440768aec6a5e0365ffa630283",
+      "anchors": [
+        "derived-coefficient-checks",
+        "infusions-crossing-a-periodic-boundary",
+        "infusions-spanning-multiple-cycles",
+        "linear-pk-interval-kernels",
+        "model-dosing-overrides",
+        "multi-cycle-binding-qualification",
+        "numerical-method",
+        "periodic-steady-state-kernel-api",
+        "python-and-browser-evidence",
+        "typed-json-models-and-explicit-execution",
+        "typed-periodic-operation",
+        "verification-and-remaining-integration"
+      ]
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/PARAMETER-SCANS.md",
+      "title": "Bounded parameter scans",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/PARAMETER-SCANS.md",
+      "source": "docs/PARAMETER-SCANS.md",
+      "source_sha256": "bbf606e1baf02bc33497cb6a69259fa4ee7b924ac07be894679aaf923ccf1548",
+      "content_sha256": "bbf606e1baf02bc33497cb6a69259fa4ee7b924ac07be894679aaf923ccf1548",
+      "anchors": [
+        "bounded-parameter-scans",
+        "python-and-browser-bindings",
+        "run-the-synthetic-clearance-scan"
+      ]
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/managed_artifact_download.py",
+      "title": "managed_artifact_download.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/managed_artifact_download.py",
+      "source": "docs/examples/managed_artifact_download.py",
+      "source_sha256": "1cbf1014fbc930a191805298abb0fcd134304425e4fee6e07f4ba3cc709f2ca7",
+      "content_sha256": "1cbf1014fbc930a191805298abb0fcd134304425e4fee6e07f4ba3cc709f2ca7",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/mcp_library_fit.py",
+      "title": "mcp_library_fit.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/mcp_library_fit.py",
+      "source": "docs/examples/mcp_library_fit.py",
+      "source_sha256": "6b604f184a1a51bc7f10ea26bae3d1531aaa47dac30eaf7ee7ca7e2d7b88dc73",
+      "content_sha256": "6b604f184a1a51bc7f10ea26bae3d1531aaa47dac30eaf7ee7ca7e2d7b88dc73",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/mcp_local_jobs.py",
+      "title": "mcp_local_jobs.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/mcp_local_jobs.py",
+      "source": "docs/examples/mcp_local_jobs.py",
+      "source_sha256": "637d12b1e772215952d3761530c422c60713912cea656c9b145438c50ce81a8c",
+      "content_sha256": "637d12b1e772215952d3761530c422c60713912cea656c9b145438c50ce81a8c",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/mcp_population_records.py",
+      "title": "mcp_population_records.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/mcp_population_records.py",
+      "source": "docs/examples/mcp_population_records.py",
+      "source_sha256": "51c30426d5b70dd09d343bb366c4dc805e8fb19b7bc696020aea34eb60d89965",
+      "content_sha256": "51c30426d5b70dd09d343bb366c4dc805e8fb19b7bc696020aea34eb60d89965",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/mcp_result_resources.py",
+      "title": "mcp_result_resources.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/mcp_result_resources.py",
+      "source": "docs/examples/mcp_result_resources.py",
+      "source_sha256": "073abdfd33695190decc086059a41b109a8b3fb7e4b68dc12e10d35fb6b3f5fa",
+      "content_sha256": "073abdfd33695190decc086059a41b109a8b3fb7e4b68dc12e10d35fb6b3f5fa",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/paired_endpoint_fit.py",
+      "title": "paired_endpoint_fit.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/paired_endpoint_fit.py",
+      "source": "docs/examples/paired_endpoint_fit.py",
+      "source_sha256": "651a28cb0a52852945120476da96db9ca46eb0298d558edc89a6f1a2f7ce2056",
+      "content_sha256": "651a28cb0a52852945120476da96db9ca46eb0298d558edc89a6f1a2f7ce2056",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/parallel_vpc.py",
+      "title": "parallel_vpc.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/parallel_vpc.py",
+      "source": "docs/examples/parallel_vpc.py",
+      "source_sha256": "4dfa6b2065242e3a6faf30d855f8ba27d1589a10b2c29138d5867951f1d69817",
+      "content_sha256": "4dfa6b2065242e3a6faf30d855f8ba27d1589a10b2c29138d5867951f1d69817",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/stdio_rpc.py",
+      "title": "stdio_rpc.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/stdio_rpc.py",
+      "source": "docs/examples/stdio_rpc.py",
+      "source_sha256": "9c7aaa8440dbf9a5178e698365181d669b5b14f066f478368ec2f5f34b478b82",
+      "content_sha256": "9c7aaa8440dbf9a5178e698365181d669b5b14f066f478368ec2f5f34b478b82",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/table_bundle.py",
+      "title": "table_bundle.py",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/table_bundle.py",
+      "source": "docs/examples/table_bundle.py",
+      "source_sha256": "e1604f9da0db16006c8864356bbc76194ced68f510cc40ad1f1ad3253df80ad1",
+      "content_sha256": "e1604f9da0db16006c8864356bbc76194ced68f510cc40ad1f1ad3253df80ad1",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/spec/schema/README.md",
+      "title": "Generated structural schemas",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/schema/README.md",
+      "source": "spec/schema/README.md",
+      "source_sha256": "ee808681c09a284d70bf394f4ff1f3078e07d7d87c6aca9b443761f73d0ef71c",
+      "content_sha256": "ee808681c09a284d70bf394f4ff1f3078e07d7d87c6aca9b443761f73d0ef71c",
+      "anchors": [
+        "generated-structural-schemas"
+      ]
+    },
+    {
+      "uri": "qspquest://examples/synthetic-model",
+      "title": "synthetic-one-compartment.json",
+      "mime_type": "application/json",
+      "asset": "guides/conformance/models/synthetic-one-compartment.json",
+      "source": "conformance/models/synthetic-one-compartment.json",
+      "source_sha256": "6283446bf414a0f4ea61912215859e35fa112e85be8d71342b9c19aa3fe415f3",
+      "content_sha256": "6283446bf414a0f4ea61912215859e35fa112e85be8d71342b9c19aa3fe415f3",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://examples/synthetic-run",
+      "title": "synthetic-one-compartment.json",
+      "mime_type": "application/json",
+      "asset": "guides/conformance/requests/synthetic-one-compartment.json",
+      "source": "conformance/requests/synthetic-one-compartment.json",
+      "source_sha256": "203a8cc2ad9a15d5d9c00c328bb1a08d28152634ca2e242f059ff795cb99e3d9",
+      "content_sha256": "203a8cc2ad9a15d5d9c00c328bb1a08d28152634ca2e242f059ff795cb99e3d9",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://guide/expressions",
+      "title": "Expressions",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/expressions.md",
+      "source": "spec/expressions.md",
+      "source_sha256": "01d5964aa32ef5a23bb99ba4b4080c62ade3fa176d3e9998a00d9cb4fec80751",
+      "content_sha256": "fcdbb82d2461cc0dfa55a11fc19629f0422cf99a28d2b8c83694d7596ccb730b",
+      "anchors": [
+        "closed-expression-nodes",
+        "evaluation",
+        "expressions",
+        "operators",
+        "output-only-guards",
+        "power-derivatives-at-zero"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/invariants",
+      "title": "Runtime invariants",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/invariants.md",
+      "source": "spec/invariants.md",
+      "source_sha256": "cbc1c157f2336ab6af62006738d6b9508611fdcaa85ccdc4ce291ffaa8e01d17",
+      "content_sha256": "cbc1c157f2336ab6af62006738d6b9508611fdcaa85ccdc4ce291ffaa8e01d17",
+      "anchors": [
+        "runtime-invariants"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/language",
+      "title": "QSPQuest model language",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/language.md",
+      "source": "spec/language.md",
+      "source_sha256": "a59662e0f06d7796c49130746c34f7bfc47a4994fea6f3fbb392be2b1eb7aef2",
+      "content_sha256": "2d8d877a3a95c041c087f4495515a96d7ffe88e67504c28fe0cda7e1c4a4fb0a",
+      "anchors": [
+        "algebraic-definitions",
+        "allowed-delivery-modes",
+        "derived-individual-parameters",
+        "dose-history-declarations",
+        "example",
+        "expressions",
+        "fixed-switch-block",
+        "formatting-and-diagnostics",
+        "linear-pk-declaration",
+        "model-grammar",
+        "numeric-covariates",
+        "parameter-bound-model-lag",
+        "qspquest-model-language",
+        "wasm"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/library-fitting",
+      "title": "Discover and run an archived synthetic fitting workflow",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/library-fitting.md",
+      "source": "docs/tutorials/library-fitting.md",
+      "source_sha256": "8e4f53d5665b06901d734e15f70e1c6028261168e833638fc484c13397c23b31",
+      "content_sha256": "436ca269d39ee89e0c3527489609597c948fa74cf4df7d59c83bf289e7939ccf",
+      "anchors": [
+        "discover-and-run-an-archived-synthetic-fitting-workflow",
+        "execute-and-retain-the-result",
+        "inspect-first",
+        "interpret-status-and-recover",
+        "select-an-exact-model-version"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/local-jobs",
+      "title": "Offline MCP jobs",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/mcp-local-jobs.md",
+      "source": "docs/tutorials/mcp-local-jobs.md",
+      "source_sha256": "a5727064a712c6543c3b9dcb81d6e2f27090efaf499ded1943140b56cc4a11b5",
+      "content_sha256": "83214d42f189f400c0530c1ad2107e89b754a3a72ba2e705416cd9383e52f106",
+      "anchors": [
+        "configure-an-agent-client",
+        "limits-and-common-errors",
+        "offline-mcp-jobs",
+        "setup-and-runnable-synthetic-example"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/managed-artifacts",
+      "title": "Retrieve a complete governed result artifact",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/managed-result-artifacts.md",
+      "source": "docs/tutorials/managed-result-artifacts.md",
+      "source_sha256": "9048d5d7b4f11079fc539338327b0160cb951745edb606e087ec186514bf5a2c",
+      "content_sha256": "652e7837b1cc4492aebc037ffa81ebca169d00865cc06a4049c061d7b5d5b4fa",
+      "anchors": [
+        "agent-contract-and-limits",
+        "platform-byte-contract",
+        "prerequisites",
+        "retrieve-a-complete-governed-result-artifact",
+        "run-the-synthetic-transport-checks"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/model",
+      "title": "Native model document",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/model-ir.md",
+      "source": "spec/model-ir.md",
+      "source_sha256": "a8b81fa9e805675b282e9bb11700de2b5ba1958eb6d595d8861148c8a129f8a0",
+      "content_sha256": "87ddda50baa9eb1a130117f6965e64627fadebbb96b89fefed67c0c0979b1e40",
+      "anchors": [
+        "executable-document",
+        "native-model-document",
+        "validation"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/paired-endpoint-fitting",
+      "title": "Fit concentration and cell measurements together",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/paired-endpoint-fitting.md",
+      "source": "docs/tutorials/paired-endpoint-fitting.md",
+      "source_sha256": "bf48ef460a5a77791aa878a71388043bfe1e55e3c3cc400208c919034d052f96",
+      "content_sha256": "db1fea6683852e3c063de659601d478c09ce4b90980b21816ea881766d32fa0e",
+      "anchors": [
+        "archive-contract",
+        "expected-output-and-interpretation",
+        "fit-concentration-and-cell-measurements-together",
+        "model-and-observations",
+        "prerequisites-and-installation"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/population-records",
+      "title": "Prepare and fit explicit population records",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/mcp-population-records.md",
+      "source": "docs/tutorials/mcp-population-records.md",
+      "source_sha256": "b6b58be76031b306021f0191607f8bfb70b8325bba6cdd7414bea03afb261d63",
+      "content_sha256": "0c1fe51fadfe46a19e69827593bff03cda116a58b69d689a935c733d41528ddc",
+      "anchors": [
+        "prepare-and-fit-explicit-population-records"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/predictive-checks",
+      "title": "Run repeatable predictive checks with bounded workers",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/parallel-predictive-checks.md",
+      "source": "docs/tutorials/parallel-predictive-checks.md",
+      "source_sha256": "5c6bed2bee389035f3ebeb7e60cb8a3f6307d0e843d9d7cfd21cd185712e9f12",
+      "content_sha256": "dbb92b6727f042a115ed6e99c5e47a474a8a824bcd364a0a3b69b9711caf779b",
+      "anchors": [
+        "failures-cancellation-and-restart",
+        "inspect-and-compare-results",
+        "install-and-run",
+        "run-repeatable-predictive-checks-with-bounded-workers"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/regimens",
+      "title": "Fixed administration requests",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/regimens.md",
+      "source": "spec/regimens.md",
+      "source_sha256": "ac1a80fe2239f9561dfc0128d485dbe4f8f0fd346902b75046c632db445e2e74",
+      "content_sha256": "ac1a80fe2239f9561dfc0128d485dbe4f8f0fd346902b75046c632db445e2e74",
+      "anchors": [
+        "administration-metadata-for-history-consumers",
+        "covariate-steps",
+        "declared-fixed-switches",
+        "dose-relative-model-switches-json",
+        "dose-relative-predicate-scheduling-api",
+        "expansion-rules",
+        "explicit-observation-times-and-sides",
+        "fixed-administration-requests",
+        "immutable-history-lookup",
+        "model-bound-dosing-lag",
+        "model-history-bindings",
+        "remaining-scope",
+        "state-resets",
+        "state-tolerances",
+        "strict-and-inclusive-time-predicates",
+        "zero-dose-fractions"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/release-verification",
+      "title": "Verify a release artifact",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/release-verification.md",
+      "source": "docs/release-verification.md",
+      "source_sha256": "50013a1f082a7b100776f734aa0d3fde163042ecb2c454bbd02ea29f994796e9",
+      "content_sha256": "50013a1f082a7b100776f734aa0d3fde163042ecb2c454bbd02ea29f994796e9",
+      "anchors": [
+        "check-python-distribution-contents",
+        "verify-a-release-artifact"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/requests",
+      "title": "Scientific run and result envelopes",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/run-results.md",
+      "source": "spec/run-results.md",
+      "source_sha256": "34245d0950c787a78f855a06e96b7c02db93105a1f785a11e62ac5e3a5caa31d",
+      "content_sha256": "55188211da808096092498785efccdeaf565d673853a2e8486ef4d2f79e95c2e",
+      "anchors": [
+        "absolute-simulation-start",
+        "canonical-hashes",
+        "compiler-and-backend-provenance",
+        "fitting-admission-plans",
+        "fixed-solver-checkpoints",
+        "hill-state-jacobian",
+        "initial-state-overrides",
+        "periodic-preparation",
+        "piecewise-smooth-state-jacobians",
+        "plan-and-run-the-synthetic-example",
+        "prepare-a-morris-analysis",
+        "request",
+        "result",
+        "scientific-run-and-result-envelopes",
+        "sensitivities-and-gaussian-objective-preparation",
+        "static-native-planning"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/requirements",
+      "title": "Declared execution requirements",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/requirements.md",
+      "source": "spec/requirements.md",
+      "source_sha256": "53c7fc062d123be9099109feed2f2e53da15b8e9d5719d4206e46fe6ffd6ab7a",
+      "content_sha256": "53c7fc062d123be9099109feed2f2e53da15b8e9d5719d4206e46fe6ffd6ab7a",
+      "anchors": [
+        "declared-execution-requirements"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/security",
+      "title": "Security policy",
+      "mime_type": "text/markdown",
+      "asset": "guides/SECURITY.md",
+      "source": "SECURITY.md",
+      "source_sha256": "e81b0026b0b840a760284e923d1c5b2669d4902b02b1d6338d302641c4819703",
+      "content_sha256": "e81b0026b0b840a760284e923d1c5b2669d4902b02b1d6338d302641c4819703",
+      "anchors": [
+        "security-policy"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/tables",
+      "title": "Read a complete MCP simulation result",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/mcp-result-resources.md",
+      "source": "docs/tutorials/mcp-result-resources.md",
+      "source_sha256": "c625301d0cd54d3f30ad748075d5e84ca5fdc1df94f0c625a24f7e3589c3c68b",
+      "content_sha256": "d22d535df99f223fe0f86054f998d04311c0fcc5adc4b246980d45b545904a55",
+      "anchors": [
+        "bind-inspected-inputs-to-a-request",
+        "format-complete-decision-responses",
+        "inspect-a-plan-before-execution",
+        "inspect-and-execute-a-regimen-comparison",
+        "inspect-initial-patient-quantities",
+        "inspect-large-models-in-bounded-pages",
+        "inspect-pre-dose-initialization-and-percentage-denominators",
+        "inspect-scheduled-boundaries-and-observation-sides",
+        "inspect-separate-scientific-assessments",
+        "plan-and-guard-a-periodic-steady-state-solve",
+        "plan-and-run-synthetic-morris-screening",
+        "read-a-complete-mcp-simulation-result",
+        "retain-complete-results-across-local-server-restarts",
+        "save-and-reimport-an-analysis-bundle",
+        "select-a-complete-precision-profile",
+        "select-exact-outputs-scenarios-and-inspection-resources",
+        "verify-dose-amounts-before-interpreting-concentrations"
+      ]
+    },
+    {
+      "uri": "qspquest://guide/units",
+      "title": "Units: implemented subset and lowering contract",
+      "mime_type": "text/markdown",
+      "asset": "guides/spec/units.md",
+      "source": "spec/units.md",
+      "source_sha256": "90d0b041cfac9ed9970d01c465a12da348b4b30e448b5a89676b4d1b097655d5",
+      "content_sha256": "d3917a929a8d9baf1c10c3fadd4973627854830e354263fee106fbf48b7d4968",
+      "anchors": [
+        "archive-source-coordinates",
+        "codes-and-dimensions",
+        "evidence",
+        "expression-rules",
+        "model-binding",
+        "run-a-synthetic-cell-density-model",
+        "units-implemented-subset-and-lowering-contract"
+      ]
+    },
+    {
+      "uri": "qspquest://schema/capability-catalog",
+      "title": "capability-catalog.schema.json",
+      "mime_type": "application/json",
+      "asset": "capability-catalog.schema.json",
+      "source": "spec/schema/capability-catalog.schema.json",
+      "source_sha256": "faea40c971338449dde605e78f2413bacf1d076ee10bdf02c887aaa026e77c2f",
+      "content_sha256": "faea40c971338449dde605e78f2413bacf1d076ee10bdf02c887aaa026e77c2f",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/cycle-iteration",
+      "title": "cycle-iteration-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "cycle-iteration-request.schema.json",
+      "source": "spec/schema/cycle-iteration-request.schema.json",
+      "source_sha256": "de7e2dc71bee1c3120e947fcc78f8aa4fadc11fcedc516c338795a7523419d09",
+      "content_sha256": "de7e2dc71bee1c3120e947fcc78f8aa4fadc11fcedc516c338795a7523419d09",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/cycle-iteration-result",
+      "title": "cycle-iteration-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "cycle-iteration-result.schema.json",
+      "source": "spec/schema/cycle-iteration-result.schema.json",
+      "source_sha256": "e08a120a3b54f4282c6218b94dfc81446fb791cd422b8583691951c93db7b766",
+      "content_sha256": "e08a120a3b54f4282c6218b94dfc81446fb791cd422b8583691951c93db7b766",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/expression",
+      "title": "expression.schema.json",
+      "mime_type": "application/json",
+      "asset": "expression.schema.json",
+      "source": "spec/schema/expression.schema.json",
+      "source_sha256": "953ff40e65d6dddd2133a4b61979e10fbe0a257144f69e352235dca26babd2a7",
+      "content_sha256": "953ff40e65d6dddd2133a4b61979e10fbe0a257144f69e352235dca26babd2a7",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/fit",
+      "title": "fit-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "fit-request.schema.json",
+      "source": "spec/schema/fit-request.schema.json",
+      "source_sha256": "3a63d949b7cbd86a0b3a6b05cec7ae33939263cfe52621773a77ba0e1f22aafe",
+      "content_sha256": "3a63d949b7cbd86a0b3a6b05cec7ae33939263cfe52621773a77ba0e1f22aafe",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/fit-plan",
+      "title": "fit-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "fit-plan.schema.json",
+      "source": "spec/schema/fit-plan.schema.json",
+      "source_sha256": "cfee4cb218e26bbf13f956e8ff20c6f02d925b8b9000faed5b60480d949805a1",
+      "content_sha256": "cfee4cb218e26bbf13f956e8ff20c6f02d925b8b9000faed5b60480d949805a1",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/fit-result",
+      "title": "fit-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "fit-result.schema.json",
+      "source": "spec/schema/fit-result.schema.json",
+      "source_sha256": "09d0bed2db56bdb04b6d6299c10d881b2e4e4ddf05cb94cf3d461fade753ff39",
+      "content_sha256": "09d0bed2db56bdb04b6d6299c10d881b2e4e4ddf05cb94cf3d461fade753ff39",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/gaussian-objective-plan",
+      "title": "gaussian-objective-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "gaussian-objective-plan.schema.json",
+      "source": "spec/schema/gaussian-objective-plan.schema.json",
+      "source_sha256": "270da8836908cb25a74b439c54815ec39a863487ca46ce18cbcad408f4ff47b1",
+      "content_sha256": "270da8836908cb25a74b439c54815ec39a863487ca46ce18cbcad408f4ff47b1",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/initial-values-plan",
+      "title": "initial-values-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "initial-values-plan.schema.json",
+      "source": "spec/schema/initial-values-plan.schema.json",
+      "source_sha256": "086fb804705b4156c8614870f616c6c86319561d240e15d53e526b2943d9e24d",
+      "content_sha256": "086fb804705b4156c8614870f616c6c86319561d240e15d53e526b2943d9e24d",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/initial-values-request",
+      "title": "initial-values-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "initial-values-request.schema.json",
+      "source": "spec/schema/initial-values-request.schema.json",
+      "source_sha256": "fb731ae591234acc76bd3c33450b17fb213432d37317a5b3fbd34f7be98829ed",
+      "content_sha256": "fb731ae591234acc76bd3c33450b17fb213432d37317a5b3fbd34f7be98829ed",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/initial-values-result",
+      "title": "initial-values-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "initial-values-result.schema.json",
+      "source": "spec/schema/initial-values-result.schema.json",
+      "source_sha256": "4669099ccbd222fb5ce5cbcbdebab502801afd050907c4f3b3d57a69cf359f13",
+      "content_sha256": "4669099ccbd222fb5ce5cbcbdebab502801afd050907c4f3b3d57a69cf359f13",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/model",
+      "title": "model.schema.json",
+      "mime_type": "application/json",
+      "asset": "model.schema.json",
+      "source": "spec/schema/model.schema.json",
+      "source_sha256": "ab6322b352bf77bfa32ac665931fdf53180dd8b8ba74da1614dc5a6bf2befbdb",
+      "content_sha256": "ab6322b352bf77bfa32ac665931fdf53180dd8b8ba74da1614dc5a6bf2befbdb",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/morris",
+      "title": "morris-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "morris-request.schema.json",
+      "source": "spec/schema/morris-request.schema.json",
+      "source_sha256": "81385e07c1435e448f49abe496b1dffdb0ec0ae1f474d7c840ed017dd4117ba6",
+      "content_sha256": "81385e07c1435e448f49abe496b1dffdb0ec0ae1f474d7c840ed017dd4117ba6",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/morris-plan",
+      "title": "morris-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "morris-plan.schema.json",
+      "source": "spec/schema/morris-plan.schema.json",
+      "source_sha256": "b5773bb84d304b2e0945ee109c22bf5df854395da98dc222491741b5af595b57",
+      "content_sha256": "b5773bb84d304b2e0945ee109c22bf5df854395da98dc222491741b5af595b57",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/morris-result",
+      "title": "morris-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "morris-result.schema.json",
+      "source": "spec/schema/morris-result.schema.json",
+      "source_sha256": "202b83c3b6c0bde8293cb5cf929fd4f26ba1d2b9d3b7bdfb92fdb88a895bfb2f",
+      "content_sha256": "202b83c3b6c0bde8293cb5cf929fd4f26ba1d2b9d3b7bdfb92fdb88a895bfb2f",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/periodic-plan",
+      "title": "periodic-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "periodic-plan.schema.json",
+      "source": "spec/schema/periodic-plan.schema.json",
+      "source_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
+      "content_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/regimen",
+      "title": "regimen.schema.json",
+      "mime_type": "application/json",
+      "asset": "regimen.schema.json",
+      "source": "spec/schema/regimen.schema.json",
+      "source_sha256": "19b8b1d5c3d6e43886c8d6245adb6ce8c1db1c5670c0e16e52cac8226cb6c0bc",
+      "content_sha256": "19b8b1d5c3d6e43886c8d6245adb6ce8c1db1c5670c0e16e52cac8226cb6c0bc",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/result",
+      "title": "result.schema.json",
+      "mime_type": "application/json",
+      "asset": "result.schema.json",
+      "source": "spec/schema/result.schema.json",
+      "source_sha256": "73755ae0d8186a9fd444b2d9d9414f1c53a5b5e3e72dc42eb0837433ddb66dc9",
+      "content_sha256": "73755ae0d8186a9fd444b2d9d9414f1c53a5b5e3e72dc42eb0837433ddb66dc9",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/run",
+      "title": "run.schema.json",
+      "mime_type": "application/json",
+      "asset": "run.schema.json",
+      "source": "spec/schema/run.schema.json",
+      "source_sha256": "ab342427b61d54849b3d70cc8881fa6327bb0c872372d57221d6fa06c2784bd9",
+      "content_sha256": "ab342427b61d54849b3d70cc8881fa6327bb0c872372d57221d6fa06c2784bd9",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/run-plan",
+      "title": "run-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "run-plan.schema.json",
+      "source": "spec/schema/run-plan.schema.json",
+      "source_sha256": "f84c4d1913662cba508ba1dbd077fcc774c227b22b3b32bcf53b29d9e2268526",
+      "content_sha256": "f84c4d1913662cba508ba1dbd077fcc774c227b22b3b32bcf53b29d9e2268526",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scalar-fit",
+      "title": "scalar-fit-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "scalar-fit-request.schema.json",
+      "source": "spec/schema/scalar-fit-request.schema.json",
+      "source_sha256": "097a760df645c2be340c5efbe279983c6181085e2512145f44fb1b447a8013f0",
+      "content_sha256": "097a760df645c2be340c5efbe279983c6181085e2512145f44fb1b447a8013f0",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scalar-fit-plan",
+      "title": "scalar-fit-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "scalar-fit-plan.schema.json",
+      "source": "spec/schema/scalar-fit-plan.schema.json",
+      "source_sha256": "03235b99de4c553ff483067dec94b2d294f104e49481d8fc449815d56be8a938",
+      "content_sha256": "03235b99de4c553ff483067dec94b2d294f104e49481d8fc449815d56be8a938",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scalar-fit-result",
+      "title": "scalar-fit-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "scalar-fit-result.schema.json",
+      "source": "spec/schema/scalar-fit-result.schema.json",
+      "source_sha256": "4569c7536e27c8b3fc9a1d5f924c278224a6a5b83aeddd7a944259d2e3fc2149",
+      "content_sha256": "4569c7536e27c8b3fc9a1d5f924c278224a6a5b83aeddd7a944259d2e3fc2149",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scan",
+      "title": "scan-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "scan-request.schema.json",
+      "source": "spec/schema/scan-request.schema.json",
+      "source_sha256": "46172a515b4de407cf222ef409220bf9faee0c48a989c6ed37671aafccb2437f",
+      "content_sha256": "46172a515b4de407cf222ef409220bf9faee0c48a989c6ed37671aafccb2437f",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scan-plan",
+      "title": "scan-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "scan-plan.schema.json",
+      "source": "spec/schema/scan-plan.schema.json",
+      "source_sha256": "d9e1357a77397394e432f1938c4a3aa4a72e98f4369c5d6dad90dbd4f762678b",
+      "content_sha256": "d9e1357a77397394e432f1938c4a3aa4a72e98f4369c5d6dad90dbd4f762678b",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/scan-result",
+      "title": "scan-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "scan-result.schema.json",
+      "source": "spec/schema/scan-result.schema.json",
+      "source_sha256": "b79507f2f742759ae6f9823b5380a09b0ca6bf804d1fe7079c48de3794d18e5c",
+      "content_sha256": "b79507f2f742759ae6f9823b5380a09b0ca6bf804d1fe7079c48de3794d18e5c",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/sensitivity",
+      "title": "sensitivity-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "sensitivity-request.schema.json",
+      "source": "spec/schema/sensitivity-request.schema.json",
+      "source_sha256": "bc79f4c49b58e59a5deef79152d084dff18c583087e66745d46326de0ecc9ff6",
+      "content_sha256": "bc79f4c49b58e59a5deef79152d084dff18c583087e66745d46326de0ecc9ff6",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/sensitivity-plan",
+      "title": "sensitivity-plan.schema.json",
+      "mime_type": "application/json",
+      "asset": "sensitivity-plan.schema.json",
+      "source": "spec/schema/sensitivity-plan.schema.json",
+      "source_sha256": "d4a5cbdf1a61576e24c67ddfdab7480ac7bff8d8f959dd0fa949fbb9e2e6fd50",
+      "content_sha256": "d4a5cbdf1a61576e24c67ddfdab7480ac7bff8d8f959dd0fa949fbb9e2e6fd50",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/sensitivity-result",
+      "title": "sensitivity-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "sensitivity-result.schema.json",
+      "source": "spec/schema/sensitivity-result.schema.json",
+      "source_sha256": "cd4f176e36e5c8a6658c9ad107df0d927375583e5db20a2fecd9596bdacf5e6d",
+      "content_sha256": "cd4f176e36e5c8a6658c9ad107df0d927375583e5db20a2fecd9596bdacf5e6d",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/steady-state",
+      "title": "steady-state-request.schema.json",
+      "mime_type": "application/json",
+      "asset": "steady-state-request.schema.json",
+      "source": "spec/schema/steady-state-request.schema.json",
+      "source_sha256": "aa27b1708ba7262dcaaf9ea5a4d8f0a15939bd69febeef15e5d8d72ee18072f4",
+      "content_sha256": "aa27b1708ba7262dcaaf9ea5a4d8f0a15939bd69febeef15e5d8d72ee18072f4",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/steady-state-result",
+      "title": "steady-state-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "steady-state-result.schema.json",
+      "source": "spec/schema/steady-state-result.schema.json",
+      "source_sha256": "f713ec38ffd24b45046c0c40300a447d1dfe1efa95ce34a30a8873f667459227",
+      "content_sha256": "f713ec38ffd24b45046c0c40300a447d1dfe1efa95ce34a30a8873f667459227",
+      "anchors": []
+    }
+  ]
+}

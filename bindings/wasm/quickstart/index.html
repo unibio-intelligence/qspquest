@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try QSPQuest in your browser</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<header><span class="brand">QSPQuest</span><span class="badge">Runs on your device</span></header>
+<section class="intro"><p class="eyebrow">Browser quickstart</p><h1>Your first dose simulation.</h1>
+<p>Start with a synthetic one-compartment model, choose a bundled library model, or open your own model. Run the WebAssembly engine and explore the outputs on your device.</p></section>
+<div class="workspace"><section class="controls" aria-labelledby="inputs-title"><h2 id="inputs-title">Set up the model</h2>
+<label for="model-picker">Model</label><select id="model-picker"><option value="synthetic">Synthetic one-compartment</option><option value="custom">Your own model</option></select>
+<p id="model-description" class="note">A synthetic teaching model with dose, clearance and volume controls.</p>
+<form id="inputs"><div id="guided"><label for="dose">Bolus dose <span>mg</span></label><input id="dose" name="dose" type="number" min="0.01" max="1000" step="any" value="6" required>
+<label for="clearance">Clearance <span>L/h</span></label><input id="clearance" name="clearance" type="number" min="0.001" max="100" step="any" value="0.3" required>
+<label for="volume">Volume <span>L</span></label><input id="volume" name="volume" type="number" min="0.01" max="1000" step="any" value="3" required>
+</div><div id="library-controls" hidden><label for="parameter">Change a model parameter</label><select id="parameter"></select><label for="parameter-value" id="parameter-label">Value</label><input id="parameter-value" type="number" step="any"><p class="note">These controls edit the run request. Output units follow the model declaration.</p></div><div id="custom-inputs" hidden><details id="editors"><summary>Edit model and run request</summary>
+<label for="model-file">Open model (.qsp or JSON)</label><input id="model-file" type="file" accept=".qsp,.json">
+<label for="source">Model source</label><textarea id="source" rows="9" spellcheck="false"></textarea>
+<label for="request-file">Open run request (JSON)</label><input id="request-file" type="file" accept=".json">
+<label for="request">Run request</label><textarea id="request" rows="9" spellcheck="false"></textarea>
+<p class="note">Edit equations or request values, then run again. Files stay in your browser. Each input is limited to one million bytes.</p></details></div>
+<div class="actions"><button id="run" type="submit">Run simulation</button><button id="cancel" type="button" disabled>Cancel</button></div>
+<button class="text-button" id="restore" type="button">Restore example</button></form>
+<p class="note" id="guided-note">Synthetic teaching values. This example does not describe a drug or a clinical dosing regimen.</p>
+<details id="guided-explanation"><summary>How the teaching model works</summary><p>A bolus enters the central compartment at time zero. Clearance removes drug at a rate proportional to concentration.</p><code>cp(t) = dose / volume × exp(−clearance / volume × t)</code><p>Concentration is in mg/L; time is in hours. The numerical engine is checked against this analytic reference after each run.</p></details></section>
+<section class="results" aria-labelledby="results-title"><h2 id="results-title">Simulation results</h2>
+<div id="output-control" hidden><label for="output">Plot output</label><select id="output"></select></div>
+<p id="status" role="status" aria-live="polite">Ready. Select Run simulation to start.</p>
+<svg id="plot" viewBox="0 0 640 340" role="img" aria-labelledby="plot-title plot-description" hidden><title id="plot-title">Simulated output</title><desc id="plot-description">Numerical model output over time. Axes show declared units.</desc></svg>
+<p id="comparison" hidden></p><div id="summary" hidden></div><button id="download" type="button" disabled>Download CSV</button>
+<details id="table-panel" hidden><summary>View numerical results</summary><table><caption>Selected observations</caption><thead><tr><th scope="col" id="time-heading">Time (h)</th><th scope="col" id="value-heading">Concentration (mg/L)</th><th scope="col">Event side</th></tr></thead><tbody id="rows"></tbody></table></details>
+<details id="engine-panel" hidden><summary>Engine and execution details</summary><pre id="identity"></pre></details></section></div>
+<footer><h2>Next: connect your agent</h2><p>This browser example runs simulations locally. Use the QSPQuest MCP server with your own agent client for model discovery, simulations and supported fitting workflows.</p><a href="../../../docs/tutorials/agents-docker.md" id="agent-guide">Agent and Docker quickstart</a><p class="privacy">Model and simulation inputs are processed by a local worker. This page has no telemetry and uploads no inputs or results. Initial JavaScript, Wasm and example assets are loaded from this site's server.</p></footer>
+</main><script type="module" src="app.mjs"></script></body></html>

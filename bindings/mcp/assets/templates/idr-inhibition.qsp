@@ -1,0 +1,23 @@
+model illustrative_idr_inhibition
+ time_unit = h
+ description = "Synthetic drug effect on biomarker production; illustrative only"
+parameters
+ ke = 0.1 [1/h] estimated
+ kout = 0.2 [1/h] estimated
+ ic50 = 2 [mg/L] fixed
+ volume = 3 [L] fixed
+ baseline = 1 [1] fixed
+states
+ central = 0 [mg]
+ response = 1 [1]
+definitions
+ concentration = central / volume [mg/L]
+dynamics
+ d/dt(central) = input_central - ke * central
+ d/dt(response) = kout * baseline * (1 - concentration / (ic50 + concentration)) - kout * response
+dosing
+ central [mg] = 1
+outputs
+ cp = concentration [mg/L]
+ biomarker = response [1]
+end

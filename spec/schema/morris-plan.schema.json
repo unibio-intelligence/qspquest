@@ -1,0 +1,1542 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AccuracyControl": {
+      "description": "Local integration or bounded sampled-trajectory convergence checking.",
+      "enum": [
+        "local",
+        "sampled"
+      ],
+      "type": "string"
+    },
+    "ActiveInputs": {
+      "enum": [
+        "continue",
+        "stop_target"
+      ],
+      "type": "string"
+    },
+    "Administration": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "bioavailability": {
+          "format": "double",
+          "type": "number"
+        },
+        "delivery": {
+          "$ref": "#/definitions/Delivery"
+        },
+        "lag": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Repeat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "amount",
+        "bioavailability",
+        "delivery",
+        "target",
+        "time"
+      ],
+      "type": "object"
+    },
+    "BindingActivation": {
+      "enum": [
+        "initial",
+        "post_boundary"
+      ],
+      "type": "string"
+    },
+    "BindingKind": {
+      "enum": [
+        "parameter",
+        "covariate",
+        "individual_parameter",
+        "derived_covariate"
+      ],
+      "type": "string"
+    },
+    "BindingPhase": {
+      "additionalProperties": false,
+      "properties": {
+        "activation": {
+          "$ref": "#/definitions/BindingActivation"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/definitions/BoundInput"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Uses RunPlan.time_unit. Initial and post-boundary phases can share a time.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "activation",
+        "inputs",
+        "time"
+      ],
+      "type": "object"
+    },
+    "BoundInput": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/BindingKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/definitions/ExactUnit"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Budgets": {
+      "additionalProperties": false,
+      "description": "Work counts RHS and Jacobian calls, including solver setup, or bounded analytic interval propagations when an analytic model opts into that path.",
+      "properties": {
+        "events": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "solver_callbacks": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events",
+        "output_values",
+        "solver_callbacks"
+      ],
+      "type": "object"
+    },
+    "CovariateChange": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "name",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    },
+    "DeferredCheck": {
+      "enum": [
+        "trajectory_domain",
+        "readout_domain",
+        "numerical_convergence",
+        "independent_scientific_qualification",
+        "optimization",
+        "identifiability",
+        "observed_covariance",
+        "elementary_effect_overflow"
+      ],
+      "type": "string"
+    },
+    "Delivery": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "bolus"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "infusion"
+              ],
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/definitions/InfusionSpan"
+            }
+          },
+          "required": [
+            "kind",
+            "span"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Event": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "active_inputs": {
+              "$ref": "#/definitions/ActiveInputs"
+            },
+            "kind": {
+              "enum": [
+                "reset"
+              ],
+              "type": "string"
+            },
+            "order": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "target": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "time": {
+              "format": "double",
+              "type": "number"
+            },
+            "value": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "active_inputs",
+            "kind",
+            "order",
+            "target",
+            "time",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "bolus"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "time": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "amount",
+            "kind",
+            "target",
+            "time"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "format": "double",
+              "type": "number"
+            },
+            "duration": {
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "infusion"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "time": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "amount",
+            "duration",
+            "kind",
+            "target",
+            "time"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ExactUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "description": "Original declared spelling, when the unit was not inferred.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dimensions": {
+          "description": "SI kg, m, s, mol, K, A, cd exponents, followed by opaque activity.",
+          "items": {
+            "format": "int16",
+            "type": "integer"
+          },
+          "maxItems": 8,
+          "minItems": 8,
+          "type": "array"
+        },
+        "entities": {
+          "additionalProperties": false,
+          "description": "Nonzero opaque entity exponents, keyed by cell or genome. Empty for legacy units.",
+          "properties": {
+            "cell": {
+              "format": "int16",
+              "type": "integer"
+            },
+            "genome": {
+              "format": "int16",
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "scale_denominator": {
+          "type": "string"
+        },
+        "scale_numerator": {
+          "description": "Positive exact rational scale to the dimension's base coordinates. Decimal strings preserve integers beyond JSON's exact numeric range.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimensions",
+        "scale_denominator",
+        "scale_numerator"
+      ],
+      "type": "object"
+    },
+    "ExecutionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        },
+        "bound_value_hash": {
+          "type": "string"
+        },
+        "build_profile": {
+          "type": "string"
+        },
+        "compiler_source_sha256": {
+          "type": "string"
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "model_content_hash": {
+          "type": "string"
+        },
+        "run_request_hash": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "rustflags_sha256": {
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "backend",
+        "backend_version",
+        "bound_value_hash",
+        "build_profile",
+        "compiler_source_sha256",
+        "compiler_version",
+        "model_content_hash",
+        "run_request_hash",
+        "rustc_version",
+        "rustflags_sha256",
+        "spec_version",
+        "target"
+      ],
+      "type": "object"
+    },
+    "InfusionSpan": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "duration": {
+              "$ref": "#/definitions/Quantity"
+            },
+            "kind": {
+              "enum": [
+                "duration"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "rate"
+              ],
+              "type": "string"
+            },
+            "rate": {
+              "$ref": "#/definitions/Quantity"
+            }
+          },
+          "required": [
+            "kind",
+            "rate"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MorrisDesignProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "design_request_hash": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "seed": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "design_request_hash",
+        "generator",
+        "seed"
+      ],
+      "type": "object"
+    },
+    "MorrisDesignRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "num_levels": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output": {
+          "type": "string"
+        },
+        "ranges": {
+          "items": {
+            "$ref": "#/definitions/ParameterRange"
+          },
+          "type": "array"
+        },
+        "row": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "run": {
+          "$ref": "#/definitions/RunRequest"
+        },
+        "seed": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "total_budgets": {
+          "$ref": "#/definitions/Budgets"
+        },
+        "trajectory_count": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "num_levels",
+        "output",
+        "ranges",
+        "row",
+        "run",
+        "seed",
+        "total_budgets",
+        "trajectory_count"
+      ],
+      "type": "object"
+    },
+    "MorrisExecutionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "problem": {
+          "$ref": "#/definitions/MorrisProblem"
+        },
+        "schema": {
+          "$ref": "#/definitions/MorrisSchema"
+        }
+      },
+      "required": [
+        "problem",
+        "schema"
+      ],
+      "type": "object"
+    },
+    "MorrisPlanSchema": {
+      "enum": [
+        "qspquest.morris-plan/v0.1"
+      ],
+      "type": "string"
+    },
+    "MorrisProblem": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "explicit"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/MorrisRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "generated"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/MorrisDesignRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MorrisRangePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "lower": {
+          "format": "double",
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/definitions/ExactUnit"
+        },
+        "upper": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "parameter",
+        "unit",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "MorrisRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "num_levels": {
+          "description": "Even grid levels, at least four. Normalized step = p/(2*(p-1)).",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output": {
+          "type": "string"
+        },
+        "ranges": {
+          "items": {
+            "$ref": "#/definitions/ParameterRange"
+          },
+          "type": "array"
+        },
+        "row": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "scan": {
+          "$ref": "#/definitions/ScanRequest"
+        },
+        "trajectories": {
+          "description": "Each trajectory contains d+1 point IDs, changing each parameter once.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "num_levels",
+        "output",
+        "ranges",
+        "row",
+        "scan",
+        "trajectories"
+      ],
+      "type": "object"
+    },
+    "MorrisSchema": {
+      "enum": [
+        "qspquest.morris/v0.1"
+      ],
+      "type": "string"
+    },
+    "MorrisStepPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "from_point": {
+          "type": "string"
+        },
+        "normalized_delta": {
+          "format": "double",
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "to_point": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_point",
+        "normalized_delta",
+        "parameter",
+        "to_point"
+      ],
+      "type": "object"
+    },
+    "ObservationPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/ObservationSide"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "side",
+        "time"
+      ],
+      "type": "object"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "ParameterRange": {
+      "additionalProperties": false,
+      "properties": {
+        "lower": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "upper": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "lower",
+        "parameter",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "PlannedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Event"
+            }
+          ],
+          "description": "Driver storage order is preserved. Reset.order remains the reset ordering key. All event times and infusion durations use RunPlan.time_unit."
+        },
+        "quantity_unit": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ExactUnit"
+            }
+          ],
+          "description": "Reset value uses state units; delivered dose amount uses input units before model scaling."
+        },
+        "target_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "quantity_unit",
+        "target_name"
+      ],
+      "type": "object"
+    },
+    "PlannedObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/ObservationSide"
+        },
+        "time": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "side",
+        "time"
+      ],
+      "type": "object"
+    },
+    "PlannedOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "PlannedState": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_tolerance": {
+          "format": "double",
+          "type": "number"
+        },
+        "initial": {
+          "description": "Actual integration initial value, before boundary updates and dosing.",
+          "format": "double",
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "absolute_tolerance",
+        "initial",
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ReadoutInputOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "covariates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "description": "Exact pointwise predicate inputs, before any readout expression is evaluated.",
+          "type": "object"
+        },
+        "observation": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "covariates",
+        "observation"
+      ],
+      "type": "object"
+    },
+    "Repeat": {
+      "additionalProperties": false,
+      "properties": {
+        "additional": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "interval": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "additional",
+        "interval"
+      ],
+      "type": "object"
+    },
+    "Request": {
+      "additionalProperties": false,
+      "description": "Unit-bearing times and administrations with the existing scalar tolerance contract.",
+      "properties": {
+        "absolute_tolerances": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "description": "Exactly one positive quantity for each state, identified by name.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "administrations": {
+          "items": {
+            "$ref": "#/definitions/Administration"
+          },
+          "type": "array"
+        },
+        "atol": {
+          "description": "Legacy scalar in each state's numeric unit; exclusive with absolute_tolerances.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "checkpoints": {
+          "default": [],
+          "description": "Fixed solver restart times; these do not change state or parameters.",
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "covariate_changes": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/CovariateChange"
+          },
+          "type": "array"
+        },
+        "covariates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "end": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/definitions/ObservationPoint"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "resets": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/StateReset"
+          },
+          "type": "array"
+        },
+        "rtol": {
+          "format": "double",
+          "type": "number"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "administrations",
+        "end",
+        "rtol",
+        "samples"
+      ],
+      "type": "object"
+    },
+    "RunPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_phases": {
+          "items": {
+            "$ref": "#/definitions/BindingPhase"
+          },
+          "type": "array"
+        },
+        "checkpoints": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "deferred_checks": {
+          "items": {
+            "$ref": "#/definitions/DeferredCheck"
+          },
+          "type": "array"
+        },
+        "driver_rows": {
+          "items": {
+            "$ref": "#/definitions/PlannedObservation"
+          },
+          "type": "array"
+        },
+        "end": {
+          "format": "double",
+          "type": "number"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/definitions/PlannedEvent"
+          },
+          "type": "array"
+        },
+        "observation_rows": {
+          "description": "Requested observation -> driver row. A smooth row can serve either side.",
+          "items": {
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "observations": {
+          "description": "Requested order, duplicates and sides are preserved.",
+          "items": {
+            "$ref": "#/definitions/PlannedObservation"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/definitions/PlannedOutput"
+          },
+          "type": "array"
+        },
+        "prospective_identity": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ExecutionIdentity"
+            }
+          ],
+          "description": "Computed by execution's identity function; does not prove execution occurred."
+        },
+        "readout_overrides": {
+          "items": {
+            "$ref": "#/definitions/ReadoutInputOverrides"
+          },
+          "type": "array"
+        },
+        "relative_tolerance": {
+          "format": "double",
+          "type": "number"
+        },
+        "request": {
+          "$ref": "#/definitions/RunRequest"
+        },
+        "schema": {
+          "$ref": "#/definitions/RunPlanSchema"
+        },
+        "selected_outputs": {
+          "description": "Preserve None versus an explicit ordered selection in the scientific identity.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "start": {
+          "format": "double",
+          "type": "number"
+        },
+        "states": {
+          "items": {
+            "$ref": "#/definitions/PlannedState"
+          },
+          "type": "array"
+        },
+        "time_unit": {
+          "type": "string"
+        },
+        "workload": {
+          "$ref": "#/definitions/RunWorkload"
+        }
+      },
+      "required": [
+        "binding_phases",
+        "checkpoints",
+        "deferred_checks",
+        "driver_rows",
+        "end",
+        "events",
+        "observation_rows",
+        "observations",
+        "outputs",
+        "prospective_identity",
+        "readout_overrides",
+        "relative_tolerance",
+        "request",
+        "schema",
+        "start",
+        "states",
+        "time_unit",
+        "workload"
+      ],
+      "type": "object"
+    },
+    "RunPlanSchema": {
+      "enum": [
+        "qspquest.run-plan/v0.1"
+      ],
+      "type": "string"
+    },
+    "RunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "accuracy_control": {
+          "$ref": "#/definitions/AccuracyControl"
+        },
+        "budgets": {
+          "$ref": "#/definitions/Budgets"
+        },
+        "initial_states": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "regimen": {
+          "$ref": "#/definitions/Request"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/RunSchema"
+        },
+        "seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "solver": {
+          "$ref": "#/definitions/Solver"
+        }
+      },
+      "required": [
+        "budgets",
+        "regimen",
+        "schema",
+        "solver"
+      ],
+      "type": "object"
+    },
+    "RunSchema": {
+      "enum": [
+        "qspquest.run/v0.1"
+      ],
+      "type": "string"
+    },
+    "RunWorkload": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_phases": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "budgets": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Budgets"
+            }
+          ],
+          "description": "Ceilings, not predicted runtime or callback counts."
+        },
+        "driver_rows": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "events": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "outputs": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "readout_override_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "reserved_binding_values": {
+          "description": "Conservative reservation used by admission, including binding storage.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "reserved_events": {
+          "description": "Events plus binding/checkpoint discontinuities, as charged by driver admission.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "result_rows": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "states": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "stored_output_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "stored_state_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "binding_phases",
+        "budgets",
+        "driver_rows",
+        "events",
+        "outputs",
+        "readout_override_values",
+        "reserved_binding_values",
+        "reserved_events",
+        "result_rows",
+        "states",
+        "stored_output_values",
+        "stored_state_values"
+      ],
+      "type": "object"
+    },
+    "ScanPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/definitions/ScanPointPlan"
+          },
+          "type": "array"
+        },
+        "scan_request_hash": {
+          "type": "string"
+        },
+        "schema": {
+          "$ref": "#/definitions/ScanPlanSchema"
+        },
+        "total_budgets": {
+          "$ref": "#/definitions/Budgets"
+        }
+      },
+      "required": [
+        "points",
+        "scan_request_hash",
+        "schema",
+        "total_budgets"
+      ],
+      "type": "object"
+    },
+    "ScanPlanSchema": {
+      "enum": [
+        "qspquest.scan-plan/v0.1"
+      ],
+      "type": "string"
+    },
+    "ScanPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "parameters"
+      ],
+      "type": "object"
+    },
+    "ScanPointPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        },
+        "run": {
+          "$ref": "#/definitions/RunPlan"
+        }
+      },
+      "required": [
+        "id",
+        "parameters",
+        "run"
+      ],
+      "type": "object"
+    },
+    "ScanRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/definitions/ScanPoint"
+          },
+          "type": "array"
+        },
+        "run": {
+          "$ref": "#/definitions/RunRequest"
+        },
+        "schema": {
+          "$ref": "#/definitions/ScanSchema"
+        },
+        "total_budgets": {
+          "$ref": "#/definitions/Budgets"
+        }
+      },
+      "required": [
+        "points",
+        "run",
+        "schema",
+        "total_budgets"
+      ],
+      "type": "object"
+    },
+    "ScanSchema": {
+      "enum": [
+        "qspquest.scan/v0.1"
+      ],
+      "type": "string"
+    },
+    "Solver": {
+      "enum": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "type": "string"
+    },
+    "StateReset": {
+      "additionalProperties": false,
+      "properties": {
+        "active_inputs": {
+          "$ref": "#/definitions/ActiveInputs"
+        },
+        "order": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "active_inputs",
+        "order",
+        "target",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "analysis_request_hash": {
+      "type": "string"
+    },
+    "deferred_checks": {
+      "items": {
+        "$ref": "#/definitions/DeferredCheck"
+      },
+      "type": "array"
+    },
+    "design": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/MorrisDesignProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observation": {
+      "$ref": "#/definitions/PlannedObservation"
+    },
+    "output": {
+      "$ref": "#/definitions/PlannedOutput"
+    },
+    "ranges": {
+      "items": {
+        "$ref": "#/definitions/MorrisRangePlan"
+      },
+      "type": "array"
+    },
+    "request": {
+      "$ref": "#/definitions/MorrisExecutionRequest"
+    },
+    "row": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "scan": {
+      "$ref": "#/definitions/ScanPlan"
+    },
+    "schema": {
+      "$ref": "#/definitions/MorrisPlanSchema"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/definitions/MorrisStepPlan"
+      },
+      "type": "array"
+    },
+    "trajectories": {
+      "items": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "analysis_request_hash",
+    "deferred_checks",
+    "observation",
+    "output",
+    "ranges",
+    "request",
+    "row",
+    "scan",
+    "schema",
+    "steps",
+    "trajectories"
+  ],
+  "title": "MorrisPlan",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

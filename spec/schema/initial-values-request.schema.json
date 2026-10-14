@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "RequestSchema": {
+      "enum": [
+        "qspquest.initial-values/v0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "covariates": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Quantity"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "initial_states": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Quantity"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "max_output_values": {
+      "default": 25000000,
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "outputs": {
+      "default": null,
+      "description": "Native output names in returned order; omission selects every output.",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Quantity"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "request_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/RequestSchema"
+    }
+  },
+  "required": [
+    "schema"
+  ],
+  "title": "InitialValuesRequest",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

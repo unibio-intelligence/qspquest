@@ -1,0 +1,252 @@
+{
+  "schema": "qspquest.model/v0.1",
+  "model_id": "synthetic_antibody_cell_joint",
+  "description": "Illustrative coupled antibody concentration and cell depletion; synthetic parameters and observations, no clinical qualification.",
+  "time_unit": "d",
+  "parameters": [
+    {
+      "name": "volume",
+      "default": {
+        "value": 3,
+        "unit": "L"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": true,
+      "description": ""
+    },
+    {
+      "name": "cl",
+      "default": {
+        "value": 0.04,
+        "unit": "1/d"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "cell_loss",
+      "default": {
+        "value": 0.003,
+        "unit": "mm3/d"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": true,
+      "description": ""
+    },
+    {
+      "name": "drug_effect",
+      "default": {
+        "value": 0.003,
+        "unit": "L/(mg.d)"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "baseline",
+      "default": {
+        "value": 200,
+        "unit": "1/mm3"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": true,
+      "description": ""
+    },
+    {
+      "name": "turnover",
+      "default": {
+        "value": 0.0004,
+        "unit": "1/d"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": true,
+      "description": ""
+    }
+  ],
+  "states": [
+    {
+      "name": "concentration",
+      "unit": "mg/L",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 0,
+          "unit": "mg/L"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "binary",
+            "operator": "subtract",
+            "arguments": [
+              {
+                "kind": "symbol",
+                "name": "input_concentration"
+              },
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "cl"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "concentration"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "binary",
+            "operator": "multiply",
+            "arguments": [
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "cell_loss"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "concentration"
+                  }
+                ]
+              },
+              {
+                "kind": "symbol",
+                "name": "cells"
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": {
+        "amount_unit": "mg",
+        "scale": {
+          "kind": "binary",
+          "operator": "divide",
+          "arguments": [
+            {
+              "kind": "literal",
+              "value": 1
+            },
+            {
+              "kind": "symbol",
+              "name": "volume"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "cells",
+      "unit": "1/mm3",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 200,
+          "unit": "1/mm3"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "binary",
+            "operator": "subtract",
+            "arguments": [
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "baseline"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "turnover"
+                  }
+                ]
+              },
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "binary",
+                    "operator": "multiply",
+                    "arguments": [
+                      {
+                        "kind": "symbol",
+                        "name": "drug_effect"
+                      },
+                      {
+                        "kind": "symbol",
+                        "name": "concentration"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "cells"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "binary",
+            "operator": "multiply",
+            "arguments": [
+              {
+                "kind": "symbol",
+                "name": "turnover"
+              },
+              {
+                "kind": "symbol",
+                "name": "cells"
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "measured_concentration",
+      "unit": "mg/L",
+      "expression": {
+        "kind": "symbol",
+        "name": "concentration"
+      }
+    },
+    {
+      "name": "measured_cells",
+      "unit": "1/mm3",
+      "expression": {
+        "kind": "symbol",
+        "name": "cells"
+      }
+    }
+  ]
+}

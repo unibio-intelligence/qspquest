@@ -1,0 +1,966 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Binary": {
+      "enum": [
+        "add",
+        "subtract",
+        "multiply",
+        "divide",
+        "power",
+        "modulo"
+      ],
+      "type": "string"
+    },
+    "Boolean": {
+      "enum": [
+        "and",
+        "or"
+      ],
+      "type": "string"
+    },
+    "Compare": {
+      "enum": [
+        "lt",
+        "le",
+        "gt",
+        "ge",
+        "eq",
+        "ne"
+      ],
+      "type": "string"
+    },
+    "Covariate": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interpolation": {
+          "$ref": "#/definitions/Interpolation"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "interpolation",
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Definition": {
+      "additionalProperties": false,
+      "description": "A named algebraic expression evaluated from current bindings, states and time.",
+      "properties": {
+        "expression": {
+          "$ref": "#/definitions/Expr"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "expression",
+        "name"
+      ],
+      "type": "object"
+    },
+    "DeliveryMode": {
+      "enum": [
+        "bolus",
+        "infusion"
+      ],
+      "type": "string"
+    },
+    "DoseHistoryBinding": {
+      "additionalProperties": false,
+      "description": "Named, per-target dose-history readout. Missing numeric history is an error; `HasDose` can guard it explicitly in a lazy expression.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "$ref": "#/definitions/HistoryQuantity"
+        },
+        "simultaneous": {
+          "$ref": "#/definitions/SimultaneousDose"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "quantity",
+        "simultaneous",
+        "target"
+      ],
+      "type": "object"
+    },
+    "DoseSwitch": {
+      "additionalProperties": false,
+      "description": "Parameter-bound elapsed-dose predicate; the named result is dimensionless.",
+      "properties": {
+        "comparison": {
+          "$ref": "#/definitions/Compare"
+        },
+        "name": {
+          "type": "string"
+        },
+        "offset": {
+          "$ref": "#/definitions/Expr"
+        },
+        "simultaneous": {
+          "$ref": "#/definitions/SimultaneousDose"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "comparison",
+        "name",
+        "offset",
+        "simultaneous",
+        "target"
+      ],
+      "type": "object"
+    },
+    "Dosing": {
+      "additionalProperties": false,
+      "properties": {
+        "amount_unit": {
+          "type": "string"
+        },
+        "lag": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Expr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modes": {
+          "default": [
+            "bolus",
+            "infusion"
+          ],
+          "items": {
+            "$ref": "#/definitions/DeliveryMode"
+          },
+          "type": "array"
+        },
+        "scale": {
+          "$ref": "#/definitions/Expr"
+        }
+      },
+      "required": [
+        "amount_unit",
+        "scale"
+      ],
+      "type": "object"
+    },
+    "EventRequirement": {
+      "enum": [
+        "bolus",
+        "infusion",
+        "reset",
+        "covariate_step",
+        "state_triggered",
+        "parameter_dependent_time",
+        "steady_state"
+      ],
+      "type": "string"
+    },
+    "Expr": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "literal"
+              ],
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/Literal"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A finite numeric constant with an explicit dimensional unit.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "quantity"
+              ],
+              "type": "string"
+            },
+            "quantity": {
+              "$ref": "#/definitions/Quantity"
+            }
+          },
+          "required": [
+            "kind",
+            "quantity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "symbol"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "unary"
+              ],
+              "type": "string"
+            },
+            "operator": {
+              "$ref": "#/definitions/Unary"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind",
+            "operator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "binary"
+              ],
+              "type": "string"
+            },
+            "operator": {
+              "$ref": "#/definitions/Binary"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind",
+            "operator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "compare"
+              ],
+              "type": "string"
+            },
+            "operator": {
+              "$ref": "#/definitions/Compare"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind",
+            "operator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "boolean"
+              ],
+              "type": "string"
+            },
+            "operator": {
+              "$ref": "#/definitions/Boolean"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind",
+            "operator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "call"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "$ref": "#/definitions/Function"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "$ref": "#/definitions/Expr"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "conditional"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "arguments",
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FixedSwitch": {
+      "additionalProperties": false,
+      "description": "A dimensionless phase, zero before its parameter-bound time and one after.",
+      "properties": {
+        "comparison": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Compare"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Expr"
+        }
+      },
+      "required": [
+        "name",
+        "time"
+      ],
+      "type": "object"
+    },
+    "Function": {
+      "enum": [
+        "exp",
+        "log",
+        "log10",
+        "sqrt",
+        "sin",
+        "cos",
+        "tan",
+        "tanh",
+        "abs",
+        "min",
+        "max",
+        "floor",
+        "ceil",
+        "hill",
+        "ifelse"
+      ],
+      "type": "string"
+    },
+    "HistoryQuantity": {
+      "enum": [
+        "dose_amount",
+        "dose_time",
+        "time_since_dose",
+        "has_dose"
+      ],
+      "type": "string"
+    },
+    "IndividualParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "$ref": "#/definitions/Expr"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "expression",
+        "name"
+      ],
+      "type": "object"
+    },
+    "Initial": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "quantity"
+              ],
+              "type": "string"
+            },
+            "quantity": {
+              "$ref": "#/definitions/Quantity"
+            }
+          },
+          "required": [
+            "kind",
+            "quantity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expression": {
+              "$ref": "#/definitions/Expr"
+            },
+            "kind": {
+              "enum": [
+                "expression"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "expression",
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Interpolation": {
+      "enum": [
+        "constant",
+        "step"
+      ],
+      "type": "string"
+    },
+    "Invariant": {
+      "description": "Runtime assertions checked on physical states, never solver trial iterates.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "nonnegative"
+              ],
+              "type": "string"
+            },
+            "states": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "states"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "LinearPkCompartment": {
+      "additionalProperties": false,
+      "properties": {
+        "dosing_override": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Dosing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial": {
+          "$ref": "#/definitions/Initial"
+        },
+        "state": {
+          "type": "string"
+        },
+        "volume": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "initial",
+        "state",
+        "volume"
+      ],
+      "type": "object"
+    },
+    "LinearPkDefinition": {
+      "additionalProperties": false,
+      "description": "Mammillary PK declaration; coefficient names refer to declared parameters.",
+      "properties": {
+        "amount_unit": {
+          "type": "string"
+        },
+        "clearance": {
+          "type": "string"
+        },
+        "compartments": {
+          "items": {
+            "$ref": "#/definitions/LinearPkCompartment"
+          },
+          "type": "array"
+        },
+        "depot": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LinearPkDepot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exchange_clearances": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "amount_unit",
+        "clearance",
+        "compartments",
+        "exchange_clearances"
+      ],
+      "type": "object"
+    },
+    "LinearPkDepot": {
+      "additionalProperties": false,
+      "properties": {
+        "absorption": {
+          "type": "string"
+        },
+        "dosing_override": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Dosing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial": {
+          "$ref": "#/definitions/Initial"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "absorption",
+        "initial",
+        "state"
+      ],
+      "type": "object"
+    },
+    "Literal": {
+      "anyOf": [
+        {
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "Output": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "$ref": "#/definitions/Expr"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Parameter": {
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "default": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "description": {
+          "type": "string"
+        },
+        "fixed": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "transform": {
+          "$ref": "#/definitions/Transform"
+        }
+      },
+      "required": [
+        "default",
+        "description",
+        "fixed",
+        "name",
+        "transform"
+      ],
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Requirements": {
+      "additionalProperties": false,
+      "description": "Minimum execution capabilities, independent of any specific backend.",
+      "properties": {
+        "events": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/EventRequirement"
+          },
+          "type": "array"
+        },
+        "gradients": {
+          "default": false,
+          "type": "boolean"
+        },
+        "sparse_jacobian": {
+          "default": false,
+          "type": "boolean"
+        },
+        "stiff": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Schema": {
+      "enum": [
+        "qspquest.model/v0.1"
+      ],
+      "type": "string"
+    },
+    "SimultaneousDose": {
+      "description": "Explicit policy for multiple administration records at exactly the same time.",
+      "enum": [
+        "first",
+        "last"
+      ],
+      "type": "string"
+    },
+    "State": {
+      "additionalProperties": false,
+      "properties": {
+        "dosing": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Dosing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial": {
+          "$ref": "#/definitions/Initial"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rhs": {
+          "$ref": "#/definitions/Expr"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "initial",
+        "name",
+        "rhs",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Transform": {
+      "enum": [
+        "identity",
+        "log",
+        "logit",
+        "probit"
+      ],
+      "type": "string"
+    },
+    "Unary": {
+      "enum": [
+        "positive",
+        "negative",
+        "not"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "covariates": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/Covariate"
+      },
+      "type": "array"
+    },
+    "definitions": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/Definition"
+      },
+      "type": "array"
+    },
+    "description": {
+      "type": "string"
+    },
+    "dose_history": {
+      "items": {
+        "$ref": "#/definitions/DoseHistoryBinding"
+      },
+      "type": "array"
+    },
+    "dose_switches": {
+      "items": {
+        "$ref": "#/definitions/DoseSwitch"
+      },
+      "type": "array"
+    },
+    "individual": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/IndividualParameter"
+      },
+      "type": "array"
+    },
+    "invariants": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/Invariant"
+      },
+      "type": "array"
+    },
+    "linear_pk": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LinearPkDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/definitions/Output"
+      },
+      "type": "array"
+    },
+    "parameters": {
+      "items": {
+        "$ref": "#/definitions/Parameter"
+      },
+      "type": "array"
+    },
+    "requirements": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Requirements"
+        }
+      ],
+      "default": {
+        "events": [],
+        "gradients": false,
+        "sparse_jacobian": false,
+        "stiff": false
+      }
+    },
+    "schema": {
+      "$ref": "#/definitions/Schema"
+    },
+    "states": {
+      "items": {
+        "$ref": "#/definitions/State"
+      },
+      "type": "array"
+    },
+    "switches": {
+      "items": {
+        "$ref": "#/definitions/FixedSwitch"
+      },
+      "type": "array"
+    },
+    "time_unit": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "description",
+    "model_id",
+    "outputs",
+    "parameters",
+    "schema",
+    "states",
+    "time_unit"
+  ],
+  "title": "ModelDocument",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

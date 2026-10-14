@@ -1,0 +1,115 @@
+[build-system]
+requires = ["maturin==1.15.0"]
+build-backend = "maturin"
+
+[project]
+name = "qspquest"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Rust pharmacology model compiler and simulation engine"
+readme = "bindings/python/README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+
+[project.optional-dependencies]
+interchange = ["python-libsbml>=5.21.1,<6"]
+analysis = ["numpy>=1.24,<3", "scipy>=1.11,<2"]
+docs = ["mistune>=3,<4", "nbformat>=5,<6", "nbconvert>=7,<8"]
+notebook = ["numpy>=1.24,<3", "scipy>=1.11,<2", "pandas>=2,<4", "matplotlib>=3.7,<4", "jupyterlab>=4,<5", "nbconvert>=7,<8"]
+
+[project.scripts]
+qspquest-doctor = "qspquest.doctor:main"
+qspquest-library = "qspquest.library:main"
+
+[tool.maturin]
+manifest-path = "bindings/python/Cargo.toml"
+python-source = "bindings/python/python"
+module-name = "qspquest._native"
+features = ["pyo3/extension-module"]
+locked = true
+
+# Preserve the workspace and Cargo.lock; Cargo-based sdists prune workspace members.
+sdist-generator = "git"
+include = [
+  { path = "pyproject.toml", format = "sdist" },
+  { path = "Cargo.toml", format = "sdist" },
+  { path = "Cargo.lock", format = "sdist" },
+  { path = ".cargo/config.toml", format = "sdist" },
+  { path = "LICENSE", format = "sdist" },
+  { path = "THIRD-PARTY-NOTICES.txt", format = "sdist" },
+  { path = "SECURITY.md", format = "sdist" },
+  { path = "bindings/python/README.md", format = "sdist" },
+  { path = "bindings/python/python/qspquest/SECURITY.md", format = "sdist" },
+  { path = "crates/*/Cargo.toml", format = "sdist" },
+  { path = "crates/*/build.rs", format = "sdist" },
+  { path = "crates/*/src/**/*.rs", format = "sdist" },
+  { path = "crates/*/examples/**/*.rs", format = "sdist" },
+  { path = "bindings/*/Cargo.toml", format = "sdist" },
+  { path = "bindings/mcp/build.rs", format = "sdist" },
+  { path = "bindings/mcp/assets/**/*", format = "sdist" },
+  { path = "bindings/*/src/**/*.rs", format = "sdist" },
+  { path = "bindings/r/src/rust/Cargo.toml", format = "sdist" },
+  { path = "bindings/r/src/rust/src/**/*.rs", format = "sdist" },
+  { path = "bindings/mcp/examples/parity_audit.rs", format = "sdist" },
+  { path = "bindings/wasm/js/engine-worker.mjs", format = "sdist" },
+  { path = "bindings/wasm/LICENSE", format = "sdist" },
+  { path = "bindings/wasm/LICENSE-APACHE", format = "sdist" },
+  { path = "bindings/python/python/**/*.py", format = "sdist" },
+  { path = "bindings/python/python/**/*.pyi", format = "sdist" },
+  { path = "bindings/python/python/**/py.typed", format = "sdist" },
+  { path = "conformance/*.rs", format = "sdist" },
+  { path = "conformance/tmdd-cases.json", format = "sdist" },
+  { path = "vendor/diffsol/**/*", format = "sdist" },
+  { path = "vendor/diffsol/Cargo.toml", format = "sdist" },
+  { path = "vendor/DIFFSOL-PROVENANCE.md", format = "sdist" },
+]
+
+# Keep source distributions limited to installation inputs.
+exclude = [
+  {path = "/README.md", format = "sdist"},
+  {path = "/CITATION.cff", format = "sdist"},
+  {path = "/CONTRIBUTING.md", format = "sdist"},
+  {path = "/CHANGELOG.md", format = "sdist"},
+  {path = ".gitattributes", format = "sdist"},
+  {path = "**/.DS_Store", format = "sdist"},
+  {path = "**/*.pyc", format = "sdist"},
+  {path = "**/__pycache__/**", format = "sdist"},
+  {path = "**/target/**", format = "sdist"},
+  {path = "/.dockerignore", format = "sdist"},
+  {path = "/.github/**", format = "sdist"},
+  {path = "/.gitignore", format = "sdist"},
+  {path = "/.gitleaks.toml", format = "sdist"},
+  {path = "/Dockerfile", format = "sdist"},
+  {path = "/compose.yaml", format = "sdist"},
+  {path = "/docker/**", format = "sdist"},
+  {path = "/spec/**", format = "sdist"},
+  {path = "/docs/**", format = "sdist"},
+  {path = "/scripts/**", format = "sdist"},
+  {path = "/conformance/evidence/**", format = "sdist"},
+  {path = "/examples/**", format = "sdist"},
+  {path = "/crates/*/tests/**", format = "sdist"},
+  {path = "/bindings/*/tests/**", format = "sdist"},
+  {path = "/bindings/mcp/Dockerfile", format = "sdist"},
+  {path = "/bindings/mcp/README.md", format = "sdist"},
+  {path = "/bindings/mcp/examples/reference_dump.rs", format = "sdist"},
+  {path = "/bindings/mcp/qualification/**", format = "sdist"},
+  {path = "/bindings/mcp/scripts/**", format = "sdist"},
+  {path = "/bindings/r/DESCRIPTION", format = "sdist"},
+  {path = "/bindings/r/NAMESPACE", format = "sdist"},
+  {path = "/bindings/r/LICENSE", format = "sdist"},
+  {path = "/bindings/r/README.md", format = "sdist"},
+  {path = "/bindings/r/R/**", format = "sdist"},
+  {path = "/bindings/r/man/**", format = "sdist"},
+  {path = "/bindings/r/src/Makevars", format = "sdist"},
+  {path = "/bindings/r/src/entrypoint.c", format = "sdist"},
+  {path = "/bindings/wasm/package.json", format = "sdist"},
+  {path = "/bindings/wasm/js/client.d.mts", format = "sdist"},
+  {path = "/bindings/wasm/js/client.mjs", format = "sdist"},
+  {path = "/bindings/wasm/js/client.test.mjs", format = "sdist"},
+  {path = "/bindings/wasm/js/index.d.mts", format = "sdist"},
+  {path = "/bindings/wasm/js/index.mjs", format = "sdist"},
+  {path = "/conformance/FIXTURE-LICENSE.md", format = "sdist"},
+  {path = "/conformance/models/**", format = "sdist"},
+  {path = "/conformance/requests/**", format = "sdist"},
+  {path = "/conformance/references/**", format = "sdist"},
+]

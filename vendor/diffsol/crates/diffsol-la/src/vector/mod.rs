@@ -1,0 +1,3335 @@
+use crate::matrix::DenseMatrix;
+use crate::scalar::Scale;
+use crate::{Context, IndexType, Scalar};
+use num_traits::Zero;
+use std::fmt::Debug;
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
+
+#[cfg(feature = "faer")]
+pub mod faer_serial;
+#[cfg(feature = "nalgebra")]
+pub mod nalgebra_serial;
+
+#[cfg(feature = "cuda")]
+pub mod cuda;
+
+#[cfg(feature = "cuda-oxide")]
+pub mod cuda_oxide;
+
+/// A trait for types that represent a collection of indices into a vector.
+///
+/// This is used to represent subsets of vector elements, typically for algebraic constraints
+/// or when operating on specific vector components.
+pub trait VectorIndex: Sized + Debug + Clone {
+    type C: Context;
+    fn context(&self) -> &Self::C;
+    fn zeros(len: IndexType, ctx: Self::C) -> Self;
+    fn len(&self) -> IndexType;
+    fn clone_as_vec(&self) -> Vec<IndexType>;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    fn from_vec(v: Vec<IndexType>, ctx: Self::C) -> Self;
+}
+
+/// Common interface for vector-like types, providing access to scalar type, context, and inner representation.
+pub trait VectorCommon: Sized + Debug {
+    type T: Scalar;
+    type C: Context;
+    type Inner;
+
+    fn inner(&self) -> &Self::Inner;
+}
+
+impl<V> VectorCommon for &V
+where
+    V: VectorCommon,
+{
+    type T = V::T;
+    type C = V::C;
+    type Inner = V::Inner;
+    fn inner(&self) -> &Self::Inner {
+        V::inner(self)
+    }
+}
+
+impl<V> VectorCommon for &mut V
+where
+    V: VectorCommon,
+{
+    type T = V::T;
+    type C = V::C;
+    type Inner = V::Inner;
+    fn inner(&self) -> &Self::Inner {
+        V::inner(self)
+    }
+}
+
+/// Operations on vectors by value (addition and subtraction).
+///
+/// This trait defines vector addition and subtraction when both operands are owned or references.
+pub trait VectorOpsByValue<Rhs = Self, Output = Self>:
+    VectorCommon + Add<Rhs, Output = Output> + Sub<Rhs, Output = Output>
+{
+}
+
+impl<V, Rhs, Output> VectorOpsByValue<Rhs, Output> for V where
+    V: VectorCommon + Add<Rhs, Output = Output> + Sub<Rhs, Output = Output>
+{
+}
+
+/// In-place operations on vectors (addition and subtraction).
+///
+/// This trait defines in-place vector addition and subtraction (self += rhs, self -= rhs).
+pub trait VectorMutOpsByValue<Rhs = Self>: VectorCommon + AddAssign<Rhs> + SubAssign<Rhs> {}
+
+impl<V, Rhs> VectorMutOpsByValue<Rhs> for V where V: VectorCommon + AddAssign<Rhs> + SubAssign<Rhs> {}
+
+/// Operations on a reference to a vector, supporting addition, subtraction, and scalar multiplication.
+///
+/// This trait ensures that vector references can be used in arithmetic operations with owned vectors,
+/// other references, and vector views, enabling flexible composition of vector operations.
+pub trait VectorRef<V: Vector>:
+    VectorOpsByValue<V, V>
+    + for<'a> VectorOpsByValue<&'a V, V>
+    + for<'a> VectorOpsByValue<V::View<'a>, V>
+    + for<'a, 'b> VectorOpsByValue<&'a V::View<'b>, V>
+    + Mul<Scale<V::T>, Output = V>
+{
+}
+
+impl<RefT, V: Vector> VectorRef<V> for RefT where
+    RefT: VectorOpsByValue<V, V>
+        + for<'a> VectorOpsByValue<&'a V, V>
+        + for<'a> VectorOpsByValue<V::View<'a>, V>
+        + for<'a, 'b> VectorOpsByValue<&'a V::View<'b>, V>
+        + Mul<Scale<V::T>, Output = V>
+{
+}
+
+/// A mutable view into a vector, supporting in-place operations and modifications.
+///
+/// This trait represents a temporary mutable reference to a vector's data, allowing in-place
+/// arithmetic operations (+=, -=, *=) and other modifications. Mutable views can be created
+/// via the `as_view_mut()` method on a `Vector`.
+pub trait VectorViewMut<'a>:
+    VectorMutOpsByValue<Self::View>
+    + VectorMutOpsByValue<Self::Owned>
+    + for<'b> VectorMutOpsByValue<&'b Self::View>
+    + for<'b> VectorMutOpsByValue<&'b Self::Owned>
+    + MulAssign<Scale<Self::T>>
+{
+    type Owned;
+    type View;
+    type Index: VectorIndex;
+    /// Copy values from an owned vector into this view.
+    fn copy_from(&mut self, other: &Self::Owned);
+    /// Copy values from another vector view into this view.
+    fn copy_from_view(&mut self, other: &Self::View);
+    /// Compute the AXPY operation: self = alpha * x + beta * self
+    fn axpy(&mut self, alpha: Self::T, x: &Self::Owned, beta: Self::T);
+    /// Set the value at the specified index. Panics unless `nbatch == 1`; to write the same value
+    /// into every batch use [`Self::fill_index`].
+    fn set_index(&mut self, index: IndexType, value: Self::T);
+    /// Set the value at the specified index in **every** batch.
+    fn fill_index(&mut self, index: IndexType, value: Self::T);
+}
+
+/// A borrowed immutable view of a vector, supporting read-only arithmetic operations.
+///
+/// This trait represents a temporary immutable reference to a vector's data, allowing read-only
+/// operations like addition, subtraction, and scalar multiplication. Vector views can be created
+/// via the `as_view()` method on a `Vector` and are cheaper to create than cloning.
+pub trait VectorView<'a>:
+    VectorOpsByValue<Self, Self::Owned>
+    + VectorOpsByValue<Self::Owned, Self::Owned>
+    + for<'b> VectorOpsByValue<&'b Self::Owned, Self::Owned>
+    + for<'b> VectorOpsByValue<&'b Self, Self::Owned>
+    + Mul<Scale<Self::T>, Output = Self::Owned>
+{
+    type Owned;
+    /// Get the value at the specified index (panics if nbatch > 1).
+    fn get_index(&self, index: IndexType) -> Self::T;
+    /// Compute the squared weighted norm: sum_i^n ((self_i) / (|y_i| * rtol + atol_i))^2 / n
+    ///
+    /// This is commonly used for error control in ODE solvers.
+    fn squared_norm(&self, y: &Self::Owned, atol: &Self::Owned, rtol: Self::T) -> Self::T;
+    /// Convert this view into an owned vector, cloning the data if necessary.
+    fn into_owned(self) -> Self::Owned;
+}
+
+/// A complete vector abstraction supporting arithmetic operations, norms, and index operations.
+///
+/// This is the main vector trait used throughout diffsol. Implementing vectors can be hosted on CPU or GPU.
+/// Users typically do not need to implement this trait; use provided implementations like
+/// `NalgebraVec` or `FaerVec`.
+pub trait Vector:
+    VectorOpsByValue<Self>
+    + for<'b> VectorOpsByValue<&'b Self>
+    + for<'a> VectorOpsByValue<Self::View<'a>>
+    + for<'a, 'b> VectorOpsByValue<&'b Self::View<'a>>
+    + Mul<Scale<Self::T>, Output = Self>
+    + Div<Scale<Self::T>, Output = Self>
+    + VectorMutOpsByValue<Self>
+    + for<'a> VectorMutOpsByValue<Self::View<'a>>
+    + for<'b> VectorMutOpsByValue<&'b Self>
+    + for<'a, 'b> VectorMutOpsByValue<&'b Self::View<'a>>
+    + MulAssign<Scale<Self::T>>
+    + Clone
+    + Send
+{
+    type View<'a>: VectorView<'a, T = Self::T, Owned = Self>
+    where
+        Self: 'a;
+    type ViewMut<'a>: VectorViewMut<'a, T = Self::T, Owned = Self, View = Self::View<'a>>
+    where
+        Self: 'a;
+    type Index: VectorIndex;
+
+    /// Get the context associated with this vector (for device placement, threading, etc.).
+    fn context(&self) -> &Self::C;
+
+    /// Get a mutable reference to the inner representation of the vector.
+    fn inner_mut(&mut self) -> &mut Self::Inner;
+
+    /// Set the value at the specified index to `value`. Panics unless `nbatch == 1`; to write the
+    /// same value into every batch use [`Self::fill_index`].
+    fn set_index(&mut self, index: IndexType, value: Self::T);
+
+    /// Set the value at the specified index to `value` in **every** batch.
+    ///
+    /// This is what a basis or probe vector wants — the same scalar in every lane — and is the only
+    /// way to write a single index of a batched vector; [`Self::set_index`] panics on one.
+    fn fill_index(&mut self, index: IndexType, value: Self::T);
+
+    /// Get the value at the specified index. Panics unless `nbatch == 1`; for a batched vector read
+    /// one lane with [`Self::get_batch`].
+    fn get_index(&self, index: IndexType) -> Self::T;
+
+    /// Compute the $\ell_k$ norm: $(\sum_i |x_i|^k)^{1/k}$
+    fn norm(&self, k: i32) -> Self::T;
+
+    /// Compute the squared weighted norm for error control: $\sum_i (x_i / (|y_i| \cdot \text{rtol} + \text{atol}_i))^2$
+    ///
+    /// This norm is used by ODE solvers for adaptive error control.
+    fn squared_norm(&self, y: &Self, atol: &Self, rtol: Self::T) -> Self::T;
+
+    /// Get the per-batch length (number of states) in this vector.
+    /// For batched vectors, this returns `nstates`, not `nstates * nbatch`.
+    fn len(&self) -> IndexType;
+
+    /// Get the total number of elements stored, including all batches.
+    /// Returns `self.len() * self.context().nbatch()`.
+    fn total_len(&self) -> IndexType {
+        self.len() * self.context().nbatch()
+    }
+
+    /// Check if the vector is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Create a vector of length `nstates` with all elements initialized to `value`.
+    fn from_element(nstates: usize, value: Self::T, ctx: Self::C) -> Self;
+
+    /// Create a vector of length `nstates` with all elements set to zero.
+    fn zeros(nstates: usize, ctx: Self::C) -> Self {
+        Self::from_element(nstates, Self::T::zero(), ctx)
+    }
+
+    /// Fill all elements of this vector with `value`.
+    fn fill(&mut self, value: Self::T);
+
+    /// Create an immutable view of this vector.
+    fn as_view(&self) -> Self::View<'_>;
+
+    /// Create a mutable view of this vector.
+    fn as_view_mut(&mut self) -> Self::ViewMut<'_>;
+
+    /// Get an immutable view of a single batch (with nbatch=1 context).
+    fn get_batch(&self, batch: usize) -> Self::View<'_>;
+
+    /// Get a mutable view of a single batch (with nbatch=1 context).
+    fn get_batch_mut(&mut self, batch: usize) -> Self::ViewMut<'_>;
+
+    /// Run `f` once per batch lane **on the host**.
+    ///
+    /// The lane count (i.e. number of batches) is governed by `mut_args[0]`, the primary output.
+    /// Every other operand, mutable or not, broadcasts. Panics if an operand's batch count is not
+    /// broadcastable into the output's, or if `mut_args` is empty.
+    ///
+    /// The closure's last argument is the lane of the output being written, in
+    /// `0..mut_args[0].context().nbatch()`.
+    ///
+    /// A device-backed vector stages every operand through host memory to run `f`, so prefer
+    /// [`Self::for_each_batch_mut`] when `f` is device-compilable.
+    ///
+    /// ```ignore
+    /// // y = A^T v, via a scratch buffer the backend requires to be mutable
+    /// V::for_each_batch_mut_host([y, &mut scratch], [x, v], |[y, scratch], [x, v], _lane| {
+    ///     scratch.copy_from_slice(v);
+    ///     op.transpose_mul(x, scratch, y);
+    /// });
+    /// ```
+    fn for_each_batch_mut_host<const M: usize, const N: usize>(
+        mut_args: [&mut Self; M],
+        args: [&Self; N],
+        f: impl FnMut([&mut [Self::T]; M], [&[Self::T]; N], usize),
+    );
+
+    /// Run `f` once per batch lane of `self` **on the host**, passing that lane of `self` as a
+    /// mutable slice and the corresponding lane of each operand in `args` as an immutable slice.
+    ///
+    /// The single-output case of [`Self::for_each_batch_mut_host`].
+    ///
+    /// ```ignore
+    /// // y_0 = x_0 v_0 + x_1 v_1, y_1 = 0, for every batch of y
+    /// y.for_each_batch_host([x, v], |y, [x, v], _lane| {
+    ///     y[0] = x[0] * v[0] + x[1] * v[1];
+    ///     y[1] = T::zero();
+    /// });
+    /// ```
+    fn for_each_batch_host<const N: usize>(
+        &mut self,
+        args: [&Self; N],
+        mut f: impl FnMut(&mut [Self::T], [&[Self::T]; N], usize),
+    ) {
+        Self::for_each_batch_mut_host([self], args, |[y], ins, lane| f(y, ins, lane));
+    }
+
+    /// Run `f` once per batch lane **on the device where the backend has one**, falling back to
+    /// [`Self::for_each_batch_mut_host`] otherwise.
+    ///
+    /// Same lane, broadcast and panic semantics as [`Self::for_each_batch_mut_host`]; which side
+    /// ran it is not observable beyond timing.
+    ///
+    /// `f` must therefore be device-compilable Rust — arithmetic and control flow over the lane
+    /// slices, no host function pointers, no allocation, no `std .A
+    /// closure that cannot meet this should use
+    /// [`Self::for_each_batch_mut_host`] instead.
+    fn for_each_batch_mut<const M: usize, const N: usize>(
+        mut_args: [&mut Self; M],
+        args: [&Self; N],
+        f: impl Fn([&mut [Self::T]; M], [&[Self::T]; N], usize) + Copy + Send,
+    ) {
+        Self::for_each_batch_mut_host(mut_args, args, f);
+    }
+
+    /// Run `f` once per batch lane of `self` **on the device where the backend has one**.
+    ///
+    /// The single-output case of [`Self::for_each_batch_mut`], and subject to the same
+    /// device-compilable requirement on `f`.
+    ///
+    /// ```ignore
+    /// // y_0 = x_0 v_0 + x_1 v_1, y_1 = 0, for every batch of y
+    /// y.for_each_batch([x, v], |y, [x, v], _lane| {
+    ///     y[0] = x[0] * v[0] + x[1] * v[1];
+    ///     y[1] = T::zero();
+    /// });
+    /// ```
+    fn for_each_batch<const N: usize>(
+        &mut self,
+        args: [&Self; N],
+        f: impl Fn(&mut [Self::T], [&[Self::T]; N], usize) + Copy + Send,
+    ) {
+        Self::for_each_batch_mut([self], args, move |[y], ins, lane| f(y, ins, lane));
+    }
+
+    /// Run `f` once per element of every batch lane **on the device where the backend has one**,
+    /// falling back to a host loop otherwise.
+    ///
+    /// The element-parallel counterpart of [`Self::for_each_batch_mut`]: `f` is handed one
+    /// element of each output rather than the whole lane, so a backend with a device can run
+    /// every `(lane, element)` pair concurrently.
+    ///
+    /// The inputs are still full lane slices, so reads may go anywhere in the lane.
+    ///
+    /// `f` must be device-compilable Rust — arithmetic and control flow over the slices, no host
+    /// function pointers, no allocation, no `std`.
+    fn for_each_elem_mut<const M: usize, const N: usize>(
+        mut_args: [&mut Self; M],
+        args: [&Self; N],
+        f: impl Fn([&mut Self::T; M], [&[Self::T]; N], usize, usize) + Copy + Send,
+    ) {
+        Self::for_each_batch_mut_host(mut_args, args, |mut outs, ins, lane| {
+            let n = outs[0].len();
+            assert!(
+                outs.iter().all(|o| o.len() == n),
+                "for_each_elem_mut needs every mutable operand to have the same length"
+            );
+            for i in 0..n {
+                f(outs.each_mut().map(|o| &mut o[i]), ins, lane, i);
+            }
+        });
+    }
+
+    /// Run `f` once per element of every batch lane of `self` **on the device where the backend
+    /// has one**.
+    ///
+    /// The single-output case of [`Self::for_each_elem_mut`], and subject to the same
+    /// device-compilable requirement on `f`.
+    ///
+    /// ```ignore
+    /// // y_i = x_i p_0 + x_{i+1}, wrapping, for every batch of y
+    /// y.for_each_elem([x, p], |y, [x, p], _lane, i| {
+    ///     *y = x[i] * p[0] + x[(i + 1) % x.len()];
+    /// });
+    /// ```
+    fn for_each_elem<const N: usize>(
+        &mut self,
+        args: [&Self; N],
+        f: impl Fn(&mut Self::T, [&[Self::T]; N], usize, usize) + Copy + Send,
+    ) {
+        Self::for_each_elem_mut([self], args, move |[y], ins, lane, elem| {
+            f(y, ins, lane, elem)
+        });
+    }
+
+    /// Reduce `args` over the batch dimension, elementwise, **on the host**.
+    ///
+    /// `dest[i]` becomes `map(.., b, i)` folded over every lane `b` with `combine`, starting
+    /// from `init`. `dest` is the one operand the batch dimension is removed from, so it must
+    /// be unbatched (`context().nbatch() == 1`); its length is the element range. The lane
+    /// count comes from `args[0]`, and the other operands broadcast into it.
+    ///
+    /// `combine` must be associative with `init` as its identity. This host path folds in lane
+    /// order, but [`Self::reduce_batch`] folds on a device and needs commutativity too.
+    ///
+    /// `dest` must not alias any of `args`.
+    ///
+    /// ```ignore
+    /// // dest_i = max_b |x[b, i]|
+    /// V::reduce_batch_host(&mut dest, [x], T::zero(),
+    ///     |[x], _lane, i| x[i].abs(),
+    ///     |a, b| a.max(b));
+    /// ```
+    fn reduce_batch_host<const N: usize>(
+        dest: &mut Self,
+        args: [&Self; N],
+        init: Self::T,
+        mut map: impl FnMut([&[Self::T]; N], usize, usize) -> Self::T,
+        mut combine: impl FnMut(Self::T, Self::T) -> Self::T,
+    ) {
+        assert!(N > 0, "reduce_batch takes the lane count from args[0]");
+        assert_eq!(
+            dest.context().nbatch(),
+            1,
+            "reduce_batch removes the batch dimension, so dest must be unbatched"
+        );
+        dest.fill(init);
+        // `for_each_batch_mut_host` takes its lane count from `mut_args[0]`, and `dest` is
+        // deliberately narrower than the operands, so a scalar per lane drives the iteration
+        // and `dest` rides along as a broadcast output seeing the same slice every lane
+        let mut lanes = Self::zeros(1, args[0].context().clone());
+        Self::for_each_batch_mut_host([&mut lanes, dest], args, |[_, d], ins, lane| {
+            for (i, d) in d.iter_mut().enumerate() {
+                *d = combine(*d, map(ins, lane, i));
+            }
+        });
+    }
+
+    /// Reduce `args` over the batch dimension, elementwise, **on the device where the backend
+    /// has one**, falling back to [`Self::reduce_batch_host`] otherwise.
+    ///
+    /// Same shape and broadcast rules; `map` and `combine` must be device-compilable Rust, as
+    /// for [`Self::for_each_batch_mut`]. `combine` must also be associative *and commutative*:
+    /// the device folds with warp shuffles that pair a lane with `lane ^ delta`, so neither the
+    /// order nor the grouping of the operands is the caller's. Sum, max and min all qualify.
+    fn reduce_batch<const N: usize>(
+        dest: &mut Self,
+        args: [&Self; N],
+        init: Self::T,
+        map: impl Fn([&[Self::T]; N], usize, usize) -> Self::T + Copy + Send,
+        combine: impl Fn(Self::T, Self::T) -> Self::T + Copy + Send,
+    ) {
+        Self::reduce_batch_host(dest, args, init, map, combine);
+    }
+
+    /// Reduce each batch lane of `args` over its elements, **on the host**.
+    ///
+    /// Lane `b` of `dest` becomes `map(.., b, i)` folded over every element `i` with
+    /// `combine`, starting from `init`. `dest` is a batched scalar — `len() == 1` with the
+    /// operands' lane count — the same shape [`Self::batched_axpy`] takes. The element range
+    /// comes from `args[0]`, and the other operands broadcast into the lanes.
+    ///
+    /// `combine` must be associative with `init` as its identity. This host path folds in
+    /// index order, but [`Self::reduce_elem`] folds on a device and needs commutativity too.
+    ///
+    /// `dest` must not alias any of `args`.
+    ///
+    /// ```ignore
+    /// // dest_b = sum_i x[b, i] * v[b, i]
+    /// V::reduce_elem_host(&mut dest, [x, v], T::zero(),
+    ///     |[x, v], _lane, i| x[i] * v[i],
+    ///     |a, b| a + b);
+    /// ```
+    fn reduce_elem_host<const N: usize>(
+        dest: &mut Self,
+        args: [&Self; N],
+        init: Self::T,
+        mut map: impl FnMut([&[Self::T]; N], usize, usize) -> Self::T,
+        mut combine: impl FnMut(Self::T, Self::T) -> Self::T,
+    ) {
+        assert!(N > 0, "reduce_elem takes the element range from args[0]");
+        assert_eq!(
+            dest.len(),
+            1,
+            "reduce_elem removes the element dimension, so dest must be a batched scalar"
+        );
+        Self::for_each_batch_mut_host([dest], args, |[d], ins, lane| {
+            let mut acc = init;
+            for i in 0..ins[0].len() {
+                acc = combine(acc, map(ins, lane, i));
+            }
+            d[0] = acc;
+        });
+    }
+
+    /// Reduce each batch lane of `args` over its elements, **on the device where the backend
+    /// has one**, falling back to [`Self::reduce_elem_host`] otherwise.
+    ///
+    /// Same shape and broadcast rules; `map` and `combine` must be device-compilable Rust, as
+    /// for [`Self::for_each_elem_mut`]. `combine` must also be associative *and commutative*:
+    /// the device folds with warp shuffles that pair a lane with `lane ^ delta`, so neither the
+    /// order nor the grouping of the operands is the caller's. Sum, max and min all qualify.
+    fn reduce_elem<const N: usize>(
+        dest: &mut Self,
+        args: [&Self; N],
+        init: Self::T,
+        map: impl Fn([&[Self::T]; N], usize, usize) -> Self::T + Copy + Send,
+        combine: impl Fn(Self::T, Self::T) -> Self::T + Copy + Send,
+    ) {
+        Self::reduce_elem_host(dest, args, init, map, combine);
+    }
+
+    /// Copy all values from `other` into this vector.
+    fn copy_from(&mut self, other: &Self);
+
+    /// Copy all values from a vector view into this vector.
+    fn copy_from_view(&mut self, other: &Self::View<'_>);
+
+    // TODO: would prefer to use From trait but not implemented for faer::Col
+    /// Create a vector from a Rust `Vec`.
+    fn from_vec(vec: Vec<Self::T>, ctx: Self::C) -> Self;
+
+    /// Create a vector from a slice.
+    fn from_slice(slice: &[Self::T], ctx: Self::C) -> Self;
+
+    // TODO: would prefer to use From trait but not implemented for faer::Col
+    /// Clone this vector as a Rust `Vec`.
+    fn clone_as_vec(&self) -> Vec<Self::T>;
+
+    /// Compute the AXPY operation: self = alpha * x + beta * self
+    fn axpy(&mut self, alpha: Self::T, x: &Self, beta: Self::T);
+
+    /// Compute the AXPY operation with a vector view: self = alpha * x + beta * self
+    fn axpy_v(&mut self, alpha: Self::T, x: &Self::View<'_>, beta: Self::T);
+
+    /// Per-batch AXPY: `self[i]_b = alpha_b * x[i]_b + beta * self[i]_b`
+    ///
+    /// `alpha` is a *batched scalar*: one value per batch, so `alpha.len() == 1` and its batch
+    /// count equals `self`'s. A uniform multiplier is plain [`Self::axpy`] instead.
+    /// The `x` operand may broadcast if its `nbatch == 1`.
+    fn batched_axpy(&mut self, alpha: &Self, x: &Self, beta: Self::T);
+
+    /// Element-wise multiplication: self_i *= other_i
+    fn component_mul_assign(&mut self, other: &Self);
+
+    /// Element-wise division: self_i /= other_i
+    fn component_div_assign(&mut self, other: &Self);
+
+    /// Detect roots (zero crossings) between this vector (as g0) and another vector (g1).
+    ///
+    /// Returns a tuple of:
+    /// - `bool`: true if a zero crossing is found (g1_i == 0 for some i)
+    /// - `T`: the interpolation factor at the maximum crossing (0 if none found) (given by maxmimum |g0_i / (g1_i - g0_i)|)
+    /// - `i32`: the index of the maximum crossing (-1 if none found)
+    fn root_finding(&self, g1: &Self) -> (bool, Self::T, i32);
+
+    /// Assign `value` to all elements at the specified indices.
+    fn assign_at_indices(&mut self, indices: &Self::Index, value: Self::T);
+
+    /// Copy values from `other` at the specified indices: self\[indices\[i\]\] = other\[indices\[i\]\]
+    fn copy_from_indices(&mut self, other: &Self, indices: &Self::Index);
+
+    /// Gather values from `other` at indices: self\[i\] = other\[indices\[i\]\]
+    fn gather(&mut self, other: &Self, indices: &Self::Index);
+
+    /// Scatter values to `other` at indices: other\[indices\[i\]\] = self\[i\]
+    fn scatter(&self, indices: &Self::Index, other: &mut Self);
+
+    /// Assert that this vector equals `other` within a scalar tolerance `tol`.
+    fn assert_eq_st(&self, other: &Self, tol: Self::T) {
+        let tol = vec![tol; self.total_len()];
+        Self::assert_eq_vec(self.clone_as_vec(), other.clone_as_vec(), tol);
+    }
+
+    /// Assert that this vector equals `other` using a weighted norm (same as used by ODE solvers).
+    ///
+    /// Uses `squared_norm` internally with the scaling factors, and asserts that the resulting
+    /// norm is less than `factor`.
+    fn assert_eq_norm(&self, other: &Self, atol: &Self, rtol: Self::T, factor: Self::T) {
+        let error = self.clone() - other.clone();
+        let error_norm = error.squared_norm(other, atol, rtol).sqrt();
+        assert!(
+            error_norm < factor,
+            "error_norm: {error_norm}. self: {self:?}, other: {other:?}",
+        );
+    }
+
+    /// Assert that this vector equals `other` using a vector of per-element tolerances.
+    fn assert_eq(&self, other: &Self, tol: &Self) {
+        assert_eq!(
+            self.len(),
+            other.len(),
+            "Vector length mismatch: {} != {}",
+            self.len(),
+            other.len()
+        );
+        let s = self.clone_as_vec();
+        let other = other.clone_as_vec();
+        let tol = tol.clone_as_vec();
+        Self::assert_eq_vec(s, other, tol);
+    }
+
+    fn assert_eq_vec(s: Vec<Self::T>, other: Vec<Self::T>, tol: Vec<Self::T>) {
+        for i in 0..s.len() {
+            if num_traits::abs(s[i] - other[i]) > tol[i] {
+                eprintln!(
+                    "Vector element mismatch at index {i}: {} != {}",
+                    s[i], other[i]
+                );
+                if s.len() <= 3 {
+                    eprintln!("left: {s:?}");
+                    eprintln!("right: {other:?}");
+                } else if i == 0 {
+                    eprintln!(
+                        "left: [{}, {}, {}] != [{}, {}, {}]",
+                        s[0], s[1], s[2], other[0], other[1], other[2]
+                    );
+                } else if i == s.len() - 1 {
+                    eprintln!(
+                        "left: [..., {}, {}, {}] != [..., {}, {}, {}]",
+                        s[i - 2],
+                        s[i - 1],
+                        s[i],
+                        other[i - 2],
+                        other[i - 1],
+                        other[i]
+                    );
+                } else {
+                    eprintln!(
+                        "left: [..., {}, {}, {}, ...] != [..., {}, {}, {}, ...]",
+                        s[i - 1],
+                        s[i],
+                        s[i + 1],
+                        other[i - 1],
+                        other[i],
+                        other[i + 1]
+                    );
+                }
+                panic!(
+                    "Vector element mismatch at index {}: {} != {}",
+                    i, s[i], other[i]
+                );
+            }
+        }
+    }
+}
+
+/// Marker trait for vectors that have a default associated dense matrix type.
+///
+/// This trait associates a vector type with its corresponding dense matrix representation,
+/// enabling vectors to be easily combined with matrix types for linear algebra operations.
+pub trait DefaultDenseMatrix: Vector {
+    type M: DenseMatrix<V = Self, T = Self::T, C = Self::C>;
+}
+
+#[cfg(test)]
+macro_rules! generate_vector_tests_nonbatched {
+    ($suffix:ident, $V:ty) => {
+        paste::paste! {
+            #[test]
+            fn [<test_root_finding_ $suffix>]() {
+                $crate::vector::tests::test_root_finding::<$V>();
+            }
+            #[test]
+            fn [<test_from_slice_ $suffix>]() {
+                $crate::vector::tests::test_from_slice::<$V>();
+            }
+            #[test]
+            fn [<test_mul_scalar_ $suffix>]() {
+                $crate::vector::tests::test_mul_scalar::<$V>();
+            }
+            #[test]
+            fn [<test_div_scalar_ $suffix>]() {
+                $crate::vector::tests::test_div_scalar::<$V>();
+            }
+            #[test]
+            fn [<test_axpy_ $suffix>]() {
+                $crate::vector::tests::test_axpy::<$V>();
+            }
+            #[test]
+            fn [<test_copy_from_indices_ $suffix>]() {
+                $crate::vector::tests::test_copy_from_indices::<$V>();
+            }
+            #[test]
+            fn [<test_gather_ $suffix>]() {
+                $crate::vector::tests::test_gather::<$V>();
+            }
+            #[test]
+            fn [<test_scatter_ $suffix>]() {
+                $crate::vector::tests::test_scatter::<$V>();
+            }
+            #[test]
+            fn [<test_copy_from_via_view_mut_ $suffix>]() {
+                $crate::vector::tests::test_copy_from_via_view_mut::<$V>();
+            }
+            #[test]
+            fn [<test_for_each_batch_ $suffix>]() {
+                $crate::vector::tests::test_for_each_batch::<$V>();
+            }
+            #[test]
+            fn [<test_for_each_batch_index_ $suffix>]() {
+                $crate::vector::tests::test_for_each_batch_index::<$V>();
+            }
+            #[test]
+            fn [<test_for_each_batch_mut_ $suffix>]() {
+                $crate::vector::tests::test_for_each_batch_mut::<$V>();
+            }
+            #[test]
+            fn [<test_for_each_elem_mut_ $suffix>]() {
+                $crate::vector::tests::test_for_each_elem_mut::<$V>();
+            }
+            #[test]
+            fn [<test_reduce_unbatched_ $suffix>]() {
+                $crate::vector::tests::test_reduce_unbatched::<$V>();
+            }
+            #[test]
+            fn [<test_set_index_ $suffix>]() {
+                $crate::vector::tests::test_set_index::<$V>();
+            }
+            #[test]
+            fn [<test_get_index_ $suffix>]() {
+                $crate::vector::tests::test_get_index::<$V>();
+            }
+            #[test]
+            fn [<test_norm_ $suffix>]() {
+                $crate::vector::tests::test_norm::<$V>();
+            }
+            #[test]
+            fn [<test_norm_l1_ $suffix>]() {
+                $crate::vector::tests::test_norm_l1::<$V>();
+            }
+            #[test]
+            fn [<test_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_squared_norm::<$V>();
+            }
+            #[test]
+            fn [<test_fill_ $suffix>]() {
+                $crate::vector::tests::test_fill::<$V>();
+            }
+            #[test]
+            fn [<test_from_element_ $suffix>]() {
+                $crate::vector::tests::test_from_element::<$V>();
+            }
+            #[test]
+            fn [<test_copy_from_ $suffix>]() {
+                $crate::vector::tests::test_copy_from::<$V>();
+            }
+            #[test]
+            fn [<test_from_vec_ $suffix>]() {
+                $crate::vector::tests::test_from_vec::<$V>();
+            }
+            #[test]
+            fn [<test_component_mul_assign_ $suffix>]() {
+                $crate::vector::tests::test_component_mul_assign::<$V>();
+            }
+            #[test]
+            fn [<test_component_div_assign_ $suffix>]() {
+                $crate::vector::tests::test_component_div_assign::<$V>();
+            }
+            #[test]
+            fn [<test_assign_at_indices_ $suffix>]() {
+                $crate::vector::tests::test_assign_at_indices::<$V>();
+            }
+            #[test]
+            fn [<test_add_ $suffix>]() {
+                $crate::vector::tests::test_add::<$V>();
+            }
+            #[test]
+            fn [<test_sub_ $suffix>]() {
+                $crate::vector::tests::test_sub::<$V>();
+            }
+            #[test]
+            fn [<test_owned_rhs_ $suffix>]() {
+                $crate::vector::tests::test_owned_rhs::<$V>();
+            }
+            #[test]
+            fn [<test_add_assign_ $suffix>]() {
+                $crate::vector::tests::test_add_assign::<$V>();
+            }
+            #[test]
+            fn [<test_sub_assign_ $suffix>]() {
+                $crate::vector::tests::test_sub_assign::<$V>();
+            }
+            #[test]
+            fn [<test_axpy_v_ $suffix>]() {
+                $crate::vector::tests::test_axpy_v::<$V>();
+            }
+            #[test]
+            fn [<test_mul_assign_scalar_ $suffix>]() {
+                $crate::vector::tests::test_mul_assign_scalar::<$V>();
+            }
+            #[test]
+            fn [<test_copy_from_view_ $suffix>]() {
+                $crate::vector::tests::test_copy_from_view::<$V>();
+            }
+            #[test]
+            fn [<test_view_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_view_squared_norm::<$V>();
+            }
+            #[test]
+            fn [<test_view_into_owned_ $suffix>]() {
+                $crate::vector::tests::test_view_into_owned::<$V>();
+            }
+            #[test]
+            fn [<test_view_get_index_ $suffix>]() {
+                $crate::vector::tests::test_view_get_index::<$V>();
+            }
+            #[test]
+            fn [<test_view_mut_axpy_ $suffix>]() {
+                $crate::vector::tests::test_view_mut_axpy::<$V>();
+            }
+            #[test]
+            fn [<test_view_mut_set_index_ $suffix>]() {
+                $crate::vector::tests::test_view_mut_set_index::<$V>();
+            }
+            #[test]
+            fn [<test_view_mut_mul_assign_scalar_ $suffix>]() {
+                $crate::vector::tests::test_view_mut_mul_assign_scalar::<$V>();
+            }
+            #[test]
+            fn [<test_view_mut_copy_from_view_ $suffix>]() {
+                $crate::vector::tests::test_view_mut_copy_from_view::<$V>();
+            }
+            #[test]
+            fn [<test_view_add_sub_ $suffix>]() {
+                $crate::vector::tests::test_view_add_sub::<$V>();
+            }
+            #[test]
+            fn [<test_index_zeros_and_is_empty_ $suffix>]() {
+                $crate::vector::tests::test_index_zeros_and_is_empty::<$V>();
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+#[cfg_attr(not(feature = "cuda"), allow(unused_macros))]
+macro_rules! generate_vector_tests_batched {
+    ($suffix:ident, $V:ty, $ctx2:expr, $ctx3:expr) => {
+        paste::paste! {
+            #[test]
+            fn [<test_batched_len_and_total_len_ $suffix>]() {
+                $crate::vector::tests::test_batched_len_and_total_len::<$V>($ctx3);
+            }
+            #[test]
+            fn [<test_batched_from_vec_ $suffix>]() {
+                $crate::vector::tests::test_batched_from_vec::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "divisible by nbatch")]
+            fn [<test_batched_from_vec_bad_length_ $suffix>]() {
+                $crate::vector::tests::test_batched_from_vec_bad_length::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_from_element_ $suffix>]() {
+                $crate::vector::tests::test_batched_from_element::<$V>($ctx3);
+            }
+            #[test]
+            fn [<test_batched_axpy_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_add_ $suffix>]() {
+                $crate::vector::tests::test_batched_add::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_norm_max_across_batches_ $suffix>]() {
+                $crate::vector::tests::test_batched_norm_max_across_batches::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_norm_l1_ $suffix>]() {
+                $crate::vector::tests::test_batched_norm_l1::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_batched_squared_norm::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_fill_index_ $suffix>]() {
+                $crate::vector::tests::test_batched_fill_index::<$V>($ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "not supported for batched")]
+            fn [<test_batched_get_index_panics_ $suffix>]() {
+                $crate::vector::tests::test_batched_get_index_panics::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "not supported for batched")]
+            fn [<test_batched_set_index_panics_ $suffix>]() {
+                $crate::vector::tests::test_batched_set_index_panics::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_fill_ $suffix>]() {
+                $crate::vector::tests::test_batched_fill::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_component_mul_ $suffix>]() {
+                $crate::vector::tests::test_batched_component_mul::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_assign_at_indices_ $suffix>]() {
+                $crate::vector::tests::test_batched_assign_at_indices::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_root_finding_consistent_ $suffix>]() {
+                $crate::vector::tests::test_batched_root_finding_consistent::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "differ across batches")]
+            fn [<test_batched_root_finding_inconsistent_ $suffix>]() {
+                $crate::vector::tests::test_batched_root_finding_inconsistent::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_for_each_batch_ $suffix>]() {
+                $crate::vector::tests::test_batched_for_each_batch::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_for_each_batch_index_ $suffix>]() {
+                $crate::vector::tests::test_batched_for_each_batch_index::<$V>($ctx3);
+            }
+            #[test]
+            fn [<test_batched_for_each_batch_mut_ $suffix>]() {
+                $crate::vector::tests::test_batched_for_each_batch_mut::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_for_each_elem_mut_ $suffix>]() {
+                $crate::vector::tests::test_batched_for_each_elem_mut::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "for_each_batch")]
+            fn [<test_batched_for_each_batch_bad_nbatch_ $suffix>]() {
+                $crate::vector::tests::test_batched_for_each_batch_bad_nbatch::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_reduce_batch_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_batch::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_reduce_elem_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_elem::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_reduce_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_reduce_host_stateful_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_host_stateful::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_reduce_long_lane_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_long_lane::<$V>($ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "dest must be unbatched")]
+            fn [<test_batched_reduce_batch_bad_dest_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_batch_bad_dest::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "batched scalar")]
+            fn [<test_batched_reduce_elem_bad_dest_ $suffix>]() {
+                $crate::vector::tests::test_batched_reduce_elem_bad_dest::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_axpy_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_copy_from_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_copy_from_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_component_div_ $suffix>]() {
+                $crate::vector::tests::test_batched_component_div::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_component_mul_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_component_mul_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_component_div_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_component_div_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_add_assign_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_add_assign_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_sub_assign_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_sub_assign_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_sub_ $suffix>]() {
+                $crate::vector::tests::test_batched_sub::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_owned_rhs_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_owned_rhs_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_owned_lhs_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_owned_lhs_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_view_add_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_view_add_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_sub_assign_ $suffix>]() {
+                $crate::vector::tests::test_batched_sub_assign::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_from_slice_ $suffix>]() {
+                $crate::vector::tests::test_batched_from_slice::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_mul_scalar_ $suffix>]() {
+                $crate::vector::tests::test_batched_mul_scalar::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_div_scalar_ $suffix>]() {
+                $crate::vector::tests::test_batched_div_scalar::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_copy_from_indices_ $suffix>]() {
+                $crate::vector::tests::test_batched_copy_from_indices::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_gather_ $suffix>]() {
+                $crate::vector::tests::test_batched_gather::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_scatter_ $suffix>]() {
+                $crate::vector::tests::test_batched_scatter::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_get_batch_ $suffix>]() {
+                $crate::vector::tests::test_batched_get_batch::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_get_batch_mut_ $suffix>]() {
+                $crate::vector::tests::test_batched_get_batch_mut::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_axpy_v_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_v::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_mul_assign_scalar_ $suffix>]() {
+                $crate::vector::tests::test_batched_mul_assign_scalar::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_copy_from_view_ $suffix>]() {
+                $crate::vector::tests::test_batched_copy_from_view::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_axpy_new_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_new::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_axpy_new_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_new_broadcast::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "alpha must be a batched scalar")]
+            fn [<test_batched_axpy_new_bad_length_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_new_bad_length::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "alpha nbatch must equal")]
+            fn [<test_batched_axpy_new_bad_nbatch_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_new_bad_nbatch::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_empty_ $suffix>]() {
+                $crate::vector::tests::test_batched_empty::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_binary_forms_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_batched_binary_forms_broadcast::<$V>($ctx2);
+            }
+
+            // --- Governing-operand tests: the operand that governs must be the wider one ---
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_owned_lhs_narrow_ $suffix>]() {
+                $crate::vector::tests::test_batched_owned_lhs_narrow::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_owned_rhs_narrow_ $suffix>]() {
+                $crate::vector::tests::test_batched_owned_rhs_narrow::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_view_add_narrow_ $suffix>]() {
+                $crate::vector::tests::test_batched_view_add_narrow::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_grouped_add_narrow_lhs_ $suffix>]() {
+                $crate::vector::tests::test_grouped_add_narrow_lhs::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_grouped_owned_lhs_narrow_ $suffix>]() {
+                $crate::vector::tests::test_grouped_owned_lhs_narrow::<$V>($ctx2);
+            }
+
+            // --- Narrow-destination tests (source wider than destination panics) ---
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_copy_from_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_copy_from::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_add_assign_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_add_assign::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_axpy_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_axpy::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_component_mul_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_component_mul::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_gather_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_gather::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_copy_from_indices_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_copy_from_indices::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_scatter_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_scatter::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_narrow_dest_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_narrow_dest_squared_norm::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_unbatched_dest_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_unbatched_dest_squared_norm::<$V>($ctx2);
+            }
+
+            // --- Grouped broadcast tests (B -> B * P, using $ctx2 widened to 4) ---
+            #[test]
+            fn [<test_grouped_owned_lhs_ref_rhs_ $suffix>]() {
+                $crate::vector::tests::test_grouped_owned_lhs_ref_rhs::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_axpy_ $suffix>]() {
+                $crate::vector::tests::test_grouped_axpy::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_add_assign_ $suffix>]() {
+                $crate::vector::tests::test_grouped_add_assign::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_add_ $suffix>]() {
+                $crate::vector::tests::test_grouped_add::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_copy_from_ $suffix>]() {
+                $crate::vector::tests::test_grouped_copy_from::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_component_mul_ $suffix>]() {
+                $crate::vector::tests::test_grouped_component_mul::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_grouped_squared_norm::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_grouped_gather_ $suffix>]() {
+                $crate::vector::tests::test_grouped_gather::<$V>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_grouped_incompatible_ $suffix>]() {
+                $crate::vector::tests::test_grouped_incompatible::<$V>($ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_axpy_incompatible_ $suffix>]() {
+                $crate::vector::tests::test_batched_axpy_incompatible::<$V>($ctx2, $ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_copy_from_incompatible_ $suffix>]() {
+                $crate::vector::tests::test_batched_copy_from_incompatible::<$V>($ctx2, $ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_add_assign_incompatible_ $suffix>]() {
+                $crate::vector::tests::test_batched_add_assign_incompatible::<$V>($ctx2, $ctx3);
+            }
+            #[test]
+            #[should_panic(expected = "incompatible nbatch")]
+            fn [<test_batched_component_mul_incompatible_ $suffix>]() {
+                $crate::vector::tests::test_batched_component_mul_incompatible::<$V>($ctx2, $ctx3);
+            }
+
+            // --- Strided view tests (batched, using $ctx2) ---
+            #[test]
+            fn [<test_strided_view_fill_index_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_fill_index::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            #[should_panic(expected = "not supported for batched")]
+            fn [<test_strided_view_set_index_panics_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_set_index_panics::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mut_copy_from_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mut_copy_from::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mut_axpy_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mut_axpy::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mut_mul_assign_scalar_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mut_mul_assign_scalar::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mut_add_assign_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mut_add_assign::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mut_sub_assign_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mut_sub_assign::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_add_assign_broadcast_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_add_assign_broadcast::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_add_owned_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_add_owned::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_squared_norm_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_squared_norm::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_into_owned_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_into_owned::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_component_mul_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_component_mul::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_component_div_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_component_div::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_mul_scalar_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_mul_scalar::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_fill_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_fill::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_assign_at_indices_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_assign_at_indices::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_copy_from_indices_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_copy_from_indices::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_gather_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_gather::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+            #[test]
+            fn [<test_strided_view_scatter_ $suffix>]() {
+                $crate::vector::tests::test_strided_view_scatter::<<$V as $crate::DefaultDenseMatrix>::M>($ctx2);
+            }
+        }
+    };
+}
+#[cfg(test)]
+#[cfg_attr(not(feature = "cuda"), allow(unused_imports))]
+pub(crate) use generate_vector_tests_batched;
+#[cfg(test)]
+pub(crate) use generate_vector_tests_nonbatched;
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::ops::{Add, Sub};
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    use super::{Vector, VectorCommon, VectorIndex, VectorView, VectorViewMut};
+    use crate::context::nalgebra::NalgebraContext;
+    use crate::scalar::Scalar as _;
+    use crate::scalar::Scale;
+    use crate::vector::nalgebra_serial::NalgebraVec;
+    use crate::Context;
+    use crate::IndexType;
+    use num_traits::FromPrimitive;
+    use std::ops::{Index, IndexMut};
+
+    fn f<V: Vector>(x: f64) -> V::T {
+        V::T::from_f64(x).unwrap()
+    }
+
+    fn fv<V: Vector>(xs: &[f64]) -> Vec<V::T> {
+        xs.iter().map(|&x| f::<V>(x)).collect()
+    }
+
+    /// `Index`/`IndexMut` operator syntax: only the host backends offer it, so this isn't wired
+    /// into the shared (CUDA-inclusive) macro suite.
+    pub fn test_host_only<V>()
+    where
+        V: Vector + Index<IndexType, Output = V::T> + IndexMut<IndexType, Output = V::T>,
+    {
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        assert_eq!(v[0], f::<V>(1.0));
+        v[1] = f::<V>(20.0);
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[1.0, 20.0, 3.0]));
+    }
+
+    pub fn test_root_finding<V: Vector>() {
+        let g0 = V::from_vec(fv::<V>(&[1.0, -2.0, 3.0]), Default::default());
+        let g1 = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let (found_root, max_frac, max_frac_index) = g0.root_finding(&g1);
+        assert!(!found_root);
+        assert_eq!(max_frac, f::<V>(0.5));
+        assert_eq!(max_frac_index, 1);
+
+        let g0 = V::from_vec(fv::<V>(&[1.0, -2.0, 3.0]), Default::default());
+        let g1 = V::from_vec(fv::<V>(&[1.0, 2.0, 0.0]), Default::default());
+        let (found_root, max_frac, max_frac_index) = g0.root_finding(&g1);
+        assert!(found_root);
+        assert_eq!(max_frac, f::<V>(0.5));
+        assert_eq!(max_frac_index, 1);
+
+        let g0 = V::from_vec(fv::<V>(&[1.0, -2.0, 3.0]), Default::default());
+        let g1 = V::from_vec(fv::<V>(&[1.0, -2.0, 3.0]), Default::default());
+        let (found_root, max_frac, max_frac_index) = g0.root_finding(&g1);
+        assert!(!found_root);
+        assert_eq!(max_frac, f::<V>(0.0));
+        assert_eq!(max_frac_index, -1);
+    }
+
+    pub fn test_from_slice<V: Vector>() {
+        let slice = fv::<V>(&[1.0, 2.0, 3.0]);
+        let v = V::from_slice(&slice, Default::default());
+        assert_eq!(v.clone_as_vec(), slice);
+    }
+
+    pub fn test_mul_scalar<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let result = v * Scale(f::<V>(2.0));
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[2.0, 4.0, 6.0]));
+    }
+
+    pub fn test_div_scalar<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[2.0, 4.0, 6.0]), Default::default());
+        let result = v / Scale(f::<V>(2.0));
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_axpy<V: Vector>() {
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let x = V::from_vec(fv::<V>(&[4.0, 5.0, 6.0]), Default::default());
+        y.axpy(f::<V>(2.0), &x, f::<V>(1.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[9.0, 12.0, 15.0]));
+        y.axpy(f::<V>(2.0), &x, f::<V>(0.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[8.0, 10.0, 12.0]));
+        y.axpy(f::<V>(0.0), &x, f::<V>(1.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[8.0, 10.0, 12.0]));
+    }
+
+    pub fn test_copy_from_indices<V: Vector>() {
+        let mut v1 = V::zeros(5, Default::default());
+        let v2 = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0]), Default::default());
+        let indices = V::Index::from_vec(vec![0, 2, 4], Default::default());
+        v1.copy_from_indices(&v2, &indices);
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[10.0, 0.0, 30.0, 0.0, 50.0]));
+    }
+
+    pub fn test_gather<V: Vector>() {
+        let mut result = V::zeros(3, Default::default());
+        let v = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), Default::default());
+        let indices = V::Index::from_vec(vec![3, 0, 2], Default::default());
+        result.gather(&v, &indices);
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[40.0, 10.0, 30.0]));
+    }
+
+    pub fn test_scatter<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[40.0, 10.0, 30.0]), Default::default());
+        let indices = V::Index::from_vec(vec![3, 0, 2], Default::default());
+        let mut result = V::zeros(4, Default::default());
+        v.scatter(&indices, &mut result);
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[10.0, 0.0, 30.0, 40.0]));
+    }
+
+    pub fn test_copy_from_via_view_mut<V: Vector>() {
+        let mut v1 = V::zeros(3, Default::default());
+        let v2 = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        v1.as_view_mut().copy_from(&v2);
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_set_index<V: Vector>() {
+        let mut v = V::zeros(3, Default::default());
+        v.set_index(1, f::<V>(42.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[0.0, 42.0, 0.0]));
+    }
+
+    pub fn test_get_index<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        assert_eq!(v.get_index(0), f::<V>(1.0));
+        assert_eq!(v.get_index(2), f::<V>(3.0));
+    }
+
+    pub fn test_norm<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[3.0, 4.0]), Default::default());
+        let norm = v.norm(2);
+        let diff = norm - f::<V>(5.0);
+        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+    }
+
+    pub fn test_norm_l1<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[3.0, -4.0]), Default::default());
+        let norm = v.norm(1);
+        let diff = norm - f::<V>(7.0);
+        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+    }
+
+    pub fn test_squared_norm<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0]), Default::default());
+        let y = V::from_vec(fv::<V>(&[1.0, 1.0]), Default::default());
+        let atol = V::from_vec(fv::<V>(&[1e-3, 1e-3]), Default::default());
+        let rtol = f::<V>(1e-2);
+        let norm = x.squared_norm(&y, &atol, rtol);
+        let denom = f::<V>(1.0) * rtol + f::<V>(1e-3);
+        let err0 = f::<V>(1.0) / denom;
+        let err1 = f::<V>(2.0) / denom;
+        let expected = (err0 * err0 + err1 * err1) / f::<V>(2.0);
+        assert!(num_traits::abs(norm - expected) < f::<V>(1e-12));
+    }
+
+    pub fn test_fill<V: Vector>() {
+        let mut v = V::zeros(3, Default::default());
+        v.fill(f::<V>(7.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[7.0, 7.0, 7.0]));
+    }
+
+    pub fn test_from_element<V: Vector>() {
+        let v = V::from_element(2, f::<V>(5.0), Default::default());
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[5.0, 5.0]));
+    }
+
+    pub fn test_copy_from<V: Vector>() {
+        let mut v1 = V::zeros(3, Default::default());
+        let v2 = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        v1.copy_from(&v2);
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_from_vec<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_component_mul_assign<V: Vector>() {
+        let mut a = V::from_vec(fv::<V>(&[2.0, 3.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0]), Default::default());
+        a.component_mul_assign(&b);
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[20.0, 60.0]));
+    }
+
+    pub fn test_component_div_assign<V: Vector>() {
+        let mut a = V::from_vec(fv::<V>(&[6.0, 12.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[2.0, 3.0]), Default::default());
+        a.component_div_assign(&b);
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[3.0, 4.0]));
+    }
+
+    pub fn test_assign_at_indices<V: Vector>() {
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let indices = V::Index::from_vec(vec![0, 2], Default::default());
+        v.assign_at_indices(&indices, f::<V>(0.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[0.0, 2.0, 0.0]));
+    }
+
+    pub fn test_add<V: Vector>() {
+        let a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        let c = a + b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0]));
+    }
+
+    pub fn test_sub<V: Vector>() {
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let c = a - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0]));
+    }
+
+    /// A borrowed left-hand side with an owned right-hand side: backends may write the result
+    /// into the right-hand side's storage, which must not flip the operands of `sub`.
+    pub fn test_owned_rhs<V: Vector>()
+    where
+        for<'a> &'a V: Add<V, Output = V> + Sub<V, Output = V>,
+    {
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let c = &a - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0]));
+
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let c = &a + b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0]));
+
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let c = a.as_view() - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0]));
+
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let c = a.as_view() + b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0]));
+    }
+
+    /// Both sides borrowed via `as_view()`: exercises the view+view arithmetic impls that
+    /// `VectorView` requires but the owned/ref-hand-side tests above never reach.
+    pub fn test_view_add_sub<V: Vector>() {
+        let a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        let c = a.as_view() + b.as_view();
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0]));
+        let d = a.as_view() - b.as_view();
+        assert_eq!(d.clone_as_vec(), fv::<V>(&[-9.0, -18.0, -27.0]));
+    }
+
+    /// `VectorIndex::is_empty` and `VectorIndex::zeros` are default/trait methods never called
+    /// through the index-construction helpers used elsewhere.
+    pub fn test_index_zeros_and_is_empty<V: Vector>() {
+        let empty = V::Index::zeros(0, Default::default());
+        assert!(empty.is_empty());
+        let non_empty = V::Index::zeros(3, Default::default());
+        assert!(!non_empty.is_empty());
+        assert_eq!(non_empty.clone_as_vec(), vec![0; 3]);
+    }
+
+    pub fn test_add_assign<V: Vector>() {
+        let mut a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        a += b;
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0]));
+    }
+
+    pub fn test_sub_assign<V: Vector>() {
+        let mut a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        a -= b;
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0]));
+    }
+
+    pub fn test_axpy_v<V: Vector>() {
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let x = V::from_vec(fv::<V>(&[4.0, 5.0, 6.0]), Default::default());
+        let x_view = x.as_view();
+        y.axpy_v(f::<V>(2.0), &x_view, f::<V>(1.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[9.0, 12.0, 15.0]));
+    }
+
+    pub fn test_mul_assign_scalar<V: Vector>() {
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        v *= Scale(f::<V>(2.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[2.0, 4.0, 6.0]));
+    }
+
+    pub fn test_copy_from_view<V: Vector>() {
+        let mut v1 = V::zeros(3, Default::default());
+        let v2 = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let view = v2.as_view();
+        v1.copy_from_view(&view);
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_view_squared_norm<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0]), Default::default());
+        let y = V::from_vec(fv::<V>(&[1.0, 1.0]), Default::default());
+        let atol = V::from_vec(fv::<V>(&[1e-3, 1e-3]), Default::default());
+        let rtol = f::<V>(1e-2);
+        let view = x.as_view();
+        let norm = VectorView::squared_norm(&view, &y, &atol, rtol);
+        let denom = f::<V>(1.0) * rtol + f::<V>(1e-3);
+        let err0 = f::<V>(1.0) / denom;
+        let err1 = f::<V>(2.0) / denom;
+        let expected = (err0 * err0 + err1 * err1) / f::<V>(2.0);
+        assert!(num_traits::abs(norm - expected) < f::<V>(1e-12));
+    }
+
+    pub fn test_view_into_owned<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let view = v.as_view();
+        let owned = view.into_owned();
+        assert_eq!(owned.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    pub fn test_view_get_index<V: Vector>() {
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let view = v.as_view();
+        assert_eq!(view.get_index(1), f::<V>(2.0));
+        assert_eq!(view.get_index(2), f::<V>(3.0));
+    }
+
+    pub fn test_view_mut_axpy<V: Vector>() {
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let x = V::from_vec(fv::<V>(&[4.0, 5.0, 6.0]), Default::default());
+        {
+            let mut y_view = y.as_view_mut();
+            y_view.axpy(f::<V>(2.0), &x, f::<V>(1.0));
+        }
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[9.0, 12.0, 15.0]));
+    }
+
+    pub fn test_view_mut_set_index<V: Vector>() {
+        let mut v = V::zeros(3, Default::default());
+        {
+            let mut view = v.as_view_mut();
+            view.set_index(1, f::<V>(42.0));
+        }
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[0.0, 42.0, 0.0]));
+    }
+
+    pub fn test_view_mut_mul_assign_scalar<V: Vector>() {
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        {
+            let mut view = v.as_view_mut();
+            view *= Scale(f::<V>(2.0));
+        }
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[2.0, 4.0, 6.0]));
+    }
+
+    pub fn test_view_mut_copy_from_view<V: Vector>() {
+        let mut v1 = V::zeros(3, Default::default());
+        let v2 = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        {
+            let v2_view = v2.as_view();
+            let mut v1_view = v1.as_view_mut();
+            v1_view.copy_from_view(&v2_view);
+        }
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_len_and_total_len<V: Vector>(ctx: V::C) {
+        let nbatch = ctx.nbatch();
+        assert!(nbatch > 1);
+        let v = V::zeros(4, ctx);
+        assert_eq!(v.len(), 4);
+        assert_eq!(v.total_len(), 4 * nbatch);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_from_vec<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), ctx);
+        assert_eq!(v.len(), 3);
+        assert_eq!(v.total_len(), 6);
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_from_vec_bad_length<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let _v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), ctx);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_from_element<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 3);
+        let v = V::from_element(2, f::<V>(5.0), ctx);
+        assert_eq!(v.len(), 2);
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[5.0, 5.0, 5.0, 5.0, 5.0, 5.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let x = V::from_vec(fv::<V>(&[3.0, 4.0, 30.0, 40.0]), ctx);
+        y.axpy(f::<V>(2.0), &x, f::<V>(1.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 10.0, 70.0, 100.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_add<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        let c = a + b;
+        assert_eq!(c.len(), 2);
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 33.0, 44.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_norm_max_across_batches<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[1.0, 0.0, 0.0, 3.0]), ctx);
+        let norm = v.norm(2);
+        let diff = norm - f::<V>(3.0);
+        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_norm_l1<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[1.0, -2.0, 3.0, 0.0]), ctx);
+        let norm = v.norm(1);
+        // batch0: |1|+|-2| = 3, batch1: |3|+|0| = 3, max = 3
+        let diff = norm - f::<V>(3.0);
+        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_squared_norm<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx.clone());
+        let y = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0, 1.0]), ctx);
+        let atol = V::from_vec(fv::<V>(&[1e-3, 1e-3]), V::C::default());
+        let rtol = f::<V>(1e-2);
+        let norm = x.squared_norm(&y, &atol, rtol);
+        let denom = f::<V>(1.0) * rtol + f::<V>(1e-3);
+        let err3 = f::<V>(3.0) / denom;
+        let err4 = f::<V>(4.0) / denom;
+        let batch1 = (err3 * err3 + err4 * err4) / f::<V>(2.0);
+        let diff = norm - batch1;
+        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_fill_index<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 3);
+        let mut v = V::zeros(2, ctx);
+        v.fill_index(0, f::<V>(42.0));
+        assert_eq!(
+            v.clone_as_vec(),
+            fv::<V>(&[42.0, 0.0, 42.0, 0.0, 42.0, 0.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_get_index_panics<V: Vector>(ctx: V::C) {
+        assert!(ctx.nbatch() > 1);
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let _val = v.get_index(0);
+    }
+
+    /// Scalar writes are single-system too: a batched vector needs `fill_index` or a batch view.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_set_index_panics<V: Vector>(ctx: V::C) {
+        assert!(ctx.nbatch() > 1);
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        v.set_index(0, f::<V>(5.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_fill<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v = V::zeros(3, ctx);
+        v.fill(f::<V>(7.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[7.0, 7.0, 7.0, 7.0, 7.0, 7.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_component_mul<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[2.0, 3.0, 4.0, 5.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        a.component_mul_assign(&b);
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[20.0, 60.0, 120.0, 200.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_assign_at_indices<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), ctx);
+        let indices = V::Index::from_vec(vec![0, 2], Default::default());
+        v.assign_at_indices(&indices, f::<V>(0.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[0.0, 2.0, 0.0, 0.0, 5.0, 0.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_root_finding_consistent<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let g0 = V::from_vec(fv::<V>(&[1.0, -1.0, 1.0, -1.0]), ctx.clone());
+        let g1 = V::from_vec(fv::<V>(&[-1.0, 1.0, -1.0, 1.0]), ctx);
+        let (found, _frac, idx) = g0.root_finding(&g1);
+        assert!(!found);
+        assert!(idx >= 0);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_root_finding_inconsistent<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let g0 = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0, -1.0]), ctx.clone());
+        let g1 = V::from_vec(fv::<V>(&[-1.0, 1.0, 1.0, 1.0]), ctx);
+        let _result = g0.root_finding(&g1);
+    }
+
+    // --- Broadcasting tests ---
+
+    #[cfg_attr(not(any(feature = "cuda", feature = "cuda-oxide")), allow(dead_code))]
+    /// `for_each_batch` with 0, 1 and 2 operands on an unbatched vector.
+    ///
+    /// Every lane body is bound once and run through both the device-preferring method and the
+    /// host one, so a backend with a device path is checked against its own staging path.
+    pub fn test_for_each_batch<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let v = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+        let mut y = V::zeros(2, V::C::default());
+        let mut y_host = V::zeros(2, V::C::default());
+
+        let set = |y: &mut [V::T], _: [&[V::T]; 0], _lane: usize| y[0] = f::<V>(7.0);
+        y.for_each_batch([], set);
+        y_host.for_each_batch_host([], set);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 0.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+
+        let take_second = |y: &mut [V::T], [x]: [&[V::T]; 1], _lane: usize| y[1] = x[1];
+        y.for_each_batch([&x], take_second);
+        y_host.for_each_batch_host([&x], take_second);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 2.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+
+        let combine = |y: &mut [V::T], [x, v]: [&[V::T]; 2], _lane: usize| {
+            y[0] = x[0] * v[0] + x[1] * v[1];
+            y[1] = x[0] - v[0];
+        };
+        y.for_each_batch([&x, &v], combine);
+        y_host.for_each_batch_host([&x, &v], combine);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[11.0, -2.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+    }
+
+    /// Each lane of `self` sees its own slice, and operands broadcast into it.
+    pub fn test_batched_for_each_batch<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        // operand with nbatch == 2 matches lane for lane
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        // operand with nbatch == 1 broadcasts to every lane
+        let v = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+        let mut y = V::zeros(2, ctx.clone());
+        let mut y_host = V::zeros(2, ctx.clone());
+        let combine = |y: &mut [V::T], [x, v]: [&[V::T]; 2], _lane: usize| {
+            y[0] = x[0] + v[0];
+            y[1] = x[1] * v[1];
+        };
+        y.for_each_batch([&x, &v], combine);
+        y_host.for_each_batch_host([&x, &v], combine);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[4.0, 8.0, 13.0, 80.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+
+        // grouped broadcast: lanes 0,1 of a 4-lane destination read batch 0 of a 2-lane operand
+        let ctx4 = ctx.clone_with_nbatch(4).unwrap();
+        let mut y4 = V::zeros(1, ctx4.clone());
+        let mut y4_host = V::zeros(1, ctx4);
+        let first = |y: &mut [V::T], [x]: [&[V::T]; 1], _lane: usize| y[0] = x[0];
+        y4.for_each_batch([&x], first);
+        y4_host.for_each_batch_host([&x], first);
+        assert_eq!(y4.clone_as_vec(), fv::<V>(&[1.0, 1.0, 10.0, 10.0]));
+        assert_eq!(y4_host.clone_as_vec(), y4.clone_as_vec());
+
+        // a lane body that reduces over the lane rather than indexing it, as the sensitivity
+        // corrections in `diffsol`'s `ode_solver::state` do
+        let mut dot = V::zeros(1, ctx.clone());
+        let mut dot_host = V::zeros(1, ctx);
+        let reduce = |y: &mut [V::T], [x, v]: [&[V::T]; 2], _lane: usize| {
+            y[0] = x
+                .iter()
+                .zip(v.iter())
+                .fold(f::<V>(0.0), |acc, (x, v)| acc + *x * *v);
+        };
+        dot.for_each_batch([&x, &v], reduce);
+        dot_host.for_each_batch_host([&x, &v], reduce);
+        assert_eq!(dot.clone_as_vec(), fv::<V>(&[11.0, 110.0]));
+        assert_eq!(dot_host.clone_as_vec(), dot.clone_as_vec());
+    }
+
+    #[cfg_attr(not(any(feature = "cuda", feature = "cuda-oxide")), allow(dead_code))]
+    /// Both reductions on an unbatched vector: `reduce_batch` degenerates to the map, and
+    /// `reduce_elem` folds the whole vector to one value.
+    pub fn test_reduce_unbatched<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), V::C::default());
+        let sum = |a: V::T, b: V::T| a + b;
+
+        let mut dest = V::zeros(3, V::C::default());
+        let mut dest_host = V::zeros(3, V::C::default());
+        let double = |[x]: [&[V::T]; 1], _lane: usize, i: usize| x[i] + x[i];
+        V::reduce_batch(&mut dest, [&x], f::<V>(0.0), double, sum);
+        V::reduce_batch_host(&mut dest_host, [&x], f::<V>(0.0), double, sum);
+        assert_eq!(dest.clone_as_vec(), fv::<V>(&[2.0, 4.0, 6.0]));
+        assert_eq!(dest_host.clone_as_vec(), dest.clone_as_vec());
+
+        let mut total = V::zeros(1, V::C::default());
+        let mut total_host = V::zeros(1, V::C::default());
+        let pick = |[x]: [&[V::T]; 1], _lane: usize, i: usize| x[i];
+        V::reduce_elem(&mut total, [&x], f::<V>(0.0), pick, sum);
+        V::reduce_elem_host(&mut total_host, [&x], f::<V>(0.0), pick, sum);
+        assert_eq!(total.clone_as_vec(), fv::<V>(&[6.0]));
+        assert_eq!(total_host.clone_as_vec(), total.clone_as_vec());
+    }
+
+    /// `reduce_batch` collapses the lanes elementwise, leaving an unbatched vector.
+    pub fn test_batched_reduce_batch<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let pick = |[x]: [&[V::T]; 1], _lane: usize, i: usize| x[i];
+
+        let mut sum = V::zeros(2, V::C::default());
+        let mut sum_host = V::zeros(2, V::C::default());
+        V::reduce_batch(&mut sum, [&x], f::<V>(0.0), pick, |a, b| a + b);
+        V::reduce_batch_host(&mut sum_host, [&x], f::<V>(0.0), pick, |a, b| a + b);
+        assert_eq!(sum.clone_as_vec(), fv::<V>(&[11.0, 22.0]));
+        assert_eq!(sum_host.clone_as_vec(), sum.clone_as_vec());
+
+        let mut max = V::zeros(2, V::C::default());
+        let mut max_host = V::zeros(2, V::C::default());
+        V::reduce_batch(&mut max, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        V::reduce_batch_host(&mut max_host, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        assert_eq!(max.clone_as_vec(), fv::<V>(&[10.0, 20.0]));
+        assert_eq!(max_host.clone_as_vec(), max.clone_as_vec());
+    }
+
+    /// `reduce_elem` collapses each lane to one value, leaving a batched scalar.
+    ///
+    /// The dot product here is the one `test_batched_for_each_batch` builds by hand, so the
+    /// expected values are pinned by an independent route.
+    pub fn test_batched_reduce_elem<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let v = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+
+        let mut dot = V::zeros(1, ctx.clone());
+        let mut dot_host = V::zeros(1, ctx.clone());
+        let prod = |[x, v]: [&[V::T]; 2], _lane: usize, i: usize| x[i] * v[i];
+        V::reduce_elem(&mut dot, [&x, &v], f::<V>(0.0), prod, |a, b| a + b);
+        V::reduce_elem_host(&mut dot_host, [&x, &v], f::<V>(0.0), prod, |a, b| a + b);
+        assert_eq!(dot.clone_as_vec(), fv::<V>(&[11.0, 110.0]));
+        assert_eq!(dot_host.clone_as_vec(), dot.clone_as_vec());
+
+        let mut max = V::zeros(1, ctx.clone());
+        let mut max_host = V::zeros(1, ctx);
+        let pick = |[x]: [&[V::T]; 1], _lane: usize, i: usize| x[i];
+        V::reduce_elem(&mut max, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        V::reduce_elem_host(&mut max_host, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        assert_eq!(max.clone_as_vec(), fv::<V>(&[2.0, 20.0]));
+        assert_eq!(max_host.clone_as_vec(), max.clone_as_vec());
+    }
+
+    /// An `nbatch == 1` operand broadcasts into every lane of a reduction.
+    pub fn test_batched_reduce_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let v = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+        let sum = |a: V::T, b: V::T| a + b;
+        let add = |[x, v]: [&[V::T]; 2], _lane: usize, i: usize| x[i] + v[i];
+
+        // (1+3) + (10+3) = 17, (2+4) + (20+4) = 30
+        let mut dest = V::zeros(2, V::C::default());
+        let mut dest_host = V::zeros(2, V::C::default());
+        V::reduce_batch(&mut dest, [&x, &v], f::<V>(0.0), add, sum);
+        V::reduce_batch_host(&mut dest_host, [&x, &v], f::<V>(0.0), add, sum);
+        assert_eq!(dest.clone_as_vec(), fv::<V>(&[17.0, 30.0]));
+        assert_eq!(dest_host.clone_as_vec(), dest.clone_as_vec());
+
+        // (1+3) + (2+4) = 10, (10+3) + (20+4) = 37
+        let mut lane = V::zeros(1, ctx.clone());
+        let mut lane_host = V::zeros(1, ctx);
+        V::reduce_elem(&mut lane, [&x, &v], f::<V>(0.0), add, sum);
+        V::reduce_elem_host(&mut lane_host, [&x, &v], f::<V>(0.0), add, sum);
+        assert_eq!(lane.clone_as_vec(), fv::<V>(&[10.0, 37.0]));
+        assert_eq!(lane_host.clone_as_vec(), lane.clone_as_vec());
+    }
+
+    /// A lane longer than a device block, so the strided load and the in-block tree both run.
+    pub fn test_batched_reduce_long_lane<V: Vector>(ctx: V::C) {
+        let nbatch = ctx.nbatch();
+        assert_eq!(nbatch, 3);
+        // past `REDUCE_BATCH_SMALL_NSTATES` as well as `SMALL_NSTATES`, so that the device
+        // backends run the large arm of both reductions here and the small arm of both in the
+        // tests above
+        let nstates = 13_000;
+        let data: Vec<f64> = (0..nstates * nbatch).map(|i| (i % 97) as f64).collect();
+        let x = V::from_vec(fv::<V>(&data), ctx.clone());
+        let pick = |[x]: [&[V::T]; 1], _lane: usize, i: usize| x[i];
+        let sum = |a: V::T, b: V::T| a + b;
+
+        let mut per_elem = V::zeros(nstates, V::C::default());
+        let mut per_elem_host = V::zeros(nstates, V::C::default());
+        V::reduce_batch(&mut per_elem, [&x], f::<V>(0.0), pick, sum);
+        V::reduce_batch_host(&mut per_elem_host, [&x], f::<V>(0.0), pick, sum);
+        assert_eq!(per_elem.clone_as_vec(), per_elem_host.clone_as_vec());
+
+        let mut per_lane = V::zeros(1, ctx.clone());
+        let mut per_lane_host = V::zeros(1, ctx.clone());
+        // max is exact whatever order the fold takes, unlike a sum of many terms
+        V::reduce_elem(&mut per_lane, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        V::reduce_elem_host(&mut per_lane_host, [&x], f::<V>(0.0), pick, |a, b| a.max(b));
+        assert_eq!(per_lane.clone_as_vec(), per_lane_host.clone_as_vec());
+
+        // the sums agree to rounding, the device folding in tree order and the host in index
+        // order
+        let mut sums = V::zeros(1, ctx.clone());
+        let mut sums_host = V::zeros(1, ctx);
+        V::reduce_elem(&mut sums, [&x], f::<V>(0.0), pick, sum);
+        V::reduce_elem_host(&mut sums_host, [&x], f::<V>(0.0), pick, sum);
+        sums.assert_eq_st(&sums_host, f::<V>(1e-9));
+    }
+
+    /// The host reductions take `FnMut`, so a closure may carry state across calls.
+    ///
+    /// This cannot compile against the device-preferring methods, whose closures must be
+    /// `Fn + Copy + Send` to be monomorphised into a kernel.
+    pub fn test_batched_reduce_host_stateful<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+
+        let mut calls = 0usize;
+        let mut dest = V::zeros(1, ctx);
+        V::reduce_elem_host(
+            &mut dest,
+            [&x],
+            f::<V>(0.0),
+            |[x], _lane, i| {
+                calls += 1;
+                x[i]
+            },
+            |a, b| a + b,
+        );
+        assert_eq!(dest.clone_as_vec(), fv::<V>(&[3.0, 30.0]));
+        // two lanes of two elements, each mapped once
+        assert_eq!(calls, 4);
+    }
+
+    /// `reduce_batch` removes the batch dimension, so a batched `dest` is a mistake.
+    pub fn test_batched_reduce_batch_bad_dest<V: Vector>(ctx: V::C) {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let mut dest = V::zeros(2, ctx);
+        V::reduce_batch(
+            &mut dest,
+            [&x],
+            f::<V>(0.0),
+            |[x], _lane, i| x[i],
+            |a, b| a + b,
+        );
+    }
+
+    /// `reduce_elem` removes the element dimension, so `dest` has to be a batched scalar.
+    pub fn test_batched_reduce_elem_bad_dest<V: Vector>(ctx: V::C) {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let mut dest = V::zeros(2, ctx);
+        V::reduce_elem(
+            &mut dest,
+            [&x],
+            f::<V>(0.0),
+            |[x], _lane, i| x[i],
+            |a, b| a + b,
+        );
+    }
+
+    #[cfg_attr(not(any(feature = "cuda", feature = "cuda-oxide")), allow(dead_code))]
+    /// `for_each_batch_mut` writes every mutable operand, not just the first.
+    pub fn test_for_each_batch_mut<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let mut y = V::zeros(2, V::C::default());
+        let mut scratch = V::zeros(2, V::C::default());
+        let mut y_host = V::zeros(2, V::C::default());
+        let mut scratch_host = V::zeros(2, V::C::default());
+
+        let via_scratch = |[y, scratch]: [&mut [V::T]; 2], [x]: [&[V::T]; 1], _lane: usize| {
+            scratch.copy_from_slice(x);
+            scratch[0] += f::<V>(1.0);
+            y[0] = scratch[0] * scratch[1];
+            y[1] = scratch[1];
+        };
+        V::for_each_batch_mut([&mut y, &mut scratch], [&x], via_scratch);
+        V::for_each_batch_mut_host([&mut y_host, &mut scratch_host], [&x], via_scratch);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[4.0, 2.0]));
+        assert_eq!(scratch.clone_as_vec(), fv::<V>(&[2.0, 2.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+        assert_eq!(scratch_host.clone_as_vec(), scratch.clone_as_vec());
+    }
+
+    #[cfg_attr(not(any(feature = "cuda", feature = "cuda-oxide")), allow(dead_code))]
+    /// `for_each_elem_mut` writes element `i` of every mutable operand, and reads anywhere in the
+    /// input lane.
+    pub fn test_for_each_elem_mut<V: Vector>() {
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), V::C::default());
+        let mut y = V::zeros(3, V::C::default());
+        let mut z = V::zeros(3, V::C::default());
+        let mut y_host = V::zeros(3, V::C::default());
+        let mut z_host = V::zeros(3, V::C::default());
+
+        let wrap = |[y, z]: [&mut V::T; 2], [x]: [&[V::T]; 1], _lane: usize, i: usize| {
+            *y = x[i] + x[(i + 1) % x.len()];
+            *z = *y * f::<V>(2.0);
+        };
+        V::for_each_elem_mut([&mut y, &mut z], [&x], wrap);
+        V::for_each_batch_mut_host([&mut y_host, &mut z_host], [&x], |[y, z], [x], lane| {
+            for i in 0..x.len() {
+                wrap([&mut y[i], &mut z[i]], [x], lane, i);
+            }
+        });
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[3.0, 5.0, 4.0]));
+        assert_eq!(z.clone_as_vec(), fv::<V>(&[6.0, 10.0, 8.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+        assert_eq!(z_host.clone_as_vec(), z.clone_as_vec());
+    }
+
+    /// `for_each_elem_mut` broadcasts an `nbatch == 1` input over the output's lanes, and hands
+    /// the closure the lane it is writing.
+    pub fn test_batched_for_each_elem_mut<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let mut y = V::zeros(2, ctx.clone());
+        let mut z = V::zeros(2, ctx);
+
+        V::for_each_elem_mut([&mut y, &mut z], [&x], |[y, z], [x], lane, i| {
+            *y = x[i] + f::<V>(lane as f64 * 10.0);
+            *z = x[(i + 1) % x.len()];
+        });
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[1.0, 2.0, 11.0, 12.0]));
+        assert_eq!(z.clone_as_vec(), fv::<V>(&[2.0, 1.0, 2.0, 1.0]));
+    }
+
+    /// An `nbatch == 1` scratch is shared by every lane of a batched output.
+    ///
+    /// Host-only: the lanes write the shared operand in lane order, which is not something
+    /// concurrent lanes can reproduce, so `for_each_batch_mut` rejects this shape on a backend
+    /// with a device path.
+    pub fn test_batched_for_each_batch_mut<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let mut y = V::zeros(2, ctx);
+        let mut scratch = V::zeros(2, V::C::default());
+
+        V::for_each_batch_mut_host([&mut y, &mut scratch], [&x], |[y, scratch], [x], lane| {
+            scratch.copy_from_slice(x);
+            scratch[1] += f::<V>(lane as f64);
+            y[0] = scratch[0];
+            y[1] = scratch[1];
+        });
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[1.0, 2.0, 10.0, 21.0]));
+        // the scratch holds whatever the last lane left in it
+        assert_eq!(scratch.clone_as_vec(), fv::<V>(&[10.0, 21.0]));
+    }
+
+    /// The closure's last argument is the lane being written.
+    pub fn test_for_each_batch_index<V: Vector>() {
+        let mut y = V::zeros(1, V::C::default());
+        let mut y_host = V::zeros(1, V::C::default());
+        let write_lane = |y: &mut [V::T], _: [&[V::T]; 0], lane: usize| y[0] = f::<V>(lane as f64);
+        y.for_each_batch([], write_lane);
+        y_host.for_each_batch_host([], write_lane);
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[0.0]));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+    }
+
+    /// Every lane is visited exactly once, and gets its own index.
+    pub fn test_batched_for_each_batch_index<V: Vector>(ctx: V::C) {
+        let nbatch = ctx.nbatch();
+        assert!(nbatch > 1);
+        let mut y = V::zeros(2, ctx.clone());
+        let mut y_host = V::zeros(2, ctx);
+        let write_lane = |y: &mut [V::T], _: [&[V::T]; 0], lane: usize| {
+            y[0] = f::<V>(lane as f64);
+            y[1] += f::<V>(1.0);
+        };
+        y.for_each_batch([], write_lane);
+        y_host.for_each_batch_host([], write_lane);
+        let expected: Vec<f64> = (0..nbatch).flat_map(|b| [b as f64, 1.0]).collect();
+        assert_eq!(y.clone_as_vec(), fv::<V>(&expected));
+        assert_eq!(y_host.clone_as_vec(), y.clone_as_vec());
+    }
+
+    pub fn test_batched_for_each_batch_bad_nbatch<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let ctx3 = ctx.clone_with_nbatch(3).unwrap();
+        let x = V::zeros(1, ctx3);
+        let mut y = V::zeros(1, ctx);
+        y.for_each_batch([&x], |y: &mut [V::T], [x]: [&[V::T]; 1], _lane: usize| {
+            y[0] = x[0]
+        });
+    }
+
+    pub fn test_batched_axpy_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        // self has nbatch=2, x has nbatch=1
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx);
+        let x = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+        y.axpy(f::<V>(2.0), &x, f::<V>(1.0));
+        // batch0: [1+6, 2+8]=[7,10], batch1: [10+6, 20+8]=[16,28]
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 10.0, 16.0, 28.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_copy_from_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::zeros(2, ctx);
+        let x = V::from_vec(fv::<V>(&[5.0, 7.0]), V::C::default());
+        y.copy_from(&x);
+        // both batches get [5, 7]
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[5.0, 7.0, 5.0, 7.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_component_div<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[6.0, 8.0, 12.0, 20.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[2.0, 4.0, 3.0, 5.0]), ctx);
+        a.component_div_assign(&b);
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[3.0, 2.0, 4.0, 4.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_component_mul_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[2.0, 3.0, 4.0, 5.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0]), V::C::default());
+        a.component_mul_assign(&b);
+        // batch0: [20, 60], batch1: [40, 100]
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[20.0, 60.0, 40.0, 100.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_component_div_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[6.0, 8.0, 12.0, 20.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[2.0, 4.0]), V::C::default());
+        a.component_div_assign(&b);
+        // batch0: [3, 2], batch1: [6, 5]
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[3.0, 2.0, 6.0, 5.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_add_assign_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0]), V::C::default());
+        a += &b;
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[11.0, 22.0, 13.0, 24.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_sub_assign_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        a -= &b;
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[9.0, 18.0, 29.0, 38.0]));
+    }
+
+    /// Owned right-hand side with broadcasting in both directions: the right-hand side can
+    /// only hold the result when it already has the result's batch count.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_owned_rhs_broadcast<V: Vector>(ctx: V::C)
+    where
+        for<'a> &'a V: Sub<V, Output = V>,
+    {
+        assert_eq!(ctx.nbatch(), 2);
+        // `rhs` is the owned operand, so it governs and `lhs` broadcasts into its batches
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0]), V::C::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let c = &a - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 7.0, 16.0]));
+        assert_eq!(c.context().nbatch(), 2);
+    }
+
+    /// The owned right-hand side governs, so a *wider* borrowed left-hand side is an error.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_owned_rhs_narrow<V: Vector>(ctx: V::C)
+    where
+        for<'a> &'a V: Sub<V, Output = V>,
+    {
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let _ = &a - b;
+    }
+
+    /// The owned left-hand side governs and is written into in place.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_owned_lhs_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let c = a - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 29.0, 38.0]));
+        assert_eq!(c.context().nbatch(), 2);
+    }
+
+    /// The owned left-hand side governs, so a *wider* right-hand side is an error.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_owned_lhs_narrow<V: Vector>(ctx: V::C) {
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0]), V::C::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let _ = a - b;
+    }
+
+    /// View+view addition with mismatched batch counts: neither operand is owned, so the
+    /// left-hand side governs and `rhs` broadcasts into it.  Exercises the general
+    /// (non-equal-ncols) branch of the view/ref arithmetic impls.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_view_add_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx);
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let c = a.as_view() + b.as_view();
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[11.0, 22.0, 31.0, 42.0]));
+        assert_eq!(c.context().nbatch(), 2);
+    }
+
+    /// Neither operand owned, so the left-hand side governs: a wider right-hand side is an
+    /// error rather than a wider result.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_view_add_narrow<V: Vector>(ctx: V::C) {
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0]), V::C::default());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let _ = a.as_view() + b.as_view();
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_sub<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        let c = a - b;
+        assert_eq!(c.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0, 36.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_sub_assign<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut a = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx);
+        a -= b;
+        assert_eq!(a.clone_as_vec(), fv::<V>(&[9.0, 18.0, 27.0, 36.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_from_slice<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let slice = fv::<V>(&[1.0, 2.0, 3.0, 1.0, 2.0, 3.0]);
+        let v = V::from_slice(&slice, ctx);
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0, 1.0, 2.0, 3.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_mul_scalar<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx);
+        let result = v * Scale(f::<V>(2.0));
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[2.0, 4.0, 20.0, 40.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_div_scalar<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[2.0, 4.0, 20.0, 40.0]), ctx);
+        let result = v / Scale(f::<V>(2.0));
+        assert_eq!(result.clone_as_vec(), fv::<V>(&[1.0, 2.0, 10.0, 20.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_copy_from_indices<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v1 = V::zeros(4, ctx.clone());
+        let v2 = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            ctx,
+        );
+        let indices = V::Index::from_vec(vec![0, 2, 3], Default::default());
+        v1.copy_from_indices(&v2, &indices);
+        assert_eq!(
+            v1.clone_as_vec(),
+            fv::<V>(&[10.0, 0.0, 30.0, 40.0, 50.0, 0.0, 70.0, 80.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_gather<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut result = V::zeros(3, ctx.clone());
+        let v = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            ctx,
+        );
+        let indices = V::Index::from_vec(vec![3, 0, 2], Default::default());
+        result.gather(&v, &indices);
+        assert_eq!(
+            result.clone_as_vec(),
+            fv::<V>(&[40.0, 10.0, 30.0, 80.0, 50.0, 70.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_scatter<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[40.0, 10.0, 30.0, 80.0, 50.0, 70.0]), ctx.clone());
+        let indices = V::Index::from_vec(vec![3, 0, 2], Default::default());
+        let mut result = V::zeros(4, ctx);
+        v.scatter(&indices, &mut result);
+        assert_eq!(
+            result.clone_as_vec(),
+            fv::<V>(&[10.0, 0.0, 30.0, 40.0, 50.0, 0.0, 70.0, 80.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_get_batch<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 10.0, 20.0, 30.0]), ctx);
+        let batch0 = v.get_batch(0);
+        assert_eq!(batch0.get_index(0), f::<V>(1.0));
+        assert_eq!(batch0.get_index(1), f::<V>(2.0));
+        assert_eq!(batch0.get_index(2), f::<V>(3.0));
+        let batch1 = v.get_batch(1);
+        assert_eq!(batch1.get_index(0), f::<V>(10.0));
+        assert_eq!(batch1.get_index(1), f::<V>(20.0));
+        assert_eq!(batch1.get_index(2), f::<V>(30.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_get_batch_mut<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 10.0, 20.0, 30.0]), ctx);
+        {
+            let mut batch0 = v.get_batch_mut(0);
+            batch0.set_index(1, f::<V>(99.0));
+        }
+        assert_eq!(
+            v.clone_as_vec(),
+            fv::<V>(&[1.0, 99.0, 3.0, 10.0, 20.0, 30.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_v<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let x = V::from_vec(fv::<V>(&[3.0, 4.0, 30.0, 40.0]), ctx);
+        let x_view = x.as_view();
+        y.axpy_v(f::<V>(2.0), &x_view, f::<V>(1.0));
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 10.0, 70.0, 100.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_mul_assign_scalar<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx);
+        v *= Scale(f::<V>(2.0));
+        assert_eq!(v.clone_as_vec(), fv::<V>(&[2.0, 4.0, 20.0, 40.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_copy_from_view<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut v1 = V::zeros(2, ctx);
+        let v2 = V::from_vec(fv::<V>(&[5.0, 7.0]), V::C::default());
+        let view = v2.as_view();
+        v1.copy_from_view(&view);
+        assert_eq!(v1.clone_as_vec(), fv::<V>(&[5.0, 7.0, 5.0, 7.0]));
+    }
+
+    // --- batched_axpy tests ---
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_new<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let x = V::from_vec(fv::<V>(&[3.0, 4.0, 30.0, 40.0]), ctx.clone());
+        // one value per lane: alpha_0 = 2, alpha_1 = 0.5
+        let alpha = V::from_vec(fv::<V>(&[2.0, 0.5]), ctx);
+        y.batched_axpy(&alpha, &x, f::<V>(1.0));
+        // batch0: [1,2] + 2*[3,4] = [7,10]
+        // batch1: [10,20] + 0.5*[30,40] = [25,40]
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 10.0, 25.0, 40.0]));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_new_broadcast<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::from_vec(fv::<V>(&[1.0, 2.0, 10.0, 20.0]), ctx.clone());
+        let x = V::from_vec(fv::<V>(&[3.0, 4.0]), V::C::default());
+        let alpha = V::from_vec(fv::<V>(&[2.0, 0.5]), ctx);
+        y.batched_axpy(&alpha, &x, f::<V>(1.0));
+        // both batches: beta*y + alpha_b * x
+        // batch0: [1,2] + 2*[3,4] = [7,10]
+        // batch1: [10,20] + 0.5*[3,4] = [11.5,22]
+        assert_eq!(y.clone_as_vec(), fv::<V>(&[7.0, 10.0, 11.5, 22.0]));
+    }
+
+    #[allow(clippy::type_complexity)]
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_new_bad_length<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::zeros(2, ctx.clone());
+        let x = V::zeros(2, V::C::default());
+        // alpha must be one value per lane, not one value per state
+        let alpha = V::zeros(2, ctx);
+        y.batched_axpy(&alpha, &x, f::<V>(0.0));
+    }
+
+    /// `alpha` carries one lane per batch of `self`, so a narrower alpha is a mistake rather than
+    /// something to broadcast -- a uniform multiplier is plain `axpy`.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_new_bad_nbatch<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let mut y = V::zeros(2, ctx);
+        let x = V::zeros(2, V::C::default());
+        let alpha = V::from_vec(fv::<V>(&[2.0]), V::C::default());
+        y.batched_axpy(&alpha, &x, f::<V>(0.0));
+    }
+
+    /// Every operand flavour of `+` and `-` (owned, reference, view, view reference on either
+    /// side), each with the widths the governing rule requires: an owned operand governs, and
+    /// with none owned the left-hand side does.  Each flavour is a separate `impl` that decides
+    /// on its own whether it can write in place, so they all need exercising with mismatched
+    /// batch counts.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_binary_forms_broadcast<V: Vector>(ctx: V::C)
+    where
+        for<'a> &'a V: Add<V, Output = V> + Sub<V, Output = V>,
+        for<'a, 'b> &'a V: Add<&'b V, Output = V> + Sub<&'b V, Output = V>,
+        for<'a, 'b> &'a V: Add<V::View<'b>, Output = V> + Sub<V::View<'b>, Output = V>,
+        for<'a, 'b, 'c> &'a V: Add<&'b V::View<'c>, Output = V> + Sub<&'b V::View<'c>, Output = V>,
+        for<'a> V::View<'a>: Add<V, Output = V> + Sub<V, Output = V>,
+        for<'a, 'b> V::View<'a>: Add<&'b V, Output = V> + Sub<&'b V, Output = V>,
+        for<'a, 'b> V::View<'a>: Add<V::View<'b>, Output = V> + Sub<V::View<'b>, Output = V>,
+        for<'a, 'b, 'c> V::View<'a>:
+            Add<&'b V::View<'c>, Output = V> + Sub<&'b V::View<'c>, Output = V>,
+    {
+        assert_eq!(ctx.nbatch(), 2);
+        let wide = || V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx.clone());
+        let narrow = || V::from_vec(fv::<V>(&[1.0, 2.0]), V::C::default());
+        let (n, w) = (narrow(), wide());
+        // wide - narrow, narrow - wide, wide + narrow
+        let ws = fv::<V>(&[9.0, 18.0, 29.0, 38.0]);
+        let ns = fv::<V>(&[-9.0, -18.0, -29.0, -38.0]);
+        let sum = fv::<V>(&[11.0, 22.0, 31.0, 42.0]);
+
+        // the owned left-hand side governs, so it is the wide one
+        assert_eq!((wide() - narrow()).clone_as_vec(), ws);
+        assert_eq!((wide() - &narrow()).clone_as_vec(), ws);
+        assert_eq!((wide() - n.as_view()).clone_as_vec(), ws);
+        assert_eq!((wide() - &n.as_view()).clone_as_vec(), ws);
+        assert_eq!((wide() + narrow()).clone_as_vec(), sum);
+        assert_eq!((wide() + &narrow()).clone_as_vec(), sum);
+        assert_eq!((wide() + n.as_view()).clone_as_vec(), sum);
+        assert_eq!((wide() + &n.as_view()).clone_as_vec(), sum);
+
+        // only the right-hand side is owned, so it governs and must be the wide one
+        assert_eq!((&n - wide()).clone_as_vec(), ns);
+        assert_eq!((n.as_view() - wide()).clone_as_vec(), ns);
+        assert_eq!((&n + wide()).clone_as_vec(), sum);
+        assert_eq!((n.as_view() + wide()).clone_as_vec(), sum);
+
+        // neither operand is owned, so the left-hand side governs
+        assert_eq!((&w - &n).clone_as_vec(), ws);
+        assert_eq!((&w - n.as_view()).clone_as_vec(), ws);
+        assert_eq!((&w - &n.as_view()).clone_as_vec(), ws);
+        assert_eq!((w.as_view() - &n).clone_as_vec(), ws);
+        assert_eq!((w.as_view() - n.as_view()).clone_as_vec(), ws);
+        assert_eq!((w.as_view() - &n.as_view()).clone_as_vec(), ws);
+        assert_eq!((&w + &n).clone_as_vec(), sum);
+        assert_eq!((&w + n.as_view()).clone_as_vec(), sum);
+        assert_eq!((&w + &n.as_view()).clone_as_vec(), sum);
+        assert_eq!((w.as_view() + &n).clone_as_vec(), sum);
+        assert_eq!((w.as_view() + n.as_view()).clone_as_vec(), sum);
+        assert_eq!((w.as_view() + &n.as_view()).clone_as_vec(), sum);
+    }
+
+    /// Zero-length batched vectors: every kernel-launching op short-circuits rather than
+    /// launching an empty grid, and that guard is per-op.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_empty<V: Vector>(ctx: V::C)
+    where
+        for<'a, 'b> &'a V: Add<&'b V, Output = V>,
+    {
+        assert_eq!(ctx.nbatch(), 2);
+        let empty = || V::from_vec(vec![], ctx.clone());
+        let mut a = empty();
+        let b = empty();
+        assert_eq!(a.len(), 0);
+        assert_eq!(a.total_len(), 0);
+        a += &b;
+        a -= &b;
+        a.axpy(f::<V>(2.0), &b, f::<V>(1.0));
+        a.axpy_v(f::<V>(2.0), &b.as_view(), f::<V>(1.0));
+        a.component_mul_assign(&b);
+        a.component_div_assign(&b);
+        a.batched_axpy(
+            &V::from_vec(fv::<V>(&[1.0, 1.0]), ctx.clone()),
+            &b,
+            f::<V>(1.0),
+        );
+        a.copy_from(&b);
+        a.copy_from_view(&b.as_view());
+        a.fill(f::<V>(1.0));
+        a *= Scale(f::<V>(2.0));
+        let c = empty() * Scale(f::<V>(2.0));
+        let e = empty() + b.as_view();
+        let g = &empty() + &b;
+        assert!(g.clone_as_vec().is_empty());
+        let idx = V::Index::from_vec(vec![], Default::default());
+        a.gather(&b, &idx);
+        a.scatter(&idx, &mut V::from_vec(vec![], ctx.clone()));
+        a.assign_at_indices(&idx, f::<V>(1.0));
+        a.copy_from_indices(&b, &idx);
+        a.as_view_mut().copy_from_view(&b.as_view());
+        a.as_view_mut().axpy(f::<V>(1.0), &b, f::<V>(1.0));
+        assert!(a.clone_as_vec().is_empty());
+        assert!(c.clone_as_vec().is_empty());
+        assert!(e.clone_as_vec().is_empty());
+        assert_eq!(a.norm(2), f::<V>(0.0));
+        assert_eq!(a.squared_norm(&b, &empty(), f::<V>(1.0)), f::<V>(0.0));
+        assert_eq!(a.root_finding(&b), (false, f::<V>(0.0), -1));
+    }
+
+    // --- Grouped broadcast tests: `B` batches feeding `B * P` batches ---
+    //
+    // Every group holds a distinct value, so a cyclic mapping (`b % B`, source order
+    // `[0, 1, 0, 1]`) fails these — grouped broadcasting reads `[0, 0, 1, 1]`.
+
+    /// `nbatch = 2` widened to 4, so each source batch covers two contiguous destinations.
+    fn ctx4<V: Vector>(ctx2: &V::C) -> V::C {
+        assert_eq!(ctx2.nbatch(), 2);
+        ctx2.clone_with_nbatch(4).unwrap()
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_axpy<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            wide,
+        );
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        y.axpy(f::<V>(1.0), &x, f::<V>(1.0));
+        assert_eq!(
+            y.clone_as_vec(),
+            fv::<V>(&[11.0, 22.0, 31.0, 42.0, 53.0, 64.0, 73.0, 84.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_add_assign<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut a = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            wide,
+        );
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        a += &b;
+        assert_eq!(
+            a.clone_as_vec(),
+            fv::<V>(&[11.0, 22.0, 31.0, 42.0, 53.0, 64.0, 73.0, 84.0])
+        );
+    }
+
+    /// The allocating operator, with the narrow operand on each side in turn.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_add<V: Vector>(ctx2: V::C)
+    where
+        for<'b> &'b V: Add<&'b V, Output = V>,
+    {
+        let wide = ctx4::<V>(&ctx2);
+        let a = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            wide,
+        );
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        // neither operand is owned, so the wide left-hand side governs
+        let expected = fv::<V>(&[11.0, 22.0, 31.0, 42.0, 53.0, 64.0, 73.0, 84.0]);
+        assert_eq!((&a + &b).clone_as_vec(), expected);
+    }
+
+    /// The reversed orientation of [`test_grouped_add`]: the narrow side is on the left and
+    /// neither operand is owned, so it governs and the wider right-hand side is an error.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_add_narrow_lhs<V: Vector>(ctx2: V::C)
+    where
+        for<'b> &'b V: Add<&'b V, Output = V>,
+    {
+        let wide = ctx4::<V>(&ctx2);
+        let a = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            wide,
+        );
+        let b = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        let _ = &b + &a;
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_copy_from<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::zeros(2, wide);
+        let x = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        y.copy_from(&x);
+        assert_eq!(
+            y.clone_as_vec(),
+            fv::<V>(&[1.0, 2.0, 1.0, 2.0, 3.0, 4.0, 3.0, 4.0])
+        );
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_component_mul<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut a = V::from_vec(fv::<V>(&[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0]), wide);
+        let b = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0]), ctx2);
+        a.component_mul_assign(&b);
+        assert_eq!(
+            a.clone_as_vec(),
+            fv::<V>(&[10.0, 20.0, 20.0, 40.0, 90.0, 120.0, 120.0, 160.0])
+        );
+    }
+
+    /// The reduction runs over the widest operand, so the largest group's norm wins.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_squared_norm<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let v = V::from_vec(
+            fv::<V>(&[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+            wide.clone(),
+        );
+        // atol is 1 in the first group and 1/3 in the second, so the second group dominates
+        let y = V::zeros(2, ctx2.clone());
+        let atol = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0 / 3.0, 1.0 / 3.0]), ctx2.clone());
+        let norm = v.squared_norm(&y, &atol, f::<V>(1.0));
+        assert_eq!(norm, f::<V>(9.0));
+        // and with the wide vector narrowed to the same batch count the answer is unchanged
+        let narrow = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0, 1.0]), ctx2);
+        assert_eq!(narrow.squared_norm(&y, &atol, f::<V>(1.0)), f::<V>(9.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_gather<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let idx = V::Index::from_vec(vec![1, 0], Default::default());
+        let o = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        let mut a = V::zeros(2, wide);
+        a.gather(&o, &idx);
+        assert_eq!(
+            a.clone_as_vec(),
+            fv::<V>(&[2.0, 1.0, 2.0, 1.0, 4.0, 3.0, 4.0, 3.0])
+        );
+    }
+
+    /// A representative slice of the [`test_batched_binary_forms_broadcast`] forms, grouped.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_owned_lhs_ref_rhs<V: Vector>(ctx2: V::C) {
+        let ctx = ctx4::<V>(&ctx2);
+        let wide = || {
+            V::from_vec(
+                fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+                ctx.clone(),
+            )
+        };
+        let narrow = || V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2.clone());
+        let wide_lhs = fv::<V>(&[9.0, 18.0, 29.0, 38.0, 47.0, 56.0, 67.0, 76.0]);
+        let n = narrow();
+
+        // the owned left-hand side governs, so it must be the wider one
+        assert_eq!((wide() - &narrow()).clone_as_vec(), wide_lhs);
+        assert_eq!((wide() - &n.as_view()).clone_as_vec(), wide_lhs);
+    }
+
+    /// The grouped flavour of [`test_batched_owned_lhs_narrow`].
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_owned_lhs_narrow<V: Vector>(ctx2: V::C) {
+        let ctx = ctx4::<V>(&ctx2);
+        let wide = V::from_vec(
+            fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]),
+            ctx,
+        );
+        let narrow = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0]), ctx2);
+        let _ = narrow - &wide;
+    }
+
+    /// 4 is not a multiple of 3 (nor 3 of 4), so this is not an exact repeat group.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_grouped_incompatible<V: Vector>(ctx3: V::C) {
+        assert_eq!(ctx3.nbatch(), 3);
+        let wide = ctx3.clone_with_nbatch(4).unwrap();
+        let mut y = V::zeros(2, wide);
+        let x = V::zeros(2, ctx3);
+        y.axpy(f::<V>(1.0), &x, f::<V>(1.0));
+    }
+
+    // --- Narrow-destination tests: writing a wider operand into a narrower destination
+    // would silently drop batches, so it panics instead (`assert_broadcastable_into`) ---
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_copy_from<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, wide);
+        y.copy_from(&x);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_add_assign<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, wide);
+        y += &x;
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_axpy<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, wide);
+        y.axpy(f::<V>(1.0), &x, f::<V>(1.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_component_mul<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, wide);
+        y.component_mul_assign(&x);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_gather<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let idx = V::Index::from_vec(vec![1, 0], Default::default());
+        let o = V::zeros(2, wide);
+        let mut a = V::zeros(2, ctx2);
+        a.gather(&o, &idx);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_copy_from_indices<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let idx = V::Index::from_vec(vec![1, 0], Default::default());
+        let o = V::zeros(2, wide);
+        let mut a = V::zeros(2, ctx2);
+        a.copy_from_indices(&o, &idx);
+    }
+
+    /// `scatter` writes into its argument, so the narrow operand is the one being written.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_scatter<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let idx = V::Index::from_vec(vec![1, 0], Default::default());
+        let source = V::zeros(2, wide);
+        let mut dest = V::zeros(2, ctx2);
+        source.scatter(&idx, &mut dest);
+    }
+
+    /// An unbatched `self` takes a fast path, which must still enforce the broadcast rule.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_unbatched_dest_squared_norm<V: Vector>(ctx2: V::C) {
+        let ctx1 = ctx2.clone_with_nbatch(1).unwrap();
+        let v = V::from_vec(fv::<V>(&[1.0, 1.0]), ctx1.clone());
+        let y = V::zeros(2, ctx2);
+        let atol = V::from_element(2, f::<V>(1.0), ctx1);
+        v.squared_norm(&y, &atol, f::<V>(1.0));
+    }
+
+    /// The reduction runs over `self`'s batches, so a wider `y`/`atol` is the same case.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_narrow_dest_squared_norm<V: Vector>(ctx2: V::C) {
+        let wide = ctx4::<V>(&ctx2);
+        let v = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0, 1.0]), ctx2.clone());
+        let y = V::zeros(2, wide);
+        let atol = V::from_element(2, f::<V>(1.0), ctx2);
+        v.squared_norm(&y, &atol, f::<V>(1.0));
+    }
+
+    // --- Incompatible batch tests ---
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_axpy_incompatible<V: Vector>(ctx2: V::C, ctx3: V::C) {
+        assert_eq!(ctx2.nbatch(), 2);
+        assert_eq!(ctx3.nbatch(), 3);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, ctx3);
+        y.axpy(f::<V>(1.0), &x, f::<V>(1.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_copy_from_incompatible<V: Vector>(ctx2: V::C, ctx3: V::C) {
+        assert_eq!(ctx2.nbatch(), 2);
+        assert_eq!(ctx3.nbatch(), 3);
+        let mut y = V::zeros(2, ctx2);
+        let x = V::zeros(2, ctx3);
+        y.copy_from(&x);
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_add_assign_incompatible<V: Vector>(ctx2: V::C, ctx3: V::C) {
+        assert_eq!(ctx2.nbatch(), 2);
+        assert_eq!(ctx3.nbatch(), 3);
+        let mut a = V::zeros(2, ctx2);
+        let b = V::zeros(2, ctx3);
+        a += &b;
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_batched_component_mul_incompatible<V: Vector>(ctx2: V::C, ctx3: V::C) {
+        assert_eq!(ctx2.nbatch(), 2);
+        assert_eq!(ctx3.nbatch(), 3);
+        let mut a = V::zeros(2, ctx2);
+        let b = V::zeros(2, ctx3);
+        a.component_mul_assign(&b);
+    }
+
+    #[test]
+    fn vector_common_for_references_and_default_helpers_work() {
+        let mut v = NalgebraVec::from_vec(vec![1.0, 2.0], NalgebraContext::default());
+        assert_eq!(<NalgebraVec<f64> as VectorCommon>::inner(&v).nrows(), 2);
+        assert_eq!(<NalgebraVec<f64> as VectorCommon>::inner(&v).ncols(), 1);
+        assert_eq!(<&NalgebraVec<f64> as VectorCommon>::inner(&&v).nrows(), 2);
+        assert_eq!(
+            <&mut NalgebraVec<f64> as VectorCommon>::inner(&&mut v).ncols(),
+            1
+        );
+
+        let empty = NalgebraVec::<f64>::zeros(0, NalgebraContext::default());
+        assert!(empty.is_empty());
+
+        let non_empty = NalgebraVec::<f64>::zeros(2, NalgebraContext::default());
+        assert!(!non_empty.is_empty());
+        assert_eq!(non_empty.clone_as_vec(), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn vector_assert_eq_panics_for_length_mismatch() {
+        let left = NalgebraVec::from_vec(vec![1.0, 2.0], NalgebraContext::default());
+        let right = NalgebraVec::from_vec(vec![1.0], NalgebraContext::default());
+        let tol = NalgebraVec::from_vec(vec![0.0, 0.0], NalgebraContext::default());
+        assert!(catch_unwind(AssertUnwindSafe(|| left.assert_eq(&right, &tol))).is_err());
+    }
+
+    #[test]
+    fn vector_assert_helpers_cover_success_and_failure_paths() {
+        let left = NalgebraVec::from_vec(vec![1.0, 2.0, 3.0], NalgebraContext::default());
+        let right = NalgebraVec::from_vec(vec![1.0, 2.0, 3.0], NalgebraContext::default());
+        let tol = NalgebraVec::from_vec(vec![0.0, 0.0, 0.0], NalgebraContext::default());
+        left.assert_eq(&right, &tol);
+        left.assert_eq_st(&right, 0.0);
+        left.assert_eq_norm(&right, &tol, 1e-6, 1.0);
+
+        let perturbed = NalgebraVec::from_vec(vec![1.1, 2.0, 3.0], NalgebraContext::default());
+        assert!(catch_unwind(AssertUnwindSafe(
+            || left.assert_eq_norm(&perturbed, &tol, 1e-6, 0.01)
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn vector_assert_eq_vec_panics_for_short_vector_mismatch() {
+        assert!(catch_unwind(AssertUnwindSafe(|| {
+            <NalgebraVec<f64> as Vector>::assert_eq_vec(
+                vec![1.0, 2.0, 3.0],
+                vec![0.0, 2.0, 3.0],
+                vec![0.0, 0.0, 0.0],
+            )
+        }))
+        .is_err());
+    }
+
+    #[test]
+    fn vector_assert_eq_vec_panics_for_first_middle_and_last_mismatch_in_long_vectors() {
+        assert!(catch_unwind(AssertUnwindSafe(|| {
+            <NalgebraVec<f64> as Vector>::assert_eq_vec(
+                vec![1.0, 2.0, 3.0, 4.0],
+                vec![0.0, 2.0, 3.0, 4.0],
+                vec![0.0, 0.0, 0.0, 0.0],
+            )
+        }))
+        .is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| {
+            <NalgebraVec<f64> as Vector>::assert_eq_vec(
+                vec![1.0, 2.0, 3.0, 4.0, 5.0],
+                vec![1.0, 2.0, 0.0, 4.0, 5.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0],
+            )
+        }))
+        .is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| {
+            <NalgebraVec<f64> as Vector>::assert_eq_vec(
+                vec![1.0, 2.0, 3.0, 4.0],
+                vec![1.0, 2.0, 3.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0],
+            )
+        }))
+        .is_err());
+    }
+
+    use crate::matrix::DenseMatrix;
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    fn make_strided_test_matrix<M: DenseMatrix>(nbatch: usize) -> M {
+        let ctx = M::C::default().clone_with_nbatch(nbatch).unwrap();
+        let nrows = 3;
+        let ncols = 4;
+        let mut data = Vec::with_capacity(nrows * ncols * nbatch);
+        for b in 0..nbatch {
+            for col in 0..ncols {
+                for row in 0..nrows {
+                    data.push(f::<M::V>(row as f64 + col as f64 * 10.0 + b as f64 * 100.0));
+                }
+            }
+        }
+        M::from_vec(nrows, ncols, data, ctx)
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_fill_index<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1.fill_index(1, f::<M::V>(99.0));
+        }
+        let owned = matrix.column(1).into_owned();
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(1), f::<M::V>(99.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(99.0));
+    }
+
+    /// A column of a batched matrix is a batched view, so `set_index` must refuse it.
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_set_index_panics<M: DenseMatrix>(ctx: M::C) {
+        assert!(ctx.nbatch() > 1);
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        matrix.column_mut(1).set_index(1, f::<M::V>(99.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mut_copy_from<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let owned = M::V::from_vec(
+            vec![f::<M::V>(50.0), f::<M::V>(51.0), f::<M::V>(52.0)],
+            M::C::default(),
+        );
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1.copy_from(&owned);
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b0 = owned_v.get_batch(0);
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(50.0));
+        assert_eq!(b0.get_index(1), f::<M::V>(51.0));
+        assert_eq!(b0.get_index(2), f::<M::V>(52.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(50.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(51.0));
+        assert_eq!(b1.get_index(2), f::<M::V>(52.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mut_axpy<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let x = M::V::from_vec(
+            vec![f::<M::V>(10.0), f::<M::V>(10.0), f::<M::V>(10.0)],
+            M::C::default(),
+        );
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1.axpy(f::<M::V>(2.0), &x, f::<M::V>(1.0));
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b1.get_index(0), f::<M::V>(130.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(131.0));
+        assert_eq!(b1.get_index(2), f::<M::V>(132.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mut_mul_assign_scalar<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1 *= Scale(f::<M::V>(2.0));
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b0 = owned_v.get_batch(0);
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(20.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(220.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mut_add_assign<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let rhs = M::V::from_vec(
+            vec![
+                f::<M::V>(5.0),
+                f::<M::V>(5.0),
+                f::<M::V>(5.0),
+                f::<M::V>(10.0),
+                f::<M::V>(10.0),
+                f::<M::V>(10.0),
+            ],
+            ctx.clone(),
+        );
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1 += &rhs;
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b0 = owned_v.get_batch(0);
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(15.0));
+        assert_eq!(b0.get_index(1), f::<M::V>(16.0));
+        assert_eq!(b0.get_index(2), f::<M::V>(17.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(120.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(121.0));
+        assert_eq!(b1.get_index(2), f::<M::V>(122.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mut_sub_assign<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let rhs = M::V::from_vec(
+            vec![
+                f::<M::V>(1.0),
+                f::<M::V>(1.0),
+                f::<M::V>(1.0),
+                f::<M::V>(1.0),
+                f::<M::V>(1.0),
+                f::<M::V>(1.0),
+            ],
+            ctx.clone(),
+        );
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1 -= &rhs;
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b0 = owned_v.get_batch(0);
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(9.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(109.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_add_assign_broadcast<M: DenseMatrix>(ctx: M::C) {
+        let mut matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let rhs = M::V::from_vec(
+            vec![f::<M::V>(5.0), f::<M::V>(5.0), f::<M::V>(5.0)],
+            M::C::default(),
+        );
+        {
+            let mut col1 = matrix.column_mut(1);
+            col1 += &rhs;
+        }
+        let owned_v = matrix.column(1).into_owned();
+        let b0 = owned_v.get_batch(0);
+        let b1 = owned_v.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(15.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(115.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_add_owned<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let nbatch = ctx.nbatch();
+        let mut rhs_data = Vec::with_capacity(3 * nbatch);
+        for _ in 0..nbatch {
+            rhs_data.extend_from_slice(&[f::<M::V>(5.0), f::<M::V>(5.0), f::<M::V>(5.0)]);
+        }
+        let rhs = M::V::from_vec(rhs_data, ctx.clone());
+        let col1 = matrix.column(1);
+        let result = col1 + &rhs;
+        let b0 = result.get_batch(0);
+        let b1 = result.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(15.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(115.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_squared_norm<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let nbatch = ctx.nbatch();
+        let mut y_data = Vec::with_capacity(3 * nbatch);
+        for _ in 0..nbatch {
+            y_data.extend_from_slice(&[f::<M::V>(1.0), f::<M::V>(1.0), f::<M::V>(1.0)]);
+        }
+        let y = M::V::from_vec(y_data, ctx.clone());
+        let atol = M::V::from_vec(
+            vec![f::<M::V>(1e-3), f::<M::V>(1e-3), f::<M::V>(1e-3)],
+            M::C::default(),
+        );
+        let col1 = matrix.column(1);
+        let norm = col1.squared_norm(&y, &atol, f::<M::V>(1e-2));
+        assert!(norm > f::<M::V>(0.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_into_owned<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let col1 = matrix.column(1);
+        let owned = col1.into_owned();
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(10.0));
+        assert_eq!(b0.get_index(1), f::<M::V>(11.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(110.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(111.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_component_mul<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let rhs = M::V::from_vec(
+            vec![f::<M::V>(10.0), f::<M::V>(1.0), f::<M::V>(0.0)],
+            M::C::default(),
+        );
+        let col1 = matrix.column(1);
+        let mut owned = col1.into_owned();
+        owned.component_mul_assign(&rhs);
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(100.0));
+        assert_eq!(b0.get_index(1), f::<M::V>(11.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(1100.0));
+        assert_eq!(b1.get_index(1), f::<M::V>(111.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_component_div<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let rhs = M::V::from_vec(
+            vec![f::<M::V>(10.0), f::<M::V>(11.0), f::<M::V>(12.0)],
+            M::C::default(),
+        );
+        let col1 = matrix.column(1);
+        let mut owned = col1.into_owned();
+        owned.component_div_assign(&rhs);
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(1.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(11.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_mul_scalar<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let col1 = matrix.column(1);
+        let result = col1 * Scale(f::<M::V>(2.0));
+        let b0 = result.get_batch(0);
+        let b1 = result.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(20.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(220.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_fill<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let col1 = matrix.column(1);
+        let mut owned = col1.into_owned();
+        owned.fill(f::<M::V>(7.0));
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(7.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(7.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_assign_at_indices<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let indices = <M::V as Vector>::Index::from_vec(vec![0, 2], M::C::default());
+        let col1 = matrix.column(1);
+        let mut owned = col1.into_owned();
+        owned.assign_at_indices(&indices, f::<M::V>(0.0));
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(0.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(0.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_copy_from_indices<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let nbatch = ctx.nbatch();
+        let mut other_data = Vec::with_capacity(3 * nbatch);
+        for _ in 0..nbatch {
+            other_data.extend_from_slice(&[f::<M::V>(50.0), f::<M::V>(0.0), f::<M::V>(0.0)]);
+        }
+        let other = M::V::from_vec(other_data, ctx.clone());
+        let indices = <M::V as Vector>::Index::from_vec(vec![0], M::C::default());
+        let col1 = matrix.column(1);
+        let mut owned = col1.into_owned();
+        owned.copy_from_indices(&other, &indices);
+        let b0 = owned.get_batch(0);
+        let b1 = owned.get_batch(1);
+        assert_eq!(b0.get_index(0), f::<M::V>(50.0));
+        assert_eq!(b1.get_index(0), f::<M::V>(50.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_gather<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let nbatch = ctx.nbatch();
+        let mut result = M::V::zeros(2, M::C::default().clone_with_nbatch(nbatch).unwrap());
+        let indices = <M::V as Vector>::Index::from_vec(vec![0, 2], M::C::default());
+        let col1 = matrix.column(1);
+        let owned = col1.into_owned();
+        result.gather(&owned, &indices);
+        let b1 = result.get_batch(1);
+        assert_eq!(b1.get_index(0), f::<M::V>(110.0));
+    }
+
+    #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
+    pub fn test_strided_view_scatter<M: DenseMatrix>(ctx: M::C) {
+        let matrix = make_strided_test_matrix::<M>(ctx.nbatch());
+        let nbatch = ctx.nbatch();
+        let col1 = matrix.column(1);
+        let owned = col1.into_owned();
+        let indices = <M::V as Vector>::Index::from_vec(vec![0, 1, 2], M::C::default());
+        let mut result = M::V::zeros(3, M::C::default().clone_with_nbatch(nbatch).unwrap());
+        owned.scatter(&indices, &mut result);
+        let b1 = result.get_batch(1);
+        assert_eq!(b1.get_index(0), f::<M::V>(110.0));
+    }
+}

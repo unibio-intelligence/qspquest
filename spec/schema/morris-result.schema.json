@@ -1,0 +1,344 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ElementaryEffects": {
+      "additionalProperties": false,
+      "properties": {
+        "effects": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "mu": {
+          "format": "double",
+          "type": "number"
+        },
+        "mu_star": {
+          "format": "double",
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "sigma": {
+          "format": "double",
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "effects",
+        "mu",
+        "mu_star",
+        "parameter",
+        "sigma",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "ExecutionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        },
+        "bound_value_hash": {
+          "type": "string"
+        },
+        "build_profile": {
+          "type": "string"
+        },
+        "compiler_source_sha256": {
+          "type": "string"
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "model_content_hash": {
+          "type": "string"
+        },
+        "run_request_hash": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "rustflags_sha256": {
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "backend",
+        "backend_version",
+        "bound_value_hash",
+        "build_profile",
+        "compiler_source_sha256",
+        "compiler_version",
+        "model_content_hash",
+        "run_request_hash",
+        "rustc_version",
+        "rustflags_sha256",
+        "spec_version",
+        "target"
+      ],
+      "type": "object"
+    },
+    "MorrisDesignProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "design_request_hash": {
+          "type": "string"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "seed": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "design_request_hash",
+        "generator",
+        "seed"
+      ],
+      "type": "object"
+    },
+    "MorrisResult": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_request_hash": {
+          "type": "string"
+        },
+        "effects": {
+          "items": {
+            "$ref": "#/definitions/ElementaryEffects"
+          },
+          "type": "array"
+        },
+        "scan": {
+          "$ref": "#/definitions/ScanResult"
+        }
+      },
+      "required": [
+        "analysis_request_hash",
+        "effects",
+        "scan"
+      ],
+      "type": "object"
+    },
+    "MorrisResultSchema": {
+      "enum": [
+        "qspquest.morris-result/v0.1"
+      ],
+      "type": "string"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ResultColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "values"
+      ],
+      "type": "object"
+    },
+    "ResultSchema": {
+      "enum": [
+        "qspquest.result/v0.1"
+      ],
+      "type": "string"
+    },
+    "RunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/definitions/ExecutionIdentity"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/definitions/ResultColumn"
+          },
+          "type": "array"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/ResultSchema"
+        },
+        "sides": {
+          "items": {
+            "$ref": "#/definitions/ObservationSide"
+          },
+          "type": "array"
+        },
+        "time_unit": {
+          "type": "string"
+        },
+        "times": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "identity",
+        "model_id",
+        "outputs",
+        "schema",
+        "sides",
+        "time_unit",
+        "times"
+      ],
+      "type": "object"
+    },
+    "ScanPointResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        },
+        "result": {
+          "$ref": "#/definitions/RunResult"
+        }
+      },
+      "required": [
+        "id",
+        "parameters",
+        "result"
+      ],
+      "type": "object"
+    },
+    "ScanResult": {
+      "additionalProperties": false,
+      "properties": {
+        "results": {
+          "items": {
+            "$ref": "#/definitions/ScanPointResult"
+          },
+          "type": "array"
+        },
+        "scan_request_hash": {
+          "type": "string"
+        },
+        "schema": {
+          "$ref": "#/definitions/ScanResultSchema"
+        }
+      },
+      "required": [
+        "results",
+        "scan_request_hash",
+        "schema"
+      ],
+      "type": "object"
+    },
+    "ScanResultSchema": {
+      "enum": [
+        "qspquest.scan-result/v0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "design": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/MorrisDesignProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result": {
+      "$ref": "#/definitions/MorrisResult"
+    },
+    "schema": {
+      "$ref": "#/definitions/MorrisResultSchema"
+    }
+  },
+  "required": [
+    "result",
+    "schema"
+  ],
+  "title": "MorrisExecutionResult",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

@@ -1,0 +1,698 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ExecutionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        },
+        "bound_value_hash": {
+          "type": "string"
+        },
+        "build_profile": {
+          "type": "string"
+        },
+        "compiler_source_sha256": {
+          "type": "string"
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "model_content_hash": {
+          "type": "string"
+        },
+        "run_request_hash": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "rustflags_sha256": {
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "backend",
+        "backend_version",
+        "bound_value_hash",
+        "build_profile",
+        "compiler_source_sha256",
+        "compiler_version",
+        "model_content_hash",
+        "run_request_hash",
+        "rustc_version",
+        "rustflags_sha256",
+        "spec_version",
+        "target"
+      ],
+      "type": "object"
+    },
+    "FitResultSchema": {
+      "enum": [
+        "qspquest.fit-result/v0.1"
+      ],
+      "type": "string"
+    },
+    "FitStatus": {
+      "enum": [
+        "converged",
+        "evaluation_limit",
+        "iteration_limit",
+        "line_search_failed"
+      ],
+      "type": "string"
+    },
+    "GaussianFitResult": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "fit_request_hash": {
+          "type": "string"
+        },
+        "iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "objective": {
+          "$ref": "#/definitions/GaussianObjectiveResult"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        },
+        "projected_gradient_norm": {
+          "format": "double",
+          "type": "number"
+        },
+        "status": {
+          "$ref": "#/definitions/FitStatus"
+        }
+      },
+      "required": [
+        "evaluations",
+        "fit_request_hash",
+        "iterations",
+        "objective",
+        "parameters",
+        "projected_gradient_norm",
+        "status"
+      ],
+      "type": "object"
+    },
+    "GaussianObjectiveResult": {
+      "additionalProperties": false,
+      "properties": {
+        "gradient": {
+          "items": {
+            "$ref": "#/definitions/ObjectiveGradient"
+          },
+          "type": "array"
+        },
+        "identity": {
+          "$ref": "#/definitions/ExecutionIdentity"
+        },
+        "negative_log_likelihood": {
+          "format": "double",
+          "type": "number"
+        },
+        "negative_log_prior": {
+          "format": "double",
+          "type": "number"
+        },
+        "objective": {
+          "format": "double",
+          "type": "number"
+        },
+        "observations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "gradient",
+        "identity",
+        "negative_log_likelihood",
+        "negative_log_prior",
+        "objective",
+        "observations"
+      ],
+      "type": "object"
+    },
+    "ObjectiveGradient": {
+      "additionalProperties": false,
+      "properties": {
+        "parameter": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "parameter",
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "PopulationCovariateEffectEstimate": {
+      "additionalProperties": false,
+      "properties": {
+        "additional": {
+          "items": {
+            "$ref": "#/definitions/PopulationCovariateEffectEstimate"
+          },
+          "type": "array"
+        },
+        "coefficient": {
+          "format": "double",
+          "type": "number"
+        },
+        "covariate": {
+          "type": "string"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "reference": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coefficient",
+        "covariate",
+        "parameter",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "PopulationFitResult": {
+      "additionalProperties": false,
+      "properties": {
+        "covariate_effect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationCovariateEffectEstimate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Fitted exponential covariate coefficient, when requested."
+        },
+        "estimated_residual_error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationResidualErrorEstimate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Present when a common additive Gaussian residual SD was estimated."
+        },
+        "evaluations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "fit_request_hash": {
+          "type": "string"
+        },
+        "fitted_observations": {
+          "description": "Available when the method retained row-aligned final predictions.",
+          "items": {
+            "$ref": "#/definitions/PopulationFittedObservation"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fixed_effects": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        },
+        "iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "objective": {
+          "format": "double",
+          "type": "number"
+        },
+        "objective_kind": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PopulationObjectiveKind"
+            }
+          ],
+          "description": "Interpretation of `objective`."
+        },
+        "omega": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "saem_diagnostics": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationSaemDiagnostics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stochastic convergence evidence for SAEM only."
+        },
+        "status": {
+          "$ref": "#/definitions/FitStatus"
+        },
+        "subjects": {
+          "items": {
+            "$ref": "#/definitions/PopulationSubjectEstimate"
+          },
+          "type": "array"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationFitUncertainty"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional observed-objective covariance on natural parameter scales."
+        }
+      },
+      "required": [
+        "evaluations",
+        "fit_request_hash",
+        "fixed_effects",
+        "iterations",
+        "objective",
+        "objective_kind",
+        "omega",
+        "status",
+        "subjects"
+      ],
+      "type": "object"
+    },
+    "PopulationFitUncertainty": {
+      "additionalProperties": false,
+      "properties": {
+        "covariance": {
+          "description": "Covariance on natural parameter scales; units are axis-wise products.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PopulationUncertaintyMethod"
+            }
+          ],
+          "description": "Finite-difference Hessian of the method's observed objective, inverted as `2 * Hessian(OFV)^-1` because OFV is minus twice log likelihood. SAEM uses its Laplace-approximated marginal objective. This is local asymptotic curvature with fixed residual-error parameters; it does not include Monte Carlo variation, a sandwich correction, or interval calibration."
+        },
+        "parameters": {
+          "description": "Parameter order of both covariance axes and standard_errors.",
+          "items": {
+            "$ref": "#/definitions/PopulationUncertaintyParameter"
+          },
+          "type": "array"
+        },
+        "standard_errors": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "covariance",
+        "method",
+        "parameters",
+        "standard_errors"
+      ],
+      "type": "object"
+    },
+    "PopulationFittedObservation": {
+      "additionalProperties": false,
+      "description": "One declared observed row projected from the final population parameters. `pred` uses eta zero; `ipred` uses the fitted subject eta.",
+      "properties": {
+        "ipred": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "observation_index": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output": {
+          "type": "string"
+        },
+        "pred": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "row": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "side": {
+          "$ref": "#/definitions/ObservationSide"
+        },
+        "subject_index": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "ipred",
+        "observation_index",
+        "output",
+        "pred",
+        "row",
+        "side",
+        "subject_index",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    },
+    "PopulationObjectiveKind": {
+      "oneOf": [
+        {
+          "enum": [
+            "laplace_negative_log_likelihood",
+            "saem_complete_data_surrogate"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Minus twice the approximated Gaussian log likelihood, with the observation `log(2π)` constant omitted.",
+          "enum": [
+            "focei_objective_function_value"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Minus twice a Laplace-approximated marginal log likelihood, omitting the observation `log(2π)` constant as FOCEI does.",
+          "enum": [
+            "saem_marginal_objective_function_value"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "PopulationResidualErrorEstimate": {
+      "additionalProperties": false,
+      "properties": {
+        "additive_sd": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "output": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "additive_sd",
+        "output"
+      ],
+      "type": "object"
+    },
+    "PopulationSaemDiagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_proposals": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "burn_in_iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "consecutive_stable_iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "evaluated_proposals": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "final_relative_change": {
+          "description": "Largest relative change in fixed effect or eta variance on that M-step.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "final_step_size": {
+          "description": "Stochastic-approximation gain on the last completed M-step.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "post_burn_acceptance_by_axis": {
+          "description": "Acceptance per coordinate after burn-in, including out-of-bound proposals.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "post_burn_max_lag_one_correlation_by_axis": {
+          "description": "Largest positive within-subject lag-one correlation per coordinate. This is a mixing warning, not an effective sample size estimate.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "post_burn_max_subject_stall_iterations": {
+          "description": "Longest run of post-burn-in iterations without an accepted move for any subject.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "post_burn_min_subject_acceptance_by_axis": {
+          "description": "Lowest subject-level acceptance per coordinate after burn-in.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "recent_relative_change_median": {
+          "description": "Median relative M-step change over up to 20 completed post-burn-in steps. This reports stochastic jitter, not a standard error or convergence certificate.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "recent_window": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "accepted_proposals",
+        "burn_in_iterations",
+        "consecutive_stable_iterations",
+        "evaluated_proposals",
+        "recent_window"
+      ],
+      "type": "object"
+    },
+    "PopulationSubjectEstimate": {
+      "additionalProperties": false,
+      "properties": {
+        "eta": {
+          "description": "Dimensionless subject random effects in random_effects order.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "negative_log_likelihood": {
+          "description": "Conditional Gaussian negative log likelihood, excluding the eta prior.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "eta",
+        "negative_log_likelihood"
+      ],
+      "type": "object"
+    },
+    "PopulationUncertaintyMethod": {
+      "oneOf": [
+        {
+          "enum": [
+            "focei_observed_outer_hessian"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Local curvature of SAEM's Laplace-approximated marginal objective.",
+          "enum": [
+            "saem_marginal_observed_hessian"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "PopulationUncertaintyParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "fit": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GaussianFitResult"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "population": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PopulationFitResult"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/FitResultSchema"
+    }
+  },
+  "required": [
+    "schema"
+  ],
+  "title": "FitResult",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

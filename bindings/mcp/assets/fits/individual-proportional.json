@@ -1,0 +1,239 @@
+{
+  "scientific_status": "synthetic/illustrative",
+  "narrative": "Analytic synthetic observations generated from the declared truth; no clinical observations or drug-specific validation. Proportional Gaussian errors include a likelihood variance term, so noiseless optimum can differ slightly from truth. Population uses fixed Omega and a bounded native method.",
+  "tool": "fit_individual",
+  "arguments": {
+    "model": {
+      "source": "model synthetic_absorption\n time_unit = h\n description = \"Ubi synthetic first-order absorption and elimination example\"\nparameters\n cl = 0.8 [L/h] log estimated\n vc = 6 [L] log estimated\n ka = 1.2 [1/h] log estimated\nlinear_pk\n amount_unit = mg\n clearance = cl\n compartment central volume vc = 0 [mg]\n depot depot absorption ka = 0 [mg]\noutputs\n cp = central / vc [mg/L]\nend\n"
+    },
+    "request": {
+      "schema": "qspquest.run/v0.1",
+      "solver": "diffsol_bdf",
+      "budgets": {
+        "solver_callbacks": 1000000,
+        "events": 100,
+        "output_values": 10000
+      },
+      "regimen": {
+        "end": {
+          "value": 24,
+          "unit": "h"
+        },
+        "samples": [],
+        "administrations": [
+          {
+            "target": "depot",
+            "time": {
+              "value": 0,
+              "unit": "h"
+            },
+            "amount": {
+              "value": 72.0,
+              "unit": "mg"
+            },
+            "delivery": {
+              "kind": "bolus"
+            },
+            "bioavailability": 1.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12,
+        "observations": [
+          {
+            "time": {
+              "value": 0,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 1,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 2,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 4,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 8,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 12,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 24,
+              "unit": "h"
+            },
+            "side": "post"
+          }
+        ]
+      },
+      "parameters": {
+        "ka": {
+          "value": 1.2,
+          "unit": "1/h"
+        },
+        "cl": {
+          "value": 0.8,
+          "unit": "L/h"
+        },
+        "vc": {
+          "value": 6.0,
+          "unit": "L"
+        }
+      }
+    },
+    "parameters_to_fit": [
+      {
+        "parameter": "cl",
+        "lower": {
+          "value": 0.1,
+          "unit": "L/h"
+        },
+        "upper": {
+          "value": 5.0,
+          "unit": "L/h"
+        }
+      },
+      {
+        "parameter": "vc",
+        "lower": {
+          "value": 1.0,
+          "unit": "L"
+        },
+        "upper": {
+          "value": 20.0,
+          "unit": "L"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "row": 1,
+        "output": "cp",
+        "value": {
+          "value": 7.1311620778313305,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      },
+      {
+        "row": 2,
+        "output": "cp",
+        "value": {
+          "value": 8.356944308222332,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      },
+      {
+        "row": 3,
+        "output": "cp",
+        "value": {
+          "value": 7.093631426259061,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      },
+      {
+        "row": 4,
+        "output": "cp",
+        "value": {
+          "value": 4.135337295243605,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      },
+      {
+        "row": 5,
+        "output": "cp",
+        "value": {
+          "value": 2.3772036660041547,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      },
+      {
+        "row": 6,
+        "output": "cp",
+        "value": {
+          "value": 0.45130555701315944,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.01,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0.08
+        }
+      }
+    ]
+  },
+  "expected_parameters": {
+    "cl": 0.9057240026132916,
+    "vc": 6.541334298820503
+  },
+  "absolute_tolerance": 0.001,
+  "generating_truth": {
+    "cl": 0.9,
+    "vc": 6.5
+  },
+  "independent_reference": {
+    "method": "SciPy Nelder-Mead on the independently authored synthetic analytic likelihood; additive SD 0.01 and proportional SD 0.08",
+    "objective": -2.0837154942656326
+  }
+}

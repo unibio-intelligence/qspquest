@@ -1,0 +1,13 @@
+model synthetic_invariant_loss
+time_unit = h
+parameters
+  loss = 1 [mg/h] log
+states
+  amount = 1 [mg] input
+dynamics
+  d/dt(amount) = input_amount - loss
+outputs
+  mass = amount [mg]
+invariants
+  nonnegative(amount)
+end

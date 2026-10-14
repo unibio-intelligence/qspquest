@@ -1,0 +1,340 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "BindingKind": {
+      "enum": [
+        "parameter",
+        "covariate",
+        "individual_parameter",
+        "derived_covariate"
+      ],
+      "type": "string"
+    },
+    "BoundInput": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/BindingKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/definitions/ExactUnit"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ExactUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "description": "Original declared spelling, when the unit was not inferred.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dimensions": {
+          "description": "SI kg, m, s, mol, K, A, cd exponents, followed by opaque activity.",
+          "items": {
+            "format": "int16",
+            "type": "integer"
+          },
+          "maxItems": 8,
+          "minItems": 8,
+          "type": "array"
+        },
+        "entities": {
+          "additionalProperties": false,
+          "description": "Nonzero opaque entity exponents, keyed by cell or genome. Empty for legacy units.",
+          "properties": {
+            "cell": {
+              "format": "int16",
+              "type": "integer"
+            },
+            "genome": {
+              "format": "int16",
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "scale_denominator": {
+          "type": "string"
+        },
+        "scale_numerator": {
+          "description": "Positive exact rational scale to the dimension's base coordinates. Decimal strings preserve integers beyond JSON's exact numeric range.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimensions",
+        "scale_denominator",
+        "scale_numerator"
+      ],
+      "type": "object"
+    },
+    "ExecutionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        },
+        "bound_value_hash": {
+          "type": "string"
+        },
+        "build_profile": {
+          "type": "string"
+        },
+        "compiler_source_sha256": {
+          "type": "string"
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "model_content_hash": {
+          "type": "string"
+        },
+        "run_request_hash": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "rustflags_sha256": {
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "backend",
+        "backend_version",
+        "bound_value_hash",
+        "build_profile",
+        "compiler_source_sha256",
+        "compiler_version",
+        "model_content_hash",
+        "run_request_hash",
+        "rustc_version",
+        "rustflags_sha256",
+        "spec_version",
+        "target"
+      ],
+      "type": "object"
+    },
+    "InitialState": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "InitialValuesRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "covariates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "initial_states": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "max_output_values": {
+          "default": 25000000,
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "outputs": {
+          "default": null,
+          "description": "Native output names in returned order; omission selects every output.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "request_id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/RequestSchema"
+        }
+      },
+      "required": [
+        "schema"
+      ],
+      "type": "object"
+    },
+    "PlanSchema": {
+      "enum": [
+        "qspquest.initial-values-plan/v0.1"
+      ],
+      "type": "string"
+    },
+    "PlannedOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "RequestSchema": {
+      "enum": [
+        "qspquest.initial-values/v0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "deferred_checks": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "exact_time_unit": {
+      "$ref": "#/definitions/ExactUnit"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/definitions/BoundInput"
+      },
+      "type": "array"
+    },
+    "output_values": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/definitions/PlannedOutput"
+      },
+      "type": "array"
+    },
+    "prospective_identity": {
+      "$ref": "#/definitions/ExecutionIdentity"
+    },
+    "request": {
+      "$ref": "#/definitions/InitialValuesRequest"
+    },
+    "schema": {
+      "$ref": "#/definitions/PlanSchema"
+    },
+    "states": {
+      "items": {
+        "$ref": "#/definitions/InitialState"
+      },
+      "type": "array"
+    },
+    "time": {
+      "format": "double",
+      "type": "number"
+    },
+    "time_unit": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "deferred_checks",
+    "exact_time_unit",
+    "inputs",
+    "output_values",
+    "outputs",
+    "prospective_identity",
+    "request",
+    "schema",
+    "states",
+    "time",
+    "time_unit"
+  ],
+  "title": "InitialValuesPlan",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

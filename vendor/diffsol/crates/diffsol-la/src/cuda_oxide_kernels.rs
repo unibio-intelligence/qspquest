@@ -1,0 +1,1756 @@
+//! GPU kernels for the `cuda-oxide` backend.
+// `#[cuda_module]`'s host launchers for generic kernels do not inherit
+// per-kernel attributes, so this cannot be scoped per kernel.
+#![allow(clippy::too_many_arguments)]
+use cuda_device::atomic::{AtomicOrdering, DeviceAtomicU64};
+use cuda_device::{cuda_module, kernel, launch_bounds, launch_contract, thread, warp};
+use cuda_device::{DisjointSlice, Runtime2DIndex, SharedArray};
+
+use crate::matrix::MAX_SMALL_COLS;
+use crate::ScalarCuda;
+
+const MAX_SMALL_COLS_SQ: usize = MAX_SMALL_COLS * MAX_SMALL_COLS;
+pub(crate) const BLOCK_SIZE: u32 = 256;
+
+/// Warps in a block. Every kernel's launch contract pins the block to
+/// `(BLOCK_SIZE, 1, 1)`, so a block is always this many *whole* warps -- which
+/// is what lets the block reductions shuffle with the full-warp mask.
+pub(crate) const WARPS_PER_BLOCK: usize = BLOCK_SIZE as usize / 32;
+
+/// Above this `nstates`, the reductions switch from several-lanes-per-block to
+/// one-block-per-lane.
+pub(crate) const SMALL_NSTATES: u32 = 85;
+
+/// Above this `nstates`, the [`kernels::vec_reduce_elem`] reduction switch from
+/// one-lane-per-thread to one-warp-per-lane.
+///
+/// TODO: should be one-block-per-lane to match other reductions; the
+/// cuda-oxide shared memory bug that blocked this is fixed at the pinned rev
+/// (https://github.com/NVIDIA/cuda-rust/issues/1277)
+pub(crate) const REDUCE_ELEM_SMALL_NSTATES: u32 = 16;
+
+/// Below this `nstates`, [`kernels::vec_reduce_batch`] gives each element a whole warp instead
+/// of a single thread.
+pub(crate) const REDUCE_BATCH_SMALL_NSTATES: u32 = 12_288;
+
+/// Batch lane and element for flat work item `i`.
+/// Note: The host guarantees `nstates > 0`.
+#[inline(always)]
+fn split(i: usize, nstates: u32) -> (usize, usize) {
+    let nstates = nstates as usize;
+    (i / nstates, i % nstates)
+}
+
+/// Source batch feeding destination batch `b`, for a source holding
+/// `src_nbatch` batches, resolved to a flat index.
+///
+/// Device mirror of [`crate::context::broadcast_batch`]
+#[inline(always)]
+fn broadcast_src(b: usize, src_stride: u32, src_nbatch: u32, nbatch: u32, elem: usize) -> usize {
+    let src_b = b * src_nbatch as usize / nbatch as usize;
+    src_b * src_stride as usize + elem
+}
+
+/// Stride between the elements one thread visits in a grid-stride loop.
+#[inline(always)]
+fn grid_stride() -> usize {
+    (thread::blockDim_x() * thread::gridDim_x()) as usize
+}
+
+/// Slot in a per-block output array for this block: one per `(batch, block)`.
+#[inline(always)]
+fn block_slot(b: usize) -> usize {
+    b * thread::gridDim_x() as usize + thread::blockIdx_x() as usize
+}
+
+/// Lane geometry of a small reduction's block: the first lane it owns,
+/// `nstates` as a `usize`, and how many lanes fit in a block.
+#[inline(always)]
+fn lane_block(nstates: u32, cols_per_block: u32) -> (usize, usize, usize) {
+    let cols = cols_per_block as usize;
+    (thread::blockIdx_x() as usize * cols, nstates as usize, cols)
+}
+
+/// The `(lane, element)` thread `tid` loads in a small reduction's first phase,
+/// or `None` when it has none: `BLOCK_SIZE % nstates` threads are spare, and
+/// the last block can reach past `nbatch`.
+#[inline(always)]
+fn lane_element(
+    first: usize,
+    nstates: usize,
+    cols: usize,
+    nbatch: u32,
+    tid: usize,
+) -> Option<(usize, usize)> {
+    if tid >= cols * nstates {
+        return None;
+    }
+    let b = first + tid / nstates;
+    if b >= nbatch as usize {
+        return None;
+    }
+    Some((b, tid % nstates))
+}
+
+/// How a large reduction's block walks the lanes:
+/// `(first lane, this block's slice of a lane, lanes per pass, element stride)`.
+///
+/// The grid is `blocks_per_lane * (lanes per pass)` blocks, so a block covers
+/// slice `blockIdx.x % blocks_per_lane` of every lane congruent to
+/// `blockIdx.x / blocks_per_lane`.
+#[inline(always)]
+fn lane_loop(blocks_per_lane: u32) -> (usize, usize, usize, usize) {
+    let bpl = blocks_per_lane as usize;
+    let block = thread::blockIdx_x() as usize;
+    (
+        block / bpl,
+        block % bpl,
+        thread::gridDim_x() as usize / bpl,
+        bpl * thread::blockDim_x() as usize,
+    )
+}
+
+/// First element of a lane covered by this thread of slice `blk`.
+#[inline(always)]
+fn lane_start(blk: usize) -> usize {
+    blk * thread::blockDim_x() as usize + thread::threadIdx_x() as usize
+}
+
+/// Device addresses and lane geometry of the read-only operands of one
+/// [`kernels::vec_for_each_batch`] launch.
+#[derive(Clone, Copy)]
+pub struct LaneArgs<T, const K: usize> {
+    pub ptr: [*const T; K],
+    pub nstates: [u32; K],
+    pub nbatch: [u32; K],
+}
+
+/// Mutable counterpart of [`LaneArgs`], for the operands the closure writes.
+#[derive(Clone, Copy)]
+pub struct LaneArgsMut<T, const K: usize> {
+    pub ptr: [*mut T; K],
+    pub nstates: [u32; K],
+}
+
+#[cuda_module]
+pub mod kernels {
+    use super::*;
+
+    /// Ordering for the reductions' one atomic. The backend needs a constant
+    /// here, and a `const` item reads as one in MIR where an inline variant
+    /// path does not.
+    const RELAXED: AtomicOrdering = AtomicOrdering::Relaxed;
+
+    /// Never launched, workaround for https://github.com/NVIDIA/cuda-rust/issues/1365
+    #[kernel]
+    pub fn bundle_anchor() {}
+
+    // ========================================================================
+    // Elementwise, contiguous destination (Tier 1)
+    // ========================================================================
+    //
+    // Elementwise kernels are launched **flat**: one thread per work item over
+    // `nstates * nbatch` items, `grid.y = 1`. Thread `i` splits into a batch lane
+    // and an element with [`split`].
+
+    /// `lhs[b, elem] = value`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (lhs.len() == n))]
+    pub fn vec_fill<T: ScalarCuda>(mut lhs: DisjointSlice<T>, value: T, n: u32) {
+        let idx = thread::index_1d();
+        if idx.get() < n as usize {
+            if let Some(elem) = lhs.get_mut(idx) {
+                *elem = value;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] = rhs[..] - lhs[b, elem]`
+    ///
+    /// The reversed form of [`vec_sub_assign`], for `&lhs - rhs` where `rhs` is
+    /// the owned operand and therefore the destination.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (lhs.len() == n))]
+    pub fn vec_sub_assign_rev<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+            if let Some(elem) = lhs.get_mut(idx) {
+                *elem = value - *elem;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] *= rhs[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (lhs.len() == n))]
+    pub fn vec_mul_assign<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+            if let Some(elem) = lhs.get_mut(idx) {
+                *elem *= value;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] /= rhs[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (lhs.len() == n))]
+    pub fn vec_div_assign<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+            if let Some(elem) = lhs.get_mut(idx) {
+                *elem /= value;
+            }
+        }
+    }
+
+    /// `ret[b, elem] = lhs[..] + rhs[..]`, for the allocating `&a + &b`.
+    ///
+    /// `ret` is freshly allocated at the launch's batch count, so it needs no
+    /// broadcast of its own.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (ret.len() == n))]
+    pub fn vec_add<T: ScalarCuda>(
+        mut ret: DisjointSlice<T>,
+        lhs: &[T],
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        lhs_nbatch: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let a = lhs[broadcast_src(b, lhs_stride, lhs_nbatch, nbatch, elem)];
+            let c = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+            if let Some(elem) = ret.get_mut(idx) {
+                *elem = a + c;
+            }
+        }
+    }
+
+    /// `ret[b, elem] = lhs[..] - rhs[..]`, for the allocating `&a - &b`.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (ret.len() == n))]
+    pub fn vec_sub<T: ScalarCuda>(
+        mut ret: DisjointSlice<T>,
+        lhs: &[T],
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        lhs_nbatch: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let a = lhs[broadcast_src(b, lhs_stride, lhs_nbatch, nbatch, elem)];
+            let c = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+            if let Some(elem) = ret.get_mut(idx) {
+                *elem = a - c;
+            }
+        }
+    }
+
+    /// `ret[b, elem] = scalar * src[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (ret.len() == n))]
+    pub fn vec_mul_scalar<T: ScalarCuda>(
+        mut ret: DisjointSlice<T>,
+        src: &[T],
+        scalar: T,
+        n: u32,
+        nstates: u32,
+        src_stride: u32,
+        src_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let value = src[broadcast_src(b, src_stride, src_nbatch, nbatch, elem)];
+            if let Some(elem) = ret.get_mut(idx) {
+                *elem = scalar * value;
+            }
+        }
+    }
+
+    /// `y[b, elem] = alpha[b] * x[..] + beta * y[b, elem]`, one `alpha` per
+    /// batch lane.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (y.len() == n))]
+    pub fn vec_batched_axpy<T: ScalarCuda>(
+        mut y: DisjointSlice<T>,
+        x: &[T],
+        alpha: &[T],
+        beta: T,
+        n: u32,
+        nstates: u32,
+        x_stride: u32,
+        x_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let xv = x[broadcast_src(b, x_stride, x_nbatch, nbatch, elem)];
+            let a = alpha[b];
+            if let Some(elem) = y.get_mut(idx) {
+                *elem = a * xv + beta * *elem;
+            }
+        }
+    }
+
+    // ========================================================================
+    // Elementwise, destination may be a matrix column (Tier 2)
+    // ========================================================================
+    //
+    // These five are the ops reachable with a strided destination, via
+    // `Matrix::set_column` or a `DenseMatrix::column_mut()` view. The element
+    // lives at `b * dest_stride + elem`, which the `index_1d` witness cannot
+    // name, so the write goes through the raw pointer. The disjointness
+    // argument is the same in all five and is stated once here: distinct
+    // threads hold distinct `i`, hence distinct `(b, elem)` pairs, and with
+    // `elem < nstates <= dest_stride` distinct pairs give distinct
+    // `b * dest_stride + elem`. Bounds are checked per write, and the
+    // `requires` clause rejects an undersized destination on the host.
+
+    /// `lhs[b, elem] = rhs[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (lhs.len() >= (nbatch - 1) * lhs_stride + nstates))]
+    pub fn vec_copy<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+        let li = b * lhs_stride as usize + elem;
+        if li < lhs.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                *lhs.as_mut_ptr().add(li) = value;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] += rhs[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (lhs.len() >= (nbatch - 1) * lhs_stride + nstates))]
+    pub fn vec_add_assign<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+        let li = b * lhs_stride as usize + elem;
+        if li < lhs.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                let p = lhs.as_mut_ptr().add(li);
+                *p += value;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] -= rhs[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (lhs.len() >= (nbatch - 1) * lhs_stride + nstates))]
+    pub fn vec_sub_assign<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        rhs: &[T],
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        rhs_stride: u32,
+        rhs_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        let value = rhs[broadcast_src(b, rhs_stride, rhs_nbatch, nbatch, elem)];
+        let li = b * lhs_stride as usize + elem;
+        if li < lhs.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                let p = lhs.as_mut_ptr().add(li);
+                *p -= value;
+            }
+        }
+    }
+
+    /// `lhs[b, elem] *= scalar`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (lhs.len() >= (nbatch - 1) * lhs_stride + nstates))]
+    // `nbatch` is read by the `requires` clause above, which the host evaluates;
+    // the body has no source operand to broadcast, so it never needs it.
+    #[allow(unused_variables)]
+    pub fn vec_mul_assign_scalar<T: ScalarCuda>(
+        mut lhs: DisjointSlice<T>,
+        scalar: T,
+        n: u32,
+        nstates: u32,
+        lhs_stride: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        let li = b * lhs_stride as usize + elem;
+        if li < lhs.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                let p = lhs.as_mut_ptr().add(li);
+                *p *= scalar;
+            }
+        }
+    }
+
+    /// `y[b, elem] = alpha * x[..] + beta * y[b, elem]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (y.len() >= (nbatch - 1) * y_stride + nstates))]
+    pub fn vec_axpy<T: ScalarCuda>(
+        mut y: DisjointSlice<T>,
+        x: &[T],
+        alpha: T,
+        beta: T,
+        n: u32,
+        nstates: u32,
+        y_stride: u32,
+        x_stride: u32,
+        x_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        let xv = x[broadcast_src(b, x_stride, x_nbatch, nbatch, elem)];
+        let yi = b * y_stride as usize + elem;
+        if yi < y.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                let p = y.as_mut_ptr().add(yi);
+                *p = alpha * xv + beta * *p;
+            }
+        }
+    }
+
+    // ========================================================================
+    // Index-driven copies (Tier 2)
+    // ========================================================================
+    //
+    // The destination position comes from an index array rather than from the
+    // thread's own coordinate (gather is odd-one out, see docstring).
+
+    /// `dest[b, j] = src[.., indices[j]]`
+    ///
+    /// `Matrix::gather` keeps it Tier 2, the destination is a
+    /// whole matrix, stride `nrows * ncols`, and the trait does not require the
+    /// indices to cover it so writes as not contiguous.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_gather<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        src: &[T],
+        indices: &[i32],
+        n: u32,
+        nindices: u32,
+        dest_stride: u32,
+        src_stride: u32,
+        src_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, j) = split(i, nindices);
+        let value = src[broadcast_src(b, src_stride, src_nbatch, nbatch, indices[j] as usize)];
+        let di = b * dest_stride as usize + j;
+        if di < dest.len() {
+            // SAFETY: bounds checked above; distinct threads hold distinct
+            // `(b, j)` and `j < nindices <= dest_stride`, so `di` is distinct.
+            unsafe {
+                *dest.as_mut_ptr().add(di) = value;
+            }
+        }
+    }
+
+    /// `dest[b, indices[j]] = src[.., j]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_scatter<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        src: &[T],
+        indices: &[i32],
+        n: u32,
+        nindices: u32,
+        dest_stride: u32,
+        src_stride: u32,
+        src_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, j) = split(i, nindices);
+        let value = src[broadcast_src(b, src_stride, src_nbatch, nbatch, j)];
+        let di = b * dest_stride as usize + indices[j] as usize;
+        if di < dest.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                *dest.as_mut_ptr().add(di) = value;
+            }
+        }
+    }
+
+    /// `dest[b, indices[j]] = src[.., indices[j]]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_copy_from_indices<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        src: &[T],
+        indices: &[i32],
+        n: u32,
+        nindices: u32,
+        dest_stride: u32,
+        src_stride: u32,
+        src_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, j) = split(i, nindices);
+        let index = indices[j] as usize;
+        let value = src[broadcast_src(b, src_stride, src_nbatch, nbatch, index)];
+        let di = b * dest_stride as usize + index;
+        if di < dest.len() {
+            // SAFETY: see the section comment above.
+            unsafe {
+                *dest.as_mut_ptr().add(di) = value;
+            }
+        }
+    }
+
+    /// `dest[b, indices[j]] = value`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_assign_at_indices<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        indices: &[i32],
+        value: T,
+        n: u32,
+        nindices: u32,
+        dest_stride: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, j) = split(i, nindices);
+        let di = b * dest_stride as usize + indices[j] as usize;
+        if di < dest.len() {
+            // SAFETY: see the section comment above. Repeated indices would
+            // have two threads write the same slot, but with the same `value`.
+            unsafe {
+                *dest.as_mut_ptr().add(di) = value;
+            }
+        }
+    }
+
+    // ========================================================================
+    // Reductions (flat launch)
+    // ========================================================================
+    //
+    // Each of `norm`, `norm_lk` and `squared_norm` comes in two shapes, because
+    // a batch lane either fits inside a block or it does not. The host picks by
+    // `nstates` against `SMALL_NSTATES`.
+    //
+    // *Small* `nstates`: threads in block assigned like column major indexing
+    // where nstates are the rows and nmbatches are the cols
+    // A block owns `cols_per_block = BLOCK_SIZE / nstates`
+    // whole lanes.
+    //
+    // *Large* `nstates` (single block): one block per lane, block-striding over the lane's
+    // states into a register and reducing that with [`block_sum`]'s warp
+    // shuffles, then the block jumps `gridDim.x / blocks_per_lane` lanes along
+    // and repeats. Grid is sized by the device rather than by `nbatch`.
+    //
+    // *Large* `nstates (multi block): if too few lanes to fill the device with
+    // single block, then `blocks_per_lane > 1` and several blocks share a lane,
+    // each block sum go to `partials` for a second `lane_sum_max` pass
+    // to add up.
+
+    /// Sum of `x[b, i]^2` per block, for the 2-norm.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  partials.len() >= blocks_per_lane * nbatch,
+                                  x.len() >= (nbatch - 1) * x_stride + nstates))]
+    pub fn vec_norm<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        mut partials: DisjointSlice<T>,
+        x: &[T],
+        nstates: u32,
+        nbatch: u32,
+        x_stride: u32,
+        blocks_per_lane: u32,
+    ) {
+        let (mut b, blk, lane_step, step) = lane_loop(blocks_per_lane);
+        while b < nbatch as usize {
+            let mut local = T::zero();
+            let mut i = lane_start(blk);
+            while i < nstates as usize {
+                let v = x[b * x_stride as usize + i];
+                local += v * v;
+                i += step;
+            }
+            publish_block_sum(
+                out,
+                &mut partials,
+                blocks_per_lane,
+                b * blocks_per_lane as usize + blk,
+                local,
+            );
+            b += lane_step;
+        }
+    }
+
+    /// `max_b sum_i x[b, i]^2`, for lanes short enough to fit in a block.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  x.len() >= (nbatch - 1) * x_stride + nstates))]
+    pub fn vec_norm_small<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        x: &[T],
+        nstates: u32,
+        nbatch: u32,
+        x_stride: u32,
+        cols_per_block: u32,
+    ) {
+        let tid = thread::threadIdx_x() as usize;
+        let (first, nstates, cols) = lane_block(nstates, cols_per_block);
+        let term = match lane_element(first, nstates, cols, nbatch, tid) {
+            Some((b, elem)) => {
+                let v = x[b * x_stride as usize + elem];
+                v * v
+            }
+            None => T::zero(),
+        };
+        block_max_into(out, small_lane_sum(term, first, nstates, cols, nbatch));
+    }
+
+    /// Sum of `|x[b, i]|^k` per block, for the k-norm.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  partials.len() >= blocks_per_lane * nbatch,
+                                  x.len() >= (nbatch - 1) * x_stride + nstates))]
+    pub fn vec_norm_lk<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        mut partials: DisjointSlice<T>,
+        x: &[T],
+        nstates: u32,
+        nbatch: u32,
+        x_stride: u32,
+        blocks_per_lane: u32,
+        k: i32,
+    ) {
+        let (mut b, blk, lane_step, step) = lane_loop(blocks_per_lane);
+        while b < nbatch as usize {
+            let mut local = T::zero();
+            let mut i = lane_start(blk);
+            while i < nstates as usize {
+                local += x[b * x_stride as usize + i].abs().pow(k);
+                i += step;
+            }
+            publish_block_sum(
+                out,
+                &mut partials,
+                blocks_per_lane,
+                b * blocks_per_lane as usize + blk,
+                local,
+            );
+            b += lane_step;
+        }
+    }
+
+    /// `max_b sum_i |x[b, i]|^k`, for lanes short enough to fit in a block.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  x.len() >= (nbatch - 1) * x_stride + nstates))]
+    pub fn vec_norm_lk_small<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        x: &[T],
+        nstates: u32,
+        nbatch: u32,
+        x_stride: u32,
+        cols_per_block: u32,
+        k: i32,
+    ) {
+        let tid = thread::threadIdx_x() as usize;
+        let (first, nstates, cols) = lane_block(nstates, cols_per_block);
+        let term = match lane_element(first, nstates, cols, nbatch, tid) {
+            Some((b, elem)) => x[b * x_stride as usize + elem].abs().pow(k),
+            None => T::zero(),
+        };
+        block_max_into(out, small_lane_sum(term, first, nstates, cols, nbatch));
+    }
+
+    /// Sum of `(y / (|y0| * rtol + atol))^2` per block, the BDF/RK error norm.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  partials.len() >= blocks_per_lane * nbatch,
+                                  y.len() >= (nbatch - 1) * y_stride + nstates))]
+    pub fn vec_squared_norm<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        mut partials: DisjointSlice<T>,
+        y: &[T],
+        y0: &[T],
+        atol: &[T],
+        rtol: T,
+        nstates: u32,
+        nbatch: u32,
+        y_stride: u32,
+        y0_stride: u32,
+        y0_nbatch: u32,
+        atol_stride: u32,
+        atol_nbatch: u32,
+        blocks_per_lane: u32,
+    ) {
+        let (mut b, blk, lane_step, step) = lane_loop(blocks_per_lane);
+        while b < nbatch as usize {
+            let mut local = T::zero();
+            let mut i = lane_start(blk);
+            while i < nstates as usize {
+                let denom = y0[broadcast_src(b, y0_stride, y0_nbatch, nbatch, i)].abs() * rtol
+                    + atol[broadcast_src(b, atol_stride, atol_nbatch, nbatch, i)];
+                let ratio = y[b * y_stride as usize + i] / denom;
+                local += ratio * ratio;
+                i += step;
+            }
+            publish_block_sum(
+                out,
+                &mut partials,
+                blocks_per_lane,
+                b * blocks_per_lane as usize + blk,
+                local,
+            );
+            b += lane_step;
+        }
+    }
+
+    /// The error norm's sum, for lanes short enough to fit in a block.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  y.len() >= (nbatch - 1) * y_stride + nstates))]
+    pub fn vec_squared_norm_small<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        y: &[T],
+        y0: &[T],
+        atol: &[T],
+        rtol: T,
+        nstates: u32,
+        nbatch: u32,
+        y_stride: u32,
+        y0_stride: u32,
+        y0_nbatch: u32,
+        atol_stride: u32,
+        atol_nbatch: u32,
+        cols_per_block: u32,
+    ) {
+        let tid = thread::threadIdx_x() as usize;
+        let (first, nstates_u, cols) = lane_block(nstates, cols_per_block);
+        let term = match lane_element(first, nstates_u, cols, nbatch, tid) {
+            Some((b, elem)) => {
+                let denom = y0[broadcast_src(b, y0_stride, y0_nbatch, nbatch, elem)].abs() * rtol
+                    + atol[broadcast_src(b, atol_stride, atol_nbatch, nbatch, elem)];
+                let ratio = y[b * y_stride as usize + elem] / denom;
+                ratio * ratio
+            }
+            None => T::zero(),
+        };
+        block_max_into(out, small_lane_sum(term, first, nstates_u, cols, nbatch));
+    }
+
+    /// Folds the large kernels' per-lane partial sums into the one maximum.
+    ///
+    /// `partials` is `nbatch` runs of `blocks_per_lane` values. A thread sums
+    /// its lane's run in index order -- `blocks_per_lane` is bounded by the
+    /// host's occupancy target, so the chain is short -- and grid-strides over
+    /// lanes, so one launch covers any `nbatch`.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1),
+                      requires = (out.len() == 1,
+                                  partials.len() >= blocks_per_lane * nbatch))]
+    pub fn lane_sum_max<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        partials: &[T],
+        nbatch: u32,
+        blocks_per_lane: u32,
+    ) {
+        let bpl = blocks_per_lane as usize;
+        let step = grid_stride();
+        let mut b = thread::index_1d().get();
+        let mut local = T::zero();
+        while b < nbatch as usize {
+            let mut sum = T::zero();
+            let base = b * bpl;
+            for j in 0..bpl {
+                sum += partials[base + j];
+            }
+            if sum > local {
+                local = sum;
+            }
+            b += step;
+        }
+        block_max_into(out, local);
+    }
+
+    /// Root search between two g-vectors, per block.
+    ///
+    /// For every `i` where `g0[i] * g1[i] < 0`, tracks
+    /// `max |g1[i] / (g1[i] - g0[i])|` and the `i` attaining it; `flags` reports
+    /// whether any `g1[i]` is exactly zero. The host reduces the per-block
+    /// results.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 2, block = (256, 1, 1))]
+    pub fn vec_root_finding<T: ScalarCuda>(
+        mut max_vals: DisjointSlice<T, Runtime2DIndex>,
+        mut max_idxs: DisjointSlice<i32, Runtime2DIndex>,
+        mut flags: DisjointSlice<i32, Runtime2DIndex>,
+        g0: &[T],
+        g1: &[T],
+        nstates: u32,
+        nbatch: u32,
+        g0_stride: u32,
+        g1_stride: u32,
+        g1_nbatch: u32,
+    ) {
+        static mut SVALS: SharedArray<f64, { BLOCK_SIZE as usize }> = SharedArray::UNINIT;
+        // SAFETY: only takes the address of this block's shared storage.
+        let svals: *mut T = shared_as(unsafe { SharedArray::as_raw_mut_ptr(&raw mut SVALS) });
+        static mut SIDXS: SharedArray<i32, { BLOCK_SIZE as usize }> = SharedArray::UNINIT;
+        static mut SFLAGS: SharedArray<i32, { BLOCK_SIZE as usize }> = SharedArray::UNINIT;
+
+        let b = thread::index_2d_row();
+        let mut local_max = T::zero();
+        let mut local_idx = -1i32;
+        let mut local_flag = 0i32;
+        let mut i = thread::index_2d_col();
+        let step = grid_stride();
+        while i < nstates as usize {
+            let v0 = g0[b * g0_stride as usize + i];
+            let v1 = g1[broadcast_src(b, g1_stride, g1_nbatch, nbatch, i)];
+            if v1 == T::zero() {
+                local_flag = 1;
+            }
+            if v0 * v1 < T::zero() {
+                let val = (v1 / (v1 - v0)).abs();
+                if val > local_max {
+                    local_max = val;
+                    local_idx = i as i32;
+                }
+            }
+            i += step;
+        }
+
+        let tid = thread::threadIdx_x() as usize;
+        // SAFETY: each thread writes only its own slot, and the barrier below
+        // separates these writes from any other thread's reads.
+        unsafe {
+            *svals.add(tid) = local_max;
+            SIDXS[tid] = local_idx;
+            SFLAGS[tid] = local_flag;
+        }
+        thread::sync_threads();
+
+        // argmax tree reduction; `BLOCK_SIZE` is a power of two so the halving
+        // covers the whole block
+        let mut s = BLOCK_SIZE as usize / 2;
+        while s > 0 {
+            if tid < s {
+                // SAFETY: only threads below `s` touch shared memory in this
+                // round, each at its own `tid` and at `tid + s` which no other
+                // active thread owns. The barrier below closes the round before
+                // the next one reads.
+                unsafe {
+                    if *svals.add(tid) < *svals.add(tid + s) {
+                        *svals.add(tid) = *svals.add(tid + s);
+                        SIDXS[tid] = SIDXS[tid + s];
+                    }
+                    if SFLAGS[tid + s] != 0 {
+                        SFLAGS[tid] = 1;
+                    }
+                }
+            }
+            thread::sync_threads();
+            s /= 2;
+        }
+
+        if tid == 0 {
+            let slot = block_slot(b);
+            // SAFETY: one slot per (batch, block), written by thread 0 only, so
+            // no two threads in the grid write the same element. Bounds hold
+            // because the host sizes all three arrays as `nbatch * gridDim.x`.
+            unsafe {
+                *max_vals.as_mut_ptr().add(slot) = *svals.add(0);
+                *max_idxs.as_mut_ptr().add(slot) = SIDXS[0];
+                *flags.as_mut_ptr().add(slot) = SFLAGS[0];
+            }
+        }
+    }
+
+    // ========================================================================
+    // Matrix
+    // ========================================================================
+    //
+    // A matrix is column-major with whole batches contiguous, so its per-batch
+    // stride is `nrows * ncols` and column `j` of batch `b` starts at
+    // `b * stride + j * nrows`. Operations on a single column therefore reuse
+    // the vector kernels against a window that starts at `j * nrows`; only the
+    // ones that touch several columns per thread need a kernel of their own.
+
+    /// `diag[b, row] = mat[.., row * nrows + row]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (diag.len() == n))]
+    pub fn mat_get_diagonal<T: ScalarCuda>(
+        mut diag: DisjointSlice<T>,
+        mat: &[T],
+        n: u32,
+        nrows: u32,
+        mat_stride: u32,
+        mat_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, row) = split(i, nrows);
+            let mi = row * nrows as usize + row;
+            let value = mat[broadcast_src(b, mat_stride, mat_nbatch, nbatch, mi)];
+            if let Some(elem) = diag.get_mut(idx) {
+                *elem = value;
+            }
+        }
+    }
+
+    /// `mat[b, row * nrows + row] = diag[.., row]`, on a matrix already zeroed.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn mat_from_diagonal<T: ScalarCuda>(
+        mut mat: DisjointSlice<T>,
+        diag: &[T],
+        n: u32,
+        nrows: u32,
+        mat_stride: u32,
+        diag_stride: u32,
+        diag_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, row) = split(i, nrows);
+        let value = diag[broadcast_src(b, diag_stride, diag_nbatch, nbatch, row)];
+        let mi = b * mat_stride as usize + row * nrows as usize + row;
+        if mi < mat.len() {
+            // SAFETY: in bounds by the check above. The destination is a
+            // diagonal element, one per thread's own `(b, row)`, so no two
+            // threads write the same slot.
+            unsafe {
+                *mat.as_mut_ptr().add(mi) = value;
+            }
+        }
+    }
+
+    /// `dest[b, dst_indices[j]] = src[.., src_indices[j]]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn mat_set_data_with_indices<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        src: &[T],
+        dst_indices: &[i32],
+        src_indices: &[i32],
+        n: u32,
+        nindices: u32,
+        dest_stride: u32,
+        src_stride: u32,
+        src_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, j) = split(i, nindices);
+        let value = src[broadcast_src(b, src_stride, src_nbatch, nbatch, src_indices[j] as usize)];
+        let di = b * dest_stride as usize + dst_indices[j] as usize;
+        if di < dest.len() {
+            // SAFETY: in bounds by the check above, and distinct per thread for
+            // distinct `dst_indices` -- see `vec_scatter`.
+            unsafe {
+                *dest.as_mut_ptr().add(di) = value;
+            }
+        }
+    }
+
+    /// `dest[b, elem] = x[..] + beta * y[..]`
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (dest.len() == n))]
+    pub fn mat_scale_add_assign<T: ScalarCuda>(
+        mut dest: DisjointSlice<T>,
+        x: &[T],
+        y: &[T],
+        beta: T,
+        n: u32,
+        nstates: u32,
+        x_stride: u32,
+        x_nbatch: u32,
+        y_stride: u32,
+        y_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i < n as usize {
+            let (b, elem) = split(i, nstates);
+            let xv = x[broadcast_src(b, x_stride, x_nbatch, nbatch, elem)];
+            let yv = y[broadcast_src(b, y_stride, y_nbatch, nbatch, elem)];
+            if let Some(elem) = dest.get_mut(idx) {
+                *elem = xv + beta * yv;
+            }
+        }
+    }
+
+    /// `y[b, row] = alpha * sum_k w[k] * mat[.., row + k * nrows] + beta * y[b, row]`
+    /// over `nc` columns of `mat`.
+    ///
+    /// This is a kernel rather than a `cublasDgemv` call because `w` comes from
+    /// a small fixed *host* slice. The `mat` window starts at the beginning of
+    /// the column range.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (y.len() == n))]
+    pub fn gemv_cols<T: ScalarCuda>(
+        mut y: DisjointSlice<T>,
+        mat: &[T],
+        w: [T; MAX_SMALL_COLS],
+        nc: u32,
+        alpha: T,
+        beta: T,
+        n: u32,
+        nstates: u32,
+        nrows: u32,
+        mat_stride: u32,
+        mat_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, row) = split(i, nstates);
+        if row >= nrows as usize {
+            return;
+        }
+        let base = broadcast_src(b, mat_stride, mat_nbatch, nbatch, row);
+        // consecutive threads are consecutive rows within a column, so each
+        // read is coalesced
+        let mut acc = T::zero();
+        for k in 0..nc as usize {
+            acc += w[k] * mat[base + k * nrows as usize];
+        }
+        if let Some(elem) = y.get_mut(idx) {
+            // beta == 0 must not read y: it may hold uninitialised values
+            *elem = if beta == T::zero() {
+                alpha * acc
+            } else {
+                alpha * acc + beta * *elem
+            };
+        }
+    }
+
+    ///  in-place gemm `C = C * B` where B is small.
+    /// `mat[b, 0..ncols] = mat[b, 0..ncols] * rhs[0..ncols, 0..ncols]`
+    /// in place where ncols is small, `rhs` column-major.
+    ///
+    /// Each thread owns one `(row, batch)` element, reads that row's `ncols`
+    /// values into registers and writes the results back
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    #[allow(clippy::needless_range_loop)]
+    pub fn mul_cols_by<T: ScalarCuda>(
+        mut mat: DisjointSlice<T>,
+        rhs: [T; MAX_SMALL_COLS_SQ],
+        n: u32,
+        ncols: u32,
+        nrows: u32,
+        mat_stride: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let ncols = ncols as usize;
+        if ncols == 0 {
+            return;
+        }
+        let (b, row) = split(i, nrows);
+        let base = b * mat_stride as usize + row;
+        let stride = nrows as usize;
+        if base + (ncols - 1) * stride >= mat.len() {
+            return;
+        }
+        let ptr = mat.as_mut_ptr();
+
+        let mut old = [T::zero(); MAX_SMALL_COLS];
+        // SAFETY: bounds checked above. Every access below is at
+        // `base + l * nrows` for `l < ncols`, and `base` is unique to this
+        // thread's `(b, row)`, so the columns this thread reads and writes are
+        // its own.
+        unsafe {
+            for l in 0..ncols {
+                old[l] = *ptr.add(base + l * stride);
+            }
+            for j in 0..ncols {
+                let mut acc = T::zero();
+                for l in 0..ncols {
+                    acc += old[l] * rhs[j * ncols + l];
+                }
+                *ptr.add(base + j * stride) = acc;
+            }
+        }
+    }
+
+    /// Fuses the BDF backward-difference table update into one launch:
+    ///
+    /// ```text
+    /// diff[:, order+2] = d - diff[:, order+1]
+    /// for i in (order+1 .. 0].rev(): diff[:, i] += diff[:, i+1]
+    /// ```
+    ///
+    /// Each thread owns a `(row, batch)` element and loops over the
+    /// columns of the difference table doing the loop described above
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn backward_diff_update<T: ScalarCuda>(
+        mut diff: DisjointSlice<T>,
+        d: &[T],
+        order: u32,
+        n: u32,
+        nrows: u32,
+        diff_stride: u32,
+        d_stride: u32,
+        d_nbatch: u32,
+        nbatch: u32,
+    ) {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nrows);
+        let dv = d[broadcast_src(b, d_stride, d_nbatch, nbatch, elem)];
+        let base = b * diff_stride as usize + elem;
+        let stride = nrows as usize;
+        let order = order as usize;
+        if base + (order + 2) * stride >= diff.len() {
+            return;
+        }
+        let ptr = diff.as_mut_ptr();
+        // SAFETY: bounds checked above, and every access is at
+        // `base + i * nrows` for `i <= order + 2`, with `base` unique to this
+        // thread's `(b, elem)`.
+        unsafe {
+            let mut carry = dv - *ptr.add(base + (order + 1) * stride);
+            *ptr.add(base + (order + 2) * stride) = carry;
+            let mut i = order + 1;
+            loop {
+                carry += *ptr.add(base + i * stride);
+                *ptr.add(base + i * stride) = carry;
+                if i == 0 {
+                    break;
+                }
+                i -= 1;
+            }
+        }
+    }
+
+    /// Views a shared `f64` array as `T` slots. Rust statics cannot name a
+    /// generic parameter, so the generic helpers declare their shared storage
+    /// as `f64`, which is at least as large and aligned as any `ScalarCuda`.
+    #[inline(always)]
+    fn shared_as<T: ScalarCuda>(p: *mut f64) -> *mut T {
+        const {
+            assert!(
+                core::mem::size_of::<T>() <= core::mem::size_of::<f64>()
+                    && core::mem::align_of::<T>() <= core::mem::align_of::<f64>()
+            )
+        };
+        p.cast()
+    }
+
+    /// Folds a non-negative `value` into `out[0]`, the reductions' one output.
+    ///
+    /// `out` is a single `f64` reinterpreted as a `u64`: for non-negative
+    /// doubles the IEEE bit pattern is monotonic in the value, so an unsigned
+    /// atomic max is an `f64` max (see [`ScalarCuda::to_max_bits`]). That
+    /// detour exists because the float atomics have no `fetch_max` -- only load, store, `fetch_add`, `fetch_sub` and
+    /// `swap`. Every value reaching here is a sum of squares or of `|x|^k`, so
+    /// it is `>= 0` and never `-0.0`.
+    ///
+    /// The `> 0` guard skips both the identity and NaN, which is what the
+    /// host's `if norm > max_norm` starting from zero used to do.
+    fn atomic_max_into<T: ScalarCuda>(out: &[DeviceAtomicU64], value: T) {
+        if value > T::zero() {
+            out[0].fetch_max(value.to_max_bits(), RELAXED);
+        }
+    }
+
+    /// Reduces `value` to the block maximum and folds that into `out[0]`.
+    ///
+    /// For callers whose threads each hold a finished lane sum: the small
+    /// kernels and `lane_sum_max`.
+    fn block_max_into<T: ScalarCuda>(out: &[DeviceAtomicU64], value: T) {
+        static mut SMAX: SharedArray<f64, { BLOCK_SIZE as usize }> = SharedArray::UNINIT;
+        // SAFETY: only takes the address of this block's shared storage.
+        let smax: *mut T = shared_as(unsafe { SharedArray::as_raw_mut_ptr(&raw mut SMAX) });
+
+        let tid = thread::threadIdx_x() as usize;
+        // SAFETY: each thread writes only its own slot, and the barrier below
+        // separates it from any other thread's read.
+        unsafe {
+            *smax.add(tid) = value;
+        }
+        thread::sync_threads();
+
+        let mut s = BLOCK_SIZE as usize / 2;
+        while s > 0 {
+            if tid < s {
+                // SAFETY: one owner per slot per round -- `tid` and `tid + s`,
+                // which no other active thread holds -- and barriers between
+                // rounds.
+                unsafe {
+                    if *smax.add(tid) < *smax.add(tid + s) {
+                        *smax.add(tid) = *smax.add(tid + s);
+                    }
+                }
+            }
+            thread::sync_threads();
+            s /= 2;
+        }
+
+        if tid == 0 {
+            // SAFETY: slot 0 is written only by this thread, and the barrier
+            // above closed the last round that wrote it.
+            atomic_max_into(out, unsafe { *smax.add(0) });
+        }
+    }
+
+    /// Sums `local` across the block and publishes the block total.
+    ///
+    /// When this block owns its whole lane -- `blocks_per_lane == 1`, which
+    /// holds whenever `nstates <= BLOCK_SIZE` or there are enough lanes to fill
+    /// the device -- the block sum *is* the lane sum, so it goes straight into
+    /// the output and no second pass is needed. Otherwise it is one slice of a
+    /// lane and has to wait for `lane_sum_max` to add it to the lane's others.
+    ///
+    /// The caller computes the slot: a block can visit several lanes, so it is
+    /// not derivable from `blockIdx.x` alone.
+    fn publish_block_sum<T: ScalarCuda>(
+        out: &[DeviceAtomicU64],
+        partials: &mut DisjointSlice<T>,
+        blocks_per_lane: u32,
+        slot: usize,
+        local: T,
+    ) {
+        if let Some(total) = block_sum(local) {
+            if blocks_per_lane == 1 {
+                atomic_max_into(out, total);
+            } else {
+                // SAFETY: one slot per (lane, slice), thread 0 only, so no two
+                // threads in the grid write the same element; `slot` is below
+                // `blocks_per_lane * nbatch`, which the launch contract checks
+                // `partials.len()` covers.
+                unsafe {
+                    *partials.as_mut_ptr().add(slot) = total;
+                }
+            }
+        }
+    }
+
+    /// Second phase of a small reduction: publishes every thread's `term` to
+    /// shared memory, then gives thread `c` the sum of lane `first + c` in
+    /// index order, or zero when it owns no lane.
+    ///
+    /// Phase 1 is the load, which differs per kernel; the block geometry comes
+    /// from [`lane_block`] and the `term` from [`lane_element`].
+    fn small_lane_sum<T: ScalarCuda>(
+        term: T,
+        first: usize,
+        nstates: usize,
+        cols: usize,
+        nbatch: u32,
+    ) -> T {
+        static mut SDATA: SharedArray<f64, { BLOCK_SIZE as usize }> = SharedArray::UNINIT;
+        // SAFETY: only takes the address of this block's shared storage.
+        let sdata: *mut T = shared_as(unsafe { SharedArray::as_raw_mut_ptr(&raw mut SDATA) });
+
+        let tid = thread::threadIdx_x() as usize;
+        // SAFETY: each thread writes only its own slot, and the barrier below
+        // separates it from the segment reads.
+        unsafe {
+            *sdata.add(tid) = term;
+        }
+        thread::sync_threads();
+
+        let mut sum = T::zero();
+        if tid < cols && first + tid < nbatch as usize {
+            let base = tid * nstates;
+            for j in 0..nstates {
+                // SAFETY: shared memory is read-only after the barrier, and
+                // `base + j < cols * nstates <= BLOCK_SIZE`.
+                sum += unsafe { *sdata.add(base + j) };
+            }
+        }
+        sum
+    }
+
+    /// Sums `local` across the block, returning the total in thread 0 and
+    /// `None` in every other thread.
+    ///
+    /// Each warp folds its 32 values, publishes one total, and warp
+    /// 0 folds those the same way.
+    ///
+    /// Trailing barrier means that this is safe to call repeatedly in a lane loop
+    fn block_sum<T: ScalarCuda>(local: T) -> Option<T> {
+        static mut SWARP: SharedArray<f64, WARPS_PER_BLOCK> = SharedArray::UNINIT;
+        // SAFETY: only takes the address of this block's shared storage.
+        let swarp: *mut T = shared_as(unsafe { SharedArray::as_raw_mut_ptr(&raw mut SWARP) });
+
+        let lane = warp::lane_id() as usize;
+        let w = warp::warp_id() as usize;
+
+        let warp_total = local.warp_reduce_sum();
+        if lane == 0 {
+            // SAFETY: one slot per warp, written by its lane 0 only, and the
+            // barrier below separates it from warp 0's read.
+            unsafe {
+                *swarp.add(w) = warp_total;
+            }
+        }
+        thread::sync_threads();
+
+        let mut total = None;
+        if w == 0 {
+            // SAFETY: read-only after the barrier, and `lane` is in bounds
+            // under the guard. The 32 - `WARPS_PER_BLOCK` lanes with no slot
+            // still join the shuffle, with the identity.
+            let slot = if lane < WARPS_PER_BLOCK {
+                unsafe { *swarp.add(lane) }
+            } else {
+                T::zero()
+            };
+            let sum = slot.warp_reduce_sum();
+            if lane == 0 {
+                total = Some(sum);
+            }
+        }
+        thread::sync_threads();
+        total
+    }
+
+    // ========================================================================
+    // Caller-supplied lane closures
+    // ========================================================================
+
+    /// Run `f` once per batch lane, on the lane slices of `outs` and `ins`.
+    ///
+    /// One thread per lane, which is the only parallelism available when `f` is
+    /// opaque. The host only launches this when every operand in `outs` has the
+    /// full lane count, so the threads write disjoint ranges.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_for_each_batch<T: ScalarCuda, const M: usize, const N: usize, F>(
+        f: F,
+        outs: LaneArgsMut<T, M>,
+        ins: LaneArgs<T, N>,
+        nbatch: u32,
+    ) where
+        F: Fn([&mut [T]; M], [&[T]; N], usize) + Copy,
+    {
+        let b = thread::index_1d().get();
+        if b >= nbatch as usize {
+            return;
+        }
+        // SAFETY: each pointer is read out of a `Copy` byval struct, so the `M`
+        // mutable slices borrow no shared owner, and lane `b` of an operand
+        // with the full lane count is touched by this thread alone.
+        let o = core::array::from_fn(|i| unsafe {
+            let n = outs.nstates[i] as usize;
+            core::slice::from_raw_parts_mut(outs.ptr[i].add(b * n), n)
+        });
+        // SAFETY: as above; a read operand with a smaller lane count is
+        // broadcast, so several threads may read the same lane.
+        let a = core::array::from_fn(|i| unsafe {
+            let n = ins.nstates[i] as usize;
+            let base = broadcast_src(b, ins.nstates[i], ins.nbatch[i], nbatch, 0);
+            core::slice::from_raw_parts(ins.ptr[i].add(base), n)
+        });
+        f(o, a, b);
+    }
+
+    /// Run `f` once per element of every batch lane: `f` gets element `elem` of each operand in
+    /// `outs` and the whole lane of each operand in `ins`.
+    ///
+    /// One thread per `(lane, element)` pair, so an opaque `f` that writes only its own element
+    /// still fills the device. The host only launches this when every operand in `outs` has the
+    /// full lane count and the same `nstates`.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_for_each_elem<T: ScalarCuda, const M: usize, const N: usize, F>(
+        f: F,
+        outs: LaneArgsMut<T, M>,
+        ins: LaneArgs<T, N>,
+        n: u32,
+        nstates: u32,
+        nbatch: u32,
+    ) where
+        F: Fn([&mut T; M], [&[T]; N], usize, usize) + Copy,
+    {
+        let i = thread::index_1d().get();
+        if i >= n as usize {
+            return;
+        }
+        let (b, elem) = split(i, nstates);
+        // SAFETY: each pointer is read out of a `Copy` byval struct, so the `M` references
+        // borrow no shared owner, and element `elem` of lane `b` -- with every operand holding
+        // the full lane count -- is touched by this thread alone.
+        let o =
+            core::array::from_fn(|k| unsafe { &mut *outs.ptr[k].add(b * nstates as usize + elem) });
+        // SAFETY: as above; a read operand with a smaller lane count is broadcast, so several
+        // threads may read the same lane.
+        let a = core::array::from_fn(|k| unsafe {
+            let len = ins.nstates[k] as usize;
+            let base = broadcast_src(b, ins.nstates[k], ins.nbatch[k], nbatch, 0);
+            core::slice::from_raw_parts(ins.ptr[k].add(base), len)
+        });
+        f(o, a, b, elem);
+    }
+
+    /// Folds `val` across the warp with `combine`, leaving the total in every lane.
+    ///
+    /// The generalisation of [`ScalarCuda::warp_reduce_sum`] to a caller's combiner, built from the
+    /// same butterfly shuffles. Because a butterfly pairs lane `i` with `i ^ delta`, half the
+    /// lanes see their operands in the opposite order, so `combine` has to be commutative as
+    /// well as associative -- which sum, max and min all are.
+    fn warp_reduce<T: ScalarCuda, G>(mut val: T, combine: G) -> T
+    where
+        G: Fn(T, T) -> T + Copy,
+    {
+        val = combine(val, val.shuffle_xor(16));
+        val = combine(val, val.shuffle_xor(8));
+        val = combine(val, val.shuffle_xor(4));
+        val = combine(val, val.shuffle_xor(2));
+        val = combine(val, val.shuffle_xor(1));
+        val
+    }
+
+    /// Reduce `ins` over the batch dimension, elementwise, into `dest`.
+    ///
+    /// One thread per element: each thread folds its own element over every lane.
+    /// Each thread therefore owns one element of `dest`.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1), requires = (dest.len() == nstates))]
+    pub fn vec_reduce_batch<T: ScalarCuda, const N: usize, F, G>(
+        f: F,
+        g: G,
+        mut dest: DisjointSlice<T>,
+        ins: LaneArgs<T, N>,
+        init: T,
+        nstates: u32,
+        nbatch: u32,
+    ) where
+        F: Fn([&[T]; N], usize, usize) -> T + Copy,
+        G: Fn(T, T) -> T + Copy,
+    {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        if i >= nstates as usize {
+            return;
+        }
+        let mut acc = init;
+        let mut b = 0usize;
+        while b < nbatch as usize {
+            // SAFETY: each pointer is read out of a `Copy` byval struct; a read operand with a
+            // smaller lane count is broadcast, so several threads may read the same lane, and
+            // none of them writes.
+            let a = core::array::from_fn(|k| unsafe {
+                let len = ins.nstates[k] as usize;
+                let base = broadcast_src(b, ins.nstates[k], ins.nbatch[k], nbatch, 0);
+                core::slice::from_raw_parts(ins.ptr[k].add(base), len)
+            });
+            acc = g(acc, f(a, b, i));
+            b += 1;
+        }
+        if let Some(elem) = dest.get_mut(idx) {
+            *elem = acc;
+        }
+    }
+
+    /// [`Self::vec_reduce_batch`] for a small `nstates` below [`REDUCE_BATCH_SMALL_NSTATES`], .
+    ///
+    /// One warp per element, a whole warp takes one element and strides over the
+    /// lanes instead. The fold is pure warp shuffles.
+    ///
+    /// The reads are strided by `nstates` rather than coalesced.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_reduce_batch_small<T: ScalarCuda, const N: usize, F, G>(
+        f: F,
+        g: G,
+        mut dest: DisjointSlice<T>,
+        ins: LaneArgs<T, N>,
+        init: T,
+        nstates: u32,
+        nbatch: u32,
+    ) where
+        F: Fn([&[T]; N], usize, usize) -> T + Copy,
+        G: Fn(T, T) -> T + Copy,
+    {
+        let warps = thread::gridDim_x() as usize * WARPS_PER_BLOCK;
+        let lane = warp::lane_id() as usize;
+        let mut i = thread::blockIdx_x() as usize * WARPS_PER_BLOCK + warp::warp_id() as usize;
+        // the element loop is uniform across the warp, so every lane reaches every shuffle
+        while i < nstates as usize {
+            let mut acc = init;
+            let mut b = lane;
+            while b < nbatch as usize {
+                // SAFETY: as in `vec_reduce_batch`; every operand is read-only here.
+                let a = core::array::from_fn(|k| unsafe {
+                    let len = ins.nstates[k] as usize;
+                    let base = broadcast_src(b, ins.nstates[k], ins.nbatch[k], nbatch, 0);
+                    core::slice::from_raw_parts(ins.ptr[k].add(base), len)
+                });
+                acc = g(acc, f(a, b, i));
+                b += 32;
+            }
+            let total = warp_reduce(acc, g);
+            if lane == 0 && i < dest.len() {
+                // SAFETY: bounds checked. The slot is owned by this warp, and only its lane 0
+                // writes, so no `get_mut` witness can express it.
+                unsafe {
+                    *dest.as_mut_ptr().add(i) = total;
+                }
+            }
+            i += warps;
+        }
+    }
+
+    /// Reduce each batch lane of `ins` over its elements, into lane `b` of `dest`.
+    ///
+    /// One warp per lane, striding over the lane's elements into a register and folding those
+    /// with [`warp_reduce`], so a long lane is reduced in five shuffle rounds rather than by a
+    /// single thread
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_reduce_elem<T: ScalarCuda, const N: usize, F, G>(
+        f: F,
+        g: G,
+        mut dest: DisjointSlice<T>,
+        ins: LaneArgs<T, N>,
+        init: T,
+        nstates: u32,
+        nbatch: u32,
+    ) where
+        F: Fn([&[T]; N], usize, usize) -> T + Copy,
+        G: Fn(T, T) -> T + Copy,
+    {
+        let warps = thread::gridDim_x() as usize * WARPS_PER_BLOCK;
+        let lane = warp::lane_id() as usize;
+        let mut b = thread::blockIdx_x() as usize * WARPS_PER_BLOCK + warp::warp_id() as usize;
+        // the lane loop is uniform across the warp, so every thread reaches every shuffle
+        while b < nbatch as usize {
+            // SAFETY: as in `vec_reduce_batch`; every operand is read-only here.
+            let a = core::array::from_fn(|k| unsafe {
+                let len = ins.nstates[k] as usize;
+                let base = broadcast_src(b, ins.nstates[k], ins.nbatch[k], nbatch, 0);
+                core::slice::from_raw_parts(ins.ptr[k].add(base), len)
+            });
+            let mut acc = init;
+            let mut i = lane;
+            while i < nstates as usize {
+                acc = g(acc, f(a, b, i));
+                i += 32;
+            }
+            let total = warp_reduce(acc, g);
+            if lane == 0 && b < dest.len() {
+                // SAFETY: bounds checked. The slot is owned by this warp, and only its lane 0
+                // writes it.
+                unsafe {
+                    *dest.as_mut_ptr().add(b) = total;
+                }
+            }
+            b += warps;
+        }
+    }
+
+    /// [`Self::vec_reduce_elem`] for a lane short enough that a warp per lane would waste it.
+    /// See [`REDUCE_ELEM_SMALL_NSTATES`].
+    ///
+    /// One thread per lane, walking that lane's elements itself.
+    #[kernel]
+    #[launch_bounds(256)]
+    #[launch_contract(domain = 1, block = (256, 1, 1))]
+    pub fn vec_reduce_elem_small<T: ScalarCuda, const N: usize, F, G>(
+        f: F,
+        g: G,
+        mut dest: DisjointSlice<T>,
+        ins: LaneArgs<T, N>,
+        init: T,
+        nstates: u32,
+        nbatch: u32,
+    ) where
+        F: Fn([&[T]; N], usize, usize) -> T + Copy,
+        G: Fn(T, T) -> T + Copy,
+    {
+        let idx = thread::index_1d();
+        let b = idx.get();
+        if b >= nbatch as usize {
+            return;
+        }
+        // SAFETY: as in `vec_reduce_elem`; every operand is read-only here.
+        let a = core::array::from_fn(|k| unsafe {
+            let len = ins.nstates[k] as usize;
+            let base = broadcast_src(b, ins.nstates[k], ins.nbatch[k], nbatch, 0);
+            core::slice::from_raw_parts(ins.ptr[k].add(base), len)
+        });
+        let mut acc = init;
+        for i in 0..nstates as usize {
+            acc = g(acc, f(a, b, i));
+        }
+        if let Some(elem) = dest.get_mut(idx) {
+            *elem = acc;
+        }
+    }
+}

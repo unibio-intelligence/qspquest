@@ -1,0 +1,325 @@
+{
+  "scientific_status": "synthetic/illustrative",
+  "narrative": "Analytic synthetic observations generated from the declared truth; no clinical observations or drug-specific validation. Proportional Gaussian errors include a likelihood variance term, so noiseless optimum can differ slightly from truth. Population uses fixed Omega and a bounded native method.",
+  "tool": "fit_population",
+  "arguments": {
+    "model": {
+      "source": "model synthetic_one_compartment\ntime_unit = h\ndescription = \"Synthetic linear PK fixture; no drug-specific parameters.\"\n\nparameters\n  cl = 0.3 [L/h] log estimated\n  v = 3 [L] log estimated\n\nstates\n  central = 0 [mg]\n\ndynamics\n  d/dt(central) = (input_central - ((cl / v) * central))\n\noutputs\n  cp = (central / v) [mg/L]\n\ndosing\n  central [mg] = 1\nend\n"
+    },
+    "method": "focei",
+    "template": {
+      "schema": "qspquest.fit/v0.1",
+      "problem": {
+        "kind": "focei",
+        "request": {
+          "subjects": [
+            {
+              "simulation": {
+                "schema": "qspquest.sensitivity/v0.1",
+                "run": {
+                  "schema": "qspquest.run/v0.1",
+                  "solver": "diffsol_bdf",
+                  "budgets": {
+                    "solver_callbacks": 1000000,
+                    "events": 100,
+                    "output_values": 10000
+                  },
+                  "regimen": {
+                    "end": {
+                      "value": 24,
+                      "unit": "h"
+                    },
+                    "samples": [],
+                    "administrations": [],
+                    "rtol": 1e-10,
+                    "atol": 1e-12
+                  },
+                  "parameters": {
+                    "v": {
+                      "value": 4.5,
+                      "unit": "L"
+                    },
+                    "cl": {
+                      "value": 0.5,
+                      "unit": "L/h"
+                    }
+                  }
+                },
+                "with_respect_to": [
+                  "cl"
+                ],
+                "derivative_absolute_tolerances": {
+                  "cl": {
+                    "central": {
+                      "value": 1e-10,
+                      "unit": "mg.h/L"
+                    }
+                  }
+                }
+              },
+              "observations": [],
+              "priors": []
+            }
+          ],
+          "fixed_effects": [
+            {
+              "parameter": "cl",
+              "lower": {
+                "value": 0.35,
+                "unit": "L/h"
+              },
+              "upper": {
+                "value": 0.85,
+                "unit": "L/h"
+              }
+            }
+          ],
+          "random_effects": [
+            {
+              "parameter": "cl"
+            }
+          ],
+          "omega": [
+            [
+              0.04
+            ]
+          ],
+          "omega_diagonal_bounds": [
+            [
+              0.04,
+              0.04
+            ]
+          ],
+          "eta_bound": 1.5,
+          "max_evaluations": 2000,
+          "max_iterations": 80,
+          "gradient_tolerance": 0.005,
+          "seed": 17
+        }
+      }
+    },
+    "rows": [
+      {
+        "ID": 1,
+        "TIME": 0,
+        "EVID": 1,
+        "AMT": 6,
+        "CMT": 1
+      },
+      {
+        "ID": 1,
+        "TIME": 1,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.1980312279105014
+      },
+      {
+        "ID": 1,
+        "TIME": 2,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.076459117286558
+      },
+      {
+        "ID": 1,
+        "TIME": 4,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.8690731733920171
+      },
+      {
+        "ID": 1,
+        "TIME": 8,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.5664661355322533
+      },
+      {
+        "ID": 1,
+        "TIME": 12,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.3692253915195959
+      },
+      {
+        "ID": 1,
+        "TIME": 24,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.10224554230709916
+      },
+      {
+        "ID": 2,
+        "TIME": 0,
+        "EVID": 1,
+        "AMT": 6,
+        "CMT": 1
+      },
+      {
+        "ID": 2,
+        "TIME": 1,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.1789213295798633
+      },
+      {
+        "ID": 2,
+        "TIME": 2,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.0423916260037647
+      },
+      {
+        "ID": 2,
+        "TIME": 4,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.8149352264720792
+      },
+      {
+        "ID": 2,
+        "TIME": 8,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.49808956750882427
+      },
+      {
+        "ID": 2,
+        "TIME": 12,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.30443305087588773
+      },
+      {
+        "ID": 2,
+        "TIME": 24,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.06950961184920065
+      },
+      {
+        "ID": 3,
+        "TIME": 0,
+        "EVID": 1,
+        "AMT": 6,
+        "CMT": 1
+      },
+      {
+        "ID": 3,
+        "TIME": 1,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.1540111115454585
+      },
+      {
+        "ID": 3,
+        "TIME": 2,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.9988062341777886
+      },
+      {
+        "ID": 3,
+        "TIME": 4,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.7482104200743116
+      },
+      {
+        "ID": 3,
+        "TIME": 8,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.41986412453083344
+      },
+      {
+        "ID": 3,
+        "TIME": 12,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.23561003474201095
+      },
+      {
+        "ID": 3,
+        "TIME": 24,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.04163406635334871
+      },
+      {
+        "ID": 4,
+        "TIME": 0,
+        "EVID": 1,
+        "AMT": 6,
+        "CMT": 1
+      },
+      {
+        "ID": 4,
+        "TIME": 1,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 1.129232850008217
+      },
+      {
+        "ID": 4,
+        "TIME": 2,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.9563751221532601
+      },
+      {
+        "ID": 4,
+        "TIME": 4,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.6859900307052476
+      },
+      {
+        "ID": 4,
+        "TIME": 8,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.3529367416702398
+      },
+      {
+        "ID": 4,
+        "TIME": 12,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.18158331469153333
+      },
+      {
+        "ID": 4,
+        "TIME": 24,
+        "EVID": 0,
+        "CMT": 2,
+        "DV": 0.02472937513077332
+      }
+    ],
+    "mapping": {
+      "time_unit": "h",
+      "amount_unit": "mg",
+      "observation_side": "post",
+      "compartments": {
+        "1": "central"
+      },
+      "endpoints": {
+        "2": {
+          "output": "cp",
+          "value_unit": "mg/L",
+          "error": {
+            "additive_sd": {
+              "value": 0.05,
+              "unit": "mg/L"
+            },
+            "proportional_sd": 0
+          }
+        }
+      }
+    }
+  },
+  "expected_parameters": {
+    "cl": 0.6
+  },
+  "absolute_tolerance": 0.06
+}

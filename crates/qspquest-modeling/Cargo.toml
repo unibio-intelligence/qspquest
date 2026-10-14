@@ -1,0 +1,18 @@
+[package]
+name = "qspquest-modeling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+libm = "=0.2.16"
+qspquest-core.workspace = true
+diffsol.workspace = true
+
+[dev-dependencies]
+serde.workspace = true
+
+[build-dependencies]
+sha2 = "=0.10.9"

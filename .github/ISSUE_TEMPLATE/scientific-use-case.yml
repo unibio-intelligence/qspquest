@@ -1,0 +1,23 @@
+name: Scientific use case or feature
+description: Propose a model, workflow or interface improvement.
+title: "[Use case]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Scientific question and current workflow
+      description: Explain the task and the obstacle, with a small example.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sources and validation
+      description: Link sources, licenses, independent references and an acceptance criterion.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired behavior
+      description: Describe the smallest useful outcome and supported interfaces.
+    validations:
+      required: true

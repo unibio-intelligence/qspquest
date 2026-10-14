@@ -1,0 +1,104 @@
+{
+  "schema": "qspquest.model/v0.1",
+  "model_id": "synthetic_one_compartment",
+  "description": "Synthetic linear PK fixture; no drug-specific parameters.",
+  "time_unit": "h",
+  "parameters": [
+    {
+      "name": "cl",
+      "default": {
+        "value": 0.3,
+        "unit": "L/h"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "v",
+      "default": {
+        "value": 3.0,
+        "unit": "L"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    }
+  ],
+  "states": [
+    {
+      "name": "central",
+      "unit": "mg",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 0,
+          "unit": "mg"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "symbol",
+            "name": "input_central"
+          },
+          {
+            "kind": "binary",
+            "operator": "multiply",
+            "arguments": [
+              {
+                "kind": "binary",
+                "operator": "divide",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "cl"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "v"
+                  }
+                ]
+              },
+              {
+                "kind": "symbol",
+                "name": "central"
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": {
+        "amount_unit": "mg",
+        "scale": {
+          "kind": "literal",
+          "value": 1
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "cp",
+      "unit": "mg/L",
+      "expression": {
+        "kind": "binary",
+        "operator": "divide",
+        "arguments": [
+          {
+            "kind": "symbol",
+            "name": "central"
+          },
+          {
+            "kind": "symbol",
+            "name": "v"
+          }
+        ]
+      }
+    }
+  ]
+}

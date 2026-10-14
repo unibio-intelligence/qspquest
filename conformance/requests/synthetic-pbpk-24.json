@@ -1,0 +1,602 @@
+{
+  "schema": "qspquest.run/v0.1",
+  "request_id": "synthetic-pbpk-24",
+  "seed": null,
+  "solver": "diffsol_bdf",
+  "budgets": {
+    "solver_callbacks": 1000000,
+    "output_values": 1000000,
+    "events": 10000
+  },
+  "parameters": {},
+  "regimen": {
+    "end": {
+      "value": 24,
+      "unit": "h"
+    },
+    "samples": [],
+    "observations": [
+      {
+        "time": {
+          "value": 0.0,
+          "unit": "h"
+        },
+        "side": "pre"
+      },
+      {
+        "time": {
+          "value": 0.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 0.3333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 0.6666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 1.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 1.3333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 1.6666666666666667,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 2.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 2.3333333333333335,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 2.6666666666666665,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 3.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 3.3333333333333335,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 3.6666666666666665,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 4.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 4.333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 4.666666666666667,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 5.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 5.333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 5.666666666666667,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 6.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 6.333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 6.666666666666667,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 7.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 7.333333333333333,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 7.666666666666667,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 8.0,
+          "unit": "h"
+        },
+        "side": "pre"
+      },
+      {
+        "time": {
+          "value": 8.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 8.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 8.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 9.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 9.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 9.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 10.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 10.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 10.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 11.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 11.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 11.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 12.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 12.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 12.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 13.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 13.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 13.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 14.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 14.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 14.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 15.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 15.333333333333334,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 15.666666666666666,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 16.0,
+          "unit": "h"
+        },
+        "side": "pre"
+      },
+      {
+        "time": {
+          "value": 16.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 16.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 16.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 17.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 17.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 17.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 18.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 18.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 18.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 19.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 19.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 19.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 20.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 20.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 20.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 21.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 21.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 21.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 22.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 22.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 22.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 23.0,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 23.333333333333332,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 23.666666666666668,
+          "unit": "h"
+        },
+        "side": "post"
+      },
+      {
+        "time": {
+          "value": 24.0,
+          "unit": "h"
+        },
+        "side": "post"
+      }
+    ],
+    "administrations": [
+      {
+        "target": "blood",
+        "time": {
+          "value": 0,
+          "unit": "h"
+        },
+        "amount": {
+          "value": 100,
+          "unit": "mg"
+        },
+        "delivery": {
+          "kind": "bolus"
+        },
+        "bioavailability": 1.0
+      },
+      {
+        "target": "blood",
+        "time": {
+          "value": 8,
+          "unit": "h"
+        },
+        "amount": {
+          "value": 100,
+          "unit": "mg"
+        },
+        "delivery": {
+          "kind": "bolus"
+        },
+        "bioavailability": 1.0
+      },
+      {
+        "target": "blood",
+        "time": {
+          "value": 16,
+          "unit": "h"
+        },
+        "amount": {
+          "value": 100,
+          "unit": "mg"
+        },
+        "delivery": {
+          "kind": "bolus"
+        },
+        "bioavailability": 1.0
+      }
+    ],
+    "rtol": 1e-09,
+    "atol": 1e-10
+  }
+}

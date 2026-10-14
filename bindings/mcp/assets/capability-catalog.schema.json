@@ -1,0 +1,339 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CapabilityCatalog",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "qspquest.capability-catalog/v1"
+    },
+    "package_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key_dimensions": {
+      "const": [
+        "operation",
+        "interface",
+        "estimator",
+        "solver",
+        "target",
+        "execution_mode"
+      ]
+    },
+    "source_snapshot": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "paths",
+          "purpose"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "analysis_fit_individual",
+              "analysis_fit_population",
+              "bootstrap_population",
+              "compare_regimens",
+              "compile_model",
+              "event_sensitivities",
+              "export_omex",
+              "export_sbml",
+              "exposure_summary",
+              "fit_diagnostics",
+              "fit_individual",
+              "fit_population",
+              "fit_scalar",
+              "get_artifact",
+              "get_capability",
+              "get_job",
+              "get_model",
+              "get_patient_parameters",
+              "get_scenario_request",
+              "import_omex",
+              "import_sbml",
+              "inspect_model",
+              "iterate_periodic",
+              "model_template",
+              "morris_screening",
+              "plan_run",
+              "plan_scan",
+              "preview_job",
+              "profile_likelihood",
+              "progress_cancel_checkpoint",
+              "scan_parameters",
+              "search_models",
+              "sensitivities",
+              "simulate",
+              "steady_state",
+              "submit_population_fit",
+              "submit_scan",
+              "submit_simulation",
+              "summarize_profile",
+              "validate_model",
+              "visual_predictive_check",
+              "wait_for_job",
+              "plan_sensitivities",
+              "plan_gaussian_objective",
+              "plan_fit",
+              "plan_scalar_fit",
+              "plan_morris",
+              "plan_periodic_steady_state",
+              "plan_iterate_periodic_state",
+              "format_response",
+              "submit_local_job",
+              "get_local_job",
+              "cancel_local_job",
+              "resume_local_job"
+            ]
+          },
+          "interface": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "mcp",
+              "python",
+              "python_analysis",
+              "python_interchange",
+              "r",
+              "rust",
+              "wasm_direct",
+              "wasm_sandbox",
+              "wasm_worker"
+            ]
+          },
+          "api": {
+            "type": "string",
+            "minLength": 1
+          },
+          "implemented": {
+            "const": true,
+            "type": "boolean"
+          },
+          "exposed": {
+            "type": "boolean"
+          },
+          "estimators": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "L-BFGS-B",
+                "Powell",
+                "focei",
+                "individual",
+                "laplace",
+                "none",
+                "pooled",
+                "saem_native",
+                "saem_python",
+                "scalar_gaussian"
+              ]
+            }
+          },
+          "solvers": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "analytic_linear_pk",
+                "diffsol_bdf",
+                "diffsol_esdirk34",
+                "diffsol_rodas5p",
+                "diffsol_rosenbrock23",
+                "diffsol_tr_bdf2",
+                "diffsol_tsit45",
+                "none"
+              ]
+            }
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "aarch64-apple-darwin",
+                "aarch64-unknown-linux-gnu",
+                "wasm32-unknown-unknown",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu"
+              ]
+            }
+          },
+          "modes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "in_process",
+                "local_stdio",
+                "managed_http",
+                "process",
+                "public_http",
+                "sandbox",
+                "worker"
+              ]
+            }
+          },
+          "required_features": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "analysis",
+                "interchange",
+                "m0-conformance",
+                "managed",
+                "sandbox-abi"
+              ]
+            }
+          },
+          "requirements": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limits": {
+            "type": "object",
+            "required": [
+              "scope"
+            ],
+            "properties": {
+              "scope": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "example_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_status": {
+            "enum": [
+              "untested"
+            ]
+          },
+          "evidence_ids": {
+            "type": "array",
+            "maxItems": 0
+          }
+        },
+        "required": [
+          "operation",
+          "interface",
+          "api",
+          "implemented",
+          "exposed",
+          "estimators",
+          "solvers",
+          "targets",
+          "modes",
+          "required_features",
+          "requirements",
+          "limits",
+          "example_ids",
+          "source",
+          "symbol",
+          "evidence_status",
+          "evidence_ids"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "operation_labels": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "compiler_source_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "vendor_source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schema",
+    "package_version",
+    "scope",
+    "key_dimensions",
+    "source_snapshot",
+    "examples",
+    "entries",
+    "operation_labels",
+    "compiler_source_sha256",
+    "vendor_source_sha256"
+  ],
+  "additionalProperties": false
+}

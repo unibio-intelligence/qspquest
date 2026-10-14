@@ -1,0 +1,104 @@
+{
+  "schema": "qspquest.model/v0.1",
+  "model_id": "synthetic_saturable_periodic",
+  "description": "Owned saturable elimination fixture for periodic cycle iteration",
+  "time_unit": "h",
+  "parameters": [
+    {
+      "name": "vmax",
+      "default": {
+        "value": 10.0,
+        "unit": "mg/h"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "km",
+      "default": {
+        "value": 2.0,
+        "unit": "mg"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    }
+  ],
+  "states": [
+    {
+      "name": "central",
+      "unit": "mg",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 0,
+          "unit": "mg"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "symbol",
+            "name": "input_central"
+          },
+          {
+            "kind": "binary",
+            "operator": "divide",
+            "arguments": [
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "vmax"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "central"
+                  }
+                ]
+              },
+              {
+                "kind": "binary",
+                "operator": "add",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "km"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "central"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": {
+        "amount_unit": "mg",
+        "scale": {
+          "kind": "literal",
+          "value": 1
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "central",
+      "unit": "mg",
+      "expression": {
+        "kind": "symbol",
+        "name": "central"
+      }
+    }
+  ]
+}

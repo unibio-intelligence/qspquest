@@ -1,0 +1,64 @@
+name: Suite compatibility
+on:
+  pull_request:
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
+  push:
+    branches: [main]
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: suite-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check immutable build inputs
+        run: python3 scripts/check_build_pins.py
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Read immutable counterpart pins
+        id: pins
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from check_suite_compatibility import load_lock
+          lock = load_lock(Path('.github/suite-compatibility.json'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              for role in ('models', 'validation'):
+                  stream.write(role + '_ref=' + lock['components'][role]['commit'] + '\n')
+          PY
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: unibio-intelligence/qspquest-models
+          ref: ${{ steps.pins.outputs.models_ref }}
+          path: counterparts/models
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: unibio-intelligence/qspquest-validation
+          ref: ${{ steps.pins.outputs.validation_ref }}
+          path: counterparts/validation
+          persist-credentials: false
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: rustup default 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: cargo build -p qspquest-cli --release --locked
+      - name: Integrity and native-retained-reference compatibility
+        run: |
+          python3 -m unittest discover -s scripts/tests -p 'test_suite_compatibility.py' -v
+          python3 scripts/check_suite_compatibility.py --models counterparts/models --validation counterparts/validation --cli target/release/qspquest --output suite-compatibility.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: suite-compatibility-evidence
+          path: suite-compatibility.json

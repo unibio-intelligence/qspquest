@@ -1,0 +1,15 @@
+[package]
+name = "qspquest-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "qspquest"
+path = "src/main.rs"
+
+[dependencies]
+qspquest-modeling.workspace = true
+qspquest-core.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,13 @@
+Package: qspquest
+Type: Package
+Title: Pharmacology Model Simulation and Bounded Estimation
+Version: 0.1.0
+Authors@R: person("UniBio Intelligence", role = c("aut", "cre"), email = "unibiointelligence@users.noreply.github.com")
+Description: Run unit-aware pharmacology models and bounded individual or pooled
+    estimation using the QSPQuest Rust engine.
+License: Apache License (== 2.0)
+Encoding: UTF-8
+Imports: jsonlite
+Suggests: rxode2
+SystemRequirements: Cargo, Rust (>= 1.98)
+NeedsCompilation: yes

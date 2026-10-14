@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ExecutionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        },
+        "bound_value_hash": {
+          "type": "string"
+        },
+        "build_profile": {
+          "type": "string"
+        },
+        "compiler_source_sha256": {
+          "type": "string"
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "model_content_hash": {
+          "type": "string"
+        },
+        "run_request_hash": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "rustflags_sha256": {
+          "type": "string"
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "backend",
+        "backend_version",
+        "bound_value_hash",
+        "build_profile",
+        "compiler_source_sha256",
+        "compiler_version",
+        "model_content_hash",
+        "run_request_hash",
+        "rustc_version",
+        "rustflags_sha256",
+        "spec_version",
+        "target"
+      ],
+      "type": "object"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ResultColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "values"
+      ],
+      "type": "object"
+    },
+    "ResultSchema": {
+      "enum": [
+        "qspquest.result/v0.1"
+      ],
+      "type": "string"
+    },
+    "RunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/definitions/ExecutionIdentity"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/definitions/ResultColumn"
+          },
+          "type": "array"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/ResultSchema"
+        },
+        "sides": {
+          "items": {
+            "$ref": "#/definitions/ObservationSide"
+          },
+          "type": "array"
+        },
+        "time_unit": {
+          "type": "string"
+        },
+        "times": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "identity",
+        "model_id",
+        "outputs",
+        "schema",
+        "sides",
+        "time_unit",
+        "times"
+      ],
+      "type": "object"
+    },
+    "ScanPointResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "object"
+        },
+        "result": {
+          "$ref": "#/definitions/RunResult"
+        }
+      },
+      "required": [
+        "id",
+        "parameters",
+        "result"
+      ],
+      "type": "object"
+    },
+    "ScanResultSchema": {
+      "enum": [
+        "qspquest.scan-result/v0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "results": {
+      "items": {
+        "$ref": "#/definitions/ScanPointResult"
+      },
+      "type": "array"
+    },
+    "scan_request_hash": {
+      "type": "string"
+    },
+    "schema": {
+      "$ref": "#/definitions/ScanResultSchema"
+    }
+  },
+  "required": [
+    "results",
+    "scan_request_hash",
+    "schema"
+  ],
+  "title": "ScanResult",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

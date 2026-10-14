@@ -1,0 +1,30 @@
+import fs from 'node:fs';
+import http from 'node:http';
+const {chromium}=await import(process.env.QSPQUEST_PLAYWRIGHT_MODULE || 'playwright');
+const [contextPath,htmlPath,outputPath]=process.argv.slice(2);
+const result=JSON.parse(fs.readFileSync(contextPath,'utf8'));
+const html=fs.readFileSync(htmlPath);
+const server=http.createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end(html)});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const browser=await chromium.launch({headless:true,...(process.env.QSPQUEST_CHROMIUM_EXECUTABLE?{executablePath:process.env.QSPQUEST_CHROMIUM_EXECUTABLE}:{})});
+try{
+ const page=await browser.newPage();const requests=[];
+ page.on('request',request=>requests.push({url:request.url(),method:request.method(),hasBody:!!request.postData()}));
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:'+server.address().port);
+ await page.evaluate(value=>window.qspquestReceive(value),result);
+ const before=await page.evaluate(()=>displayed.outputs[0].values);
+ await page.locator('[data-parameter="cl"]').fill('5');
+ await page.locator('#run').click();
+ await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Local simulation complete'),{timeout:45000});
+ const after=await page.evaluate(()=>displayed.outputs[0].values);
+ if(JSON.stringify(before)===JSON.stringify(after))throw Error('Clearance edit did not change the curve');
+ const downloadPromise=page.waitForEvent('download');await page.locator('#csv').click();
+ const download=await downloadPromise;await download.saveAs(outputPath+'.csv');
+ const csv=fs.readFileSync(outputPath+'.csv','utf8');if(!csv.includes('cp [mg/L]')||csv.split('\n').length<50)throw Error('CSV lost values or units');
+ await page.screenshot({path:outputPath+'.png',fullPage:true});
+ if(errors.length)throw Error(errors.join('\n'));
+ if(requests.some(r=>r.hasBody||r.method!=='GET'||r.url.includes('/mcp')))throw Error('Interactive edits made a compute/data network request');
+ const receipt={changed_curve:true,csv_valid:true,network:requests,errors,worker:'existing QSPQuest browser engine-worker.mjs',cross_origin_worker:true};
+ fs.writeFileSync(outputPath+'.json',JSON.stringify(receipt,null,2));
+}finally{await browser.close();server.close()}

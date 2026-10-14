@@ -1,0 +1,20 @@
+{
+  "schema": "qspquest.run/v0.1",
+  "solver": "diffsol_bdf",
+  "budgets": {
+    "solver_callbacks": 1000000,
+    "output_values": 1000000,
+    "events": 10000
+  },
+  "regimen": {
+    "end": {
+      "value": 0.5,
+      "unit": "h"
+    },
+    "samples": [],
+    "administrations": [],
+    "rtol": 1e-09,
+    "atol": 1e-10
+  },
+  "request_id": "synthetic-invariant-loss"
+}

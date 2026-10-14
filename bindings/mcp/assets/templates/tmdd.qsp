@@ -1,0 +1,22 @@
+model illustrative_tmdd_qss
+ time_unit = h
+ description = "Synthetic rapid-equilibrium receptor binding and internalization with constant total receptor; QSS closure, not a drug fit"
+parameters
+ ke = 0.1 [1/h] estimated
+ kint = 0.05 [1/h] fixed
+ kd = 1 [nmol/L] fixed
+ rtot = 1 [nmol/L] fixed
+ volume = 3 [L] fixed
+states
+ total = 0 [nmol]
+definitions
+ ct = total / volume [nmol/L]
+ free = (ct - rtot - kd + sqrt((ct - rtot - kd)^2 + 4 * kd * ct)) / 2 [nmol/L]
+ bound = rtot * free / (kd + free) [nmol/L]
+dynamics
+ d/dt(total) = input_total - ke * free * volume - kint * bound * volume
+dosing
+ total [nmol] = 1
+outputs
+ free_concentration = free [nmol/L]
+end

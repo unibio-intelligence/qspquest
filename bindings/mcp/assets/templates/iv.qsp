@@ -1,0 +1,20 @@
+model synthetic_one_compartment
+time_unit = h
+description = "Synthetic linear PK fixture; no drug-specific parameters."
+
+parameters
+  cl = 0.3 [L/h] log estimated
+  v = 3 [L] log estimated
+
+states
+  central = 0 [mg]
+
+dynamics
+  d/dt(central) = (input_central - ((cl / v) * central))
+
+outputs
+  cp = (central / v) [mg/L]
+
+dosing
+  central [mg] = 1
+end

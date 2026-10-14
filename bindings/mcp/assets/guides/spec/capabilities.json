@@ -1,0 +1,4466 @@
+{
+  "schema": "qspquest.capability-catalog/v1",
+  "package_version": "0.1.0",
+  "scope": "Source-declared supported contracts; active build/deployment, request admission and exact release evidence determine executable and qualified status.",
+  "key_dimensions": [
+    "operation",
+    "interface",
+    "estimator",
+    "solver",
+    "target",
+    "execution_mode"
+  ],
+  "source_snapshot": {
+    "Cargo.toml": "770cdaad24a9f526ff02fdece2326e2e5bea293f30c69dae89ea3891cd9a0828",
+    "bindings/cli/src/main.rs": "ebab89be5a4eba85bb3d47dc317a3313a00868090cb2877b92ee0e85fe18c0c5",
+    "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
+    "bindings/mcp/Dockerfile": "152ef1530703f75e39f4b26058582669200fc6f243e2fd8b561f2393d3fa338e",
+    "bindings/mcp/assets/library/catalog.json": "da147cf9db14c23e0ea6a6dc185946d8b58951582600d7e094e08cff36f08a13",
+    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/evidence.json": "f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
+    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.0/evidence.json": "15d79cb03f9116b5270cf2f2563178e8f9b1a5c453873c4cb2201ca152d084c2",
+    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_tgi_benchmark/0.1.0/evidence.json": "52235f1405b414c11e7b4431a60ccc41bbf8517ccdc1afc1140a9ad7f72c76d9",
+    "bindings/mcp/assets/library/models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/evidence.json": "7764e94f911a805d0fb542fb1daf5a8c4f607a4b22d07c486509c815e1b1c7e0",
+    "bindings/mcp/assets/library/models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/evidence.json": "55055efe1971a2bfbda6d23c1b9c496ef322937f5ecbf2f779e8544f85c733d6",
+    "bindings/mcp/assets/library/models/qspquest_ubi_2026_membrane_ternary_binding/0.1.2/evidence.json": "05955b89248690dbae9560d9394c50fe2887da64ab51b3e5f3d2faee59f5c473",
+    "bindings/mcp/assets/library/models/qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0/evidence.json": "1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
+    "bindings/mcp/assets/library/models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1/evidence.json": "5f5bc66430a82d7cea07d98b478e372826dfa03de77ae380e76eb164ad6cb1f3",
+    "bindings/mcp/assets/library/qspquest_models/availability.json": "1b39fc34c69ccf6e568c095f06cd8f2959f3c76a34c63e6ffa825fbdf7dc4bb0",
+    "bindings/mcp/build.rs": "5099dc2d9f1b7a2ab2d0c9fa753a9e2fc748cd1718f91acd7b011c6e037a54a0",
+    "bindings/mcp/src/artifacts.rs": "418274f5db950a267c40fa3e75a16793672f6235550532b20273ad81145d1cc2",
+    "bindings/mcp/src/availability.rs": "4f99322470089705d04e34ab2fbb7eaa73cf978a0c9afcaf3acf0bdf466df149",
+    "bindings/mcp/src/boundaries.rs": "878b79e050f6f9fdc7021d3102e828b827569b306a7b629a290c6b8905c2a9bf",
+    "bindings/mcp/src/cache.rs": "4f2ea6a171e625c51623b177eb818c6155cc6f075d9050b578c2df121e1a3759",
+    "bindings/mcp/src/cache_fs.rs": "0822929008c4a72fc1ad0c3c86a1b385fcccd5c8e2a6f02155e529b65d17085d",
+    "bindings/mcp/src/capability.rs": "6ee9679d4bcba78e700c6a6fcea53c98bf2c4d5008c8ce2e2e1cecdd5e6680e3",
+    "bindings/mcp/src/contract.rs": "e82b2968747cc3303c048a1e555515d580c2a0e44996f082fa77ea59c90069c1",
+    "bindings/mcp/src/core/analysis_request.rs": "7720752a5c9e3dd9183fd02af63ee0dcd1e3d01a1e4b30ca1bd7eb277889dde3",
+    "bindings/mcp/src/core/compute.rs": "43d648c9191d55b091a52d9871ef3a08d1e4635555e124348a8fbf60aa0c7f19",
+    "bindings/mcp/src/core/individual_request.rs": "3d2fd0eccbcd2bc286dd21497ca666e77943f26bc47cb89c036c491afa55f864",
+    "bindings/mcp/src/core/input_names.rs": "9c745f0928f3cc9fe3ead80800639c4af690f39704ba07172d09af535307d5f3",
+    "bindings/mcp/src/core/input_shapes.rs": "497b8dcc01d09deeb95431934acd612e897ede9c82c4266957f15a516ef6a22c",
+    "bindings/mcp/src/core/mod.rs": "6e3544eed0b79bf36de8a9cd70c7e94fafb1eb2dac60552ddce34724ddcb7b90",
+    "bindings/mcp/src/core/overrides.rs": "138903279c0ddccc77b8be86070a8a9a665c10abb22ba18941de75a0ff58ac68",
+    "bindings/mcp/src/core/population_records.rs": "60ed2334e0e5b3b45645c399b500bacc78ae380ec9c5a7f5abf70c51f88a00f0",
+    "bindings/mcp/src/core/readouts.rs": "bbb13030e09a50f1dde70931045be50e0c08294fcc4c6fefde9484254833e6cb",
+    "bindings/mcp/src/core/required_outputs.rs": "7a9e480a5470840ac76e4b6639e3160db62a5afe58ebcc53a43c7f96f77a7c79",
+    "bindings/mcp/src/core/scalar_request.rs": "61e1ca8a96755e1b294f94e8f077c84a16a8594a53be6c2989625d81299c0031",
+    "bindings/mcp/src/core/scan_request.rs": "aa07c8283b1eb857a16243822f0bf450250937fe08b51cd86a9b03b65608936e",
+    "bindings/mcp/src/core/time_validation.rs": "8c8841dd3f1cb54191bea70ef9e9e6364e57d38e4ea537e99ca278eaa81852ce",
+    "bindings/mcp/src/core/usability.rs": "43263f0a337599d2c92727d00be922258052d7a9fdad74e7b78af38d86a83924",
+    "bindings/mcp/src/discovery.rs": "57899689ce5d53530464d3c349b8ae8325ee74ebd5a3f58aa999e23654a85840",
+    "bindings/mcp/src/execution_policy.rs": "077f047303f4134c5328b320a4f2eefe30a37801ca3b4717234959155c93ae26",
+    "bindings/mcp/src/export.rs": "7b741cfb80669c32b11145650cbf23575f37d8e068e70b53474998a9e6b77c68",
+    "bindings/mcp/src/fitting.rs": "cbfce5608a7dd24652f7033321732cec76a96cc15759ffd660d648eeb4d4b7b9",
+    "bindings/mcp/src/initialization.rs": "bce5578bb1648f4fbea596c3abdf8a3693c0b5d9a48f6bb03e97fce4ae3a6f1d",
+    "bindings/mcp/src/inspection.rs": "152b1e9a75f67a57da69089f6ce6d4c4d37cce3030f7be70945f989139a27c40",
+    "bindings/mcp/src/interpretations.rs": "15228f2454d0decb86787ead18e243ba3cc53960392534637d1a57e8d55f4c8f",
+    "bindings/mcp/src/jobs.rs": "426148183bda0c9b79c2469615684a09f6565c81b57baeb17e711554c6ec1f23",
+    "bindings/mcp/src/jobs/request.rs": "b3222fdce94200227e8c95c97eab71114e5056984e4df26c7985481db82487ec",
+    "bindings/mcp/src/lib.rs": "77749489084300e01f9af37c9257e7c9644ef7cf4e714e5de954f79a72eaa5f1",
+    "bindings/mcp/src/library.rs": "bd54edb6b2af9488da73bc876670847e2a7ea1b575ba7ca8963381193e1a68b2",
+    "bindings/mcp/src/local_fs.rs": "246b2d71fcdfd064d572f7a2dcc31cbcd9702c5d78f3b0dc02188a0d0ada6e5d",
+    "bindings/mcp/src/local_jobs.rs": "53ad41ee522b76df4d49e86abb87facbfbc87162f397c9ecbbea4908a565d34b",
+    "bindings/mcp/src/main.rs": "ab1d6792a6fd7b5fea647d602e8537dfc077f652c54e444f2a342b6f1739a805",
+    "bindings/mcp/src/managed_artifacts.rs": "a6b10058b16e667637c28ececc484df88bd1873344fa31b27b92f81aeab8683c",
+    "bindings/mcp/src/model_cards.rs": "65418edc9fc92fe921e2191663baefb8d47b657614fbf14fc6067c005aab330c",
+    "bindings/mcp/src/planning.rs": "595f85f301e1e6197f2d5079d5c6f4185b46df479230deb87699f6771ef71daf",
+    "bindings/mcp/src/policy.rs": "643752e1c9468d061711a0b2b1e3bb38c41c9773e17df0893c60d66efe88fb5f",
+    "bindings/mcp/src/precision.rs": "dca889a91ba1e7286e21750e6fcec7053b1fe2943bd24ddf0bcf30521d4b5f74",
+    "bindings/mcp/src/response_format.rs": "f66af9ee9680b543e258c50654c95107b127e3a05172eebd6b510d1dc67499b2",
+    "bindings/mcp/src/scientific.rs": "44e135c246ea668bbd93d45965f21ae4828c05a1351248bc0d9f8eacfadd2906",
+    "bindings/mcp/src/server.rs": "8dc169c535dc603849aa42a0141938672f701c8edea04c44c205afb97ddff441",
+    "bindings/mcp/src/server/execution.rs": "3690057eb29d1fcc05e0c169fbc90487772a648a68de58e0764e9f38cd6b79e8",
+    "bindings/mcp/src/server/local_jobs.rs": "da220964cac1d101da9a8c51a4e785b9a4176aa2e06580ddebc444bdbae3a74b",
+    "bindings/mcp/src/server/managed.rs": "843eea426555537afa0d5089a94a54cf5a054de9fe0d7087f955d5ef7f06c7f9",
+    "bindings/mcp/src/table.rs": "b1e613bdca4a993cd9ebc817cc964ec55c1554f332fa3ad215c5a9371c94c758",
+    "bindings/python/python/qspquest/__init__.py": "6848b2953561b540264cb17e9a51374e2b5f191f3005ebaa0a34fe9389bb06d7",
+    "bindings/python/python/qspquest/control.py": "62dd5d60c4693e7a9c7773c7f1a35d5f3abdcc1d1ff663e7e4fb4e3c436f9d94",
+    "bindings/python/python/qspquest/derivatives.py": "66934b42a97abe9e056862493f9e1601331c95caf9334a1324d5ddcf8d6e5936",
+    "bindings/python/python/qspquest/diagnostics.py": "1bfa6628c895923f144feed054e3a1fc6ab411a3c1af72523b05e22306b9c924",
+    "bindings/python/python/qspquest/estimation.py": "272e344cb928f384afdd77e5037bb61fde67fdca8c2ceb1dfd7a7e85853fb7ca",
+    "bindings/python/python/qspquest/exposure.py": "62829d7ea4c688d505d6f72fc28ae8300432e54750794e4ea5679de7a61a406c",
+    "bindings/python/python/qspquest/individual.py": "0abbbee768ef7963ce50e2d5642edca810d338f16e2b237f7bd10ff2780f15b9",
+    "bindings/python/python/qspquest/interchange.py": "5ac4895c9a5a7c460cc8fa7789b53e75fafc69a89c514374435a5243912e53a2",
+    "bindings/python/python/qspquest/population.py": "006e23aa4830a9498a9e5996b831b623f3b842e6b07a78c94154880f835a999d",
+    "bindings/python/python/qspquest/uncertainty.py": "9e6861d987cef988c9f5844246104cee71401b50ed2df87af40a89300a24fae4",
+    "bindings/python/src/lib.rs": "aba9df8457e71ebf9d1bce7b2849d6999e800a0b5f0efe54f9fe4674628eb17c",
+    "bindings/r/NAMESPACE": "3cec2a0f4429a871f73237bb174716cbae0c2238952809bac57d21a1ac6cf197",
+    "bindings/r/R/qspquest.R": "84c1d5d23823ee810e978b5b93d29e3d9173a05e27053b8c1f0ac898b3a631c0",
+    "bindings/r/src/rust/src/lib.rs": "d8be1eed7567065507a02c01e8bab8f926df06d9ade896f530bb6599fd4479fd",
+    "bindings/wasm/Cargo.toml": "ff17b7ae4b8e65fe893b0e9dc810ddd6a50b4958c5ff90731770f4eb9859ffc5",
+    "bindings/wasm/js/client.d.mts": "ef04db2c55ced9e407a5cb622a953fcc6dd2140ab99948823b3ebc213ae089b9",
+    "bindings/wasm/js/engine-worker.mjs": "ebdb881635c5fbee6d9a1a70187aa8351cd21f890734ccc5cd7298fe7fb9748f",
+    "bindings/wasm/src/browser.rs": "b0b8f4b4535d63d60622c58101930df6a3d9d3e1f9dd51645b95067981e0e224",
+    "bindings/wasm/src/lib.rs": "0272b2ffe2b7575391542f4a1e84a3603cd8dec30497badebb629383848e1ec0",
+    "bindings/wasm/src/sandbox.rs": "d3212c3d462848974c600793cd84167e3ea9556866b08d75a3780117abd1f433",
+    "crates/qspquest-core/src/fit.rs": "84e66b38afc9bed94bd3ac13bd52c460e051e506e171176c1d1a3a1a2e39dd0a",
+    "crates/qspquest-core/src/initial_values.rs": "c5ae57ba3ecde7abb84585f82dcda7622fdc6604aa63e50941424251abca5fc4",
+    "crates/qspquest-core/src/planning.rs": "0e4a26b86e55c49b6588ab3308526def9464b1615e0901730ca2e02bcb32898b",
+    "crates/qspquest-core/src/run.rs": "24f35dfc57a1ccba27df0d4279f229d31bddc8520de5456b243aa0c2c19c3bfd",
+    "crates/qspquest-core/src/units/mod.rs": "5941d1ef0e6a49a030702eb7852bcf811d597708748e7072e6e0c8a61f920be5",
+    "crates/qspquest-modeling/src/document.rs": "6c3cd8eca6cdac8717079d1dae2efa3beac6d7a7322a1a34426e3ff0958e3015",
+    "crates/qspquest-modeling/src/document/initial_values.rs": "08237056590c3c188d6047fafb463189c97f26c3767eebaa34b57151be9aa1d5",
+    "crates/qspquest-modeling/src/document/morris.rs": "89109bb9eb8dcf7dccb89f3afc0f18d3fb149d83751e43cfde992100e59b9e8c",
+    "crates/qspquest-modeling/src/document/planning.rs": "0ecd9a3a4aa382ed0c5d8698abc661e51285bf51faec190f5f42f766e35f9126",
+    "crates/qspquest-modeling/src/document/scalar_fit.rs": "9242e3f2100f4aaa4960e58424d9a72ce6f1558510233d3a987d0b2f327a1037",
+    "crates/qspquest-modeling/src/document/scan.rs": "a19fa2a1420167f33288b7a311da70df7d00c2f0d4ff2ae79e65fee801784ecf",
+    "crates/qspquest-modeling/src/document/sensitivity/fit.rs": "29645e51f3b3bf26b95896fccc1511665e1accd79007b4dbe6236d324380af01",
+    "crates/qspquest-modeling/src/document/sensitivity/fit_planning.rs": "7567dd8681a634426568d90f60162b5912048df7374dec18d2ba3e04c106aae1",
+    "crates/qspquest-modeling/src/document/sensitivity/objective.rs": "1c0719d5b122a97cfd6dad762027fa1f0573dd73eaa4ab1e48bee60a716f1ee8",
+    "crates/qspquest-modeling/src/document/sensitivity/planning.rs": "59fd1eea7af52b8f5f133b1472043ffda9f6927dfd1b2b6b39c3f5c90a4e08e5",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei.rs": "3d3e7f669452a507f38960f1cd9f6a33c7a2b26ddb5ebffb9ac85982e4d84913",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei_2d.rs": "2f91ae7374509088476f8325a8bd17d827516a8f629c0aa839b8880ff67b0104",
+    "crates/qspquest-modeling/src/document/sensitivity/population_laplace.rs": "5ce74c995800863f063c83af694117620e35f37886699028b1d21abeb0526f6c",
+    "crates/qspquest-modeling/src/document/sensitivity/population_saem.rs": "595be6c755c2d5bf35634bf141db4604ba6325f0bf015eb1dfb69586603ffafc",
+    "crates/qspquest-modeling/src/document/sensitivity/run.rs": "2cb900c9ccc725b158b2ef87a525f581242d69678cc50825a81706a048765771",
+    "crates/qspquest-modeling/src/document/steady_state.rs": "e934ec68f345d46eac126f29b82d94818f5b72964b1c809e247147ffce22a1d1",
+    "crates/qspquest-modeling/src/document/switches.rs": "ebee84c58ab0756515313d6706d0aee431bb0c7cde1fea4783049ba353993e8b",
+    "scripts/build-mcp.sh": "b6018ec1cdca5b3a3a064edb22b527f28190a681a03d9142a52d2399eb9395e2",
+    "scripts/verify_release_provenance.py": "4d10779455268137e574f6d9ef1743ff29d0b658da7c01e3a263342359871732"
+  },
+  "examples": [
+    {
+      "id": "synthetic-one-compartment-run",
+      "paths": [
+        "conformance/models/synthetic-one-compartment.json",
+        "conformance/requests/synthetic-one-compartment.json"
+      ],
+      "purpose": "Synthetic analytical simulation payload; not clinical qualification."
+    },
+    {
+      "id": "python-typed-run",
+      "paths": [
+        "docs/examples/python_typed.py"
+      ],
+      "purpose": "Six analytical post-dose samples and typed result helpers."
+    },
+    {
+      "id": "r-quickstart",
+      "paths": [
+        "docs/examples/r_quickstart.R"
+      ],
+      "purpose": "Synthetic R simulation and result table."
+    },
+    {
+      "id": "mcp-offline-documentation",
+      "paths": [
+        "docs/examples/mcp_result_resources.py"
+      ],
+      "purpose": "Offline resource navigation and six synthetic analytical samples."
+    },
+    {
+      "id": "interchange-roundtrip",
+      "paths": [
+        "docs/examples/interchange_roundtrip.py"
+      ],
+      "purpose": "Synthetic bounded interchange roundtrip."
+    },
+    {
+      "id": "mcp-response-guard",
+      "paths": [
+        "docs/examples/mcp_result_resources.py"
+      ],
+      "purpose": "Single and repeated boluses; explicit condition/column/key/event-side mappings, analytic values and completeness refusals."
+    },
+    {
+      "id": "mcp-local-jobs",
+      "paths": [
+        "docs/tutorials/mcp-local-jobs.md",
+        "docs/examples/mcp_local_jobs.py",
+        "conformance/models/synthetic-one-compartment.qsp"
+      ],
+      "purpose": "Synthetic full result verification, stable retry key, cancellation/resume and restart without replay; not clinical qualification."
+    },
+    {
+      "id": "managed-artifact-retrieval",
+      "paths": [
+        "docs/tutorials/managed-result-artifacts.md",
+        "docs/examples/managed_artifact_download.py",
+        "scripts/tests/test_managed_artifact_download.py",
+        "bindings/mcp/tests/managed.rs"
+      ],
+      "purpose": "Synthetic authenticated range and complete-byte transport fixtures; deployed platform storage/authorization and scientific qualification remain unassessed."
+    },
+    {
+      "id": "population-record-mapping",
+      "paths": [
+        "docs/tutorials/mcp-population-records.md",
+        "docs/examples/mcp_population_records.py",
+        "bindings/mcp/assets/fits/population.json",
+        "bindings/mcp/assets/fits/population-record-mapping-golden.json",
+        "bindings/mcp/src/core/population_records.rs"
+      ],
+      "purpose": "Own synthetic typed record admission, exact source-row/native-request mapping and bounded population teaching workflow; no general statistical qualification."
+    },
+    {
+      "id": "paired-endpoint-fitting",
+      "paths": [
+        "docs/tutorials/paired-endpoint-fitting.md",
+        "docs/examples/paired_endpoint_fit.py",
+        "conformance/models/paired-antibody-cell.json",
+        "bindings/python/tests/test_individual_dataset.py"
+      ],
+      "purpose": "Own synthetic paired-endpoint individual likelihood, independent reference/gradient comparisons and bounded native-fit OMEX exchange; current artifact/statistical/clinical qualification unassessed."
+    }
+  ],
+  "entries": [
+    {
+      "operation": "analysis_fit_individual",
+      "interface": "python_analysis",
+      "api": "CompiledModel.fit_data",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "L-BFGS-B",
+        "Powell"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Bounded likelihood fitting including M3 and fitted residual SDs; finite-difference optimizer, not native sensitivity fitting.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/estimation.py",
+      "symbol": "def fit_data(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "analysis_fit_population",
+      "interface": "python_analysis",
+      "api": "CompiledModel.fit_population",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "saem_python"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Python SAEM with 1..8 positive lognormal effects, fixed/fitted errors and subject-constant covariates; complete-data surrogate objective, not marginal OFV.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/population.py",
+      "symbol": "def fit_population(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "bootstrap_population",
+      "interface": "python_analysis",
+      "api": "CompiledModel.bootstrap_population",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "saem_python"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Subject resampling with bounded SAEM fits; failed replicates remain failures.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/uncertainty.py",
+      "symbol": "def bootstrap_population(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "compare_regimens",
+      "interface": "mcp",
+      "api": "compare_regimens",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "All named regimens share static simulation preparation before integration; complete plan_run inspection and expected_plan_hash guard bind ordered member contexts. CSV destination inspection reserves no names; export starts after every numerical run succeeds. Per-member simulation admission and aggregate deployment deadlines apply.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn compare_regimens(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "compare_regimens",
+      "interface": "python_analysis",
+      "api": "CompiledModel.compare_regimens",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Paired finite-grid exposure summaries with explicitly supplied effects or parameter draws.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/exposure.py",
+      "symbol": "def compare_regimens(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "compile_model",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: compile_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"compile_model\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "event_sensitivities",
+      "interface": "python_analysis",
+      "api": "CompiledModel.event_sensitivities",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Finite-difference moving-event derivatives with convergence checks; not native fixed-event sensitivities.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/derivatives.py",
+      "symbol": "def event_sensitivities(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "export_omex",
+      "interface": "python_interchange",
+      "api": "export_omex",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "interchange"
+      ],
+      "requirements": "Bounded declarative interchange profile; supported subset and archive validation contracts apply.",
+      "limits": {
+        "scope": "XML/archive member, size, path and request admission limits in the bounded interchange profile."
+      },
+      "example_ids": [
+        "interchange-roundtrip"
+      ],
+      "source": "bindings/python/python/qspquest/interchange.py",
+      "symbol": "def export_omex(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "export_sbml",
+      "interface": "python_interchange",
+      "api": "export_sbml",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "interchange"
+      ],
+      "requirements": "Bounded declarative interchange profile; supported subset and archive validation contracts apply.",
+      "limits": {
+        "scope": "XML/archive member, size, path and request admission limits in the bounded interchange profile."
+      },
+      "example_ids": [
+        "interchange-roundtrip"
+      ],
+      "source": "bindings/python/python/qspquest/interchange.py",
+      "symbol": "def export_sbml(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "exposure_summary",
+      "interface": "python_analysis",
+      "api": "exposure_summary",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Sampled-grid extrema and trapezoidal AUC; no extrapolation.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/exposure.py",
+      "symbol": "def exposure_summary(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_diagnostics",
+      "interface": "python_analysis",
+      "api": "fit_diagnostics",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Summaries of existing fit results; residuals are not CWRES or NPDE.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/diagnostics.py",
+      "symbol": "def fit_diagnostics(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "cli",
+      "api": "qspquest fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"fit\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "mcp",
+      "api": "fit_individual",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn fit_individual(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "python",
+      "api": "CompiledSensitivities.fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Explicit individual endpoint-specific residual quantities; plan_fit admission and objective/gradient evaluation; paired record mapping preserves exact ordered result indices.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [
+        "paired-endpoint-fitting"
+      ],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "r",
+      "api": "fit_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "fit_model <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "rust",
+      "api": "execute_fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/fit.rs",
+      "symbol": "pub fn execute_fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "wasm_direct",
+      "api": "CompiledSensitivities.fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "m0-conformance"
+      ],
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_individual",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: fit_individual",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"fit_individual\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "cli",
+      "api": "qspquest fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"fit\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "mcp",
+      "api": "fit_population",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities. Explicit records use a complete native population template and closed endpoint/compartment mappings; row and subject ceilings are checked before request expansion, with located refusals and unchanged row provenance.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [
+        "population-record-mapping"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn fit_population(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "python",
+      "api": "CompiledSensitivities.fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "r",
+      "api": "fit_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "fit_model <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "rust",
+      "api": "execute_fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/fit.rs",
+      "symbol": "pub fn execute_fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "wasm_direct",
+      "api": "CompiledSensitivities.fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "m0-conformance"
+      ],
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_population",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: fit_population",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "focei",
+        "laplace",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"fit_population\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_scalar",
+      "interface": "mcp",
+      "api": "fit_scalar",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "One bounded declared non-fixed parameter, Gaussian observations and explicit budgets; no sensitivity requirement. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn fit_scalar(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_scalar",
+      "interface": "python",
+      "api": "CompiledModel.fit_scalar",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "One bounded declared non-fixed parameter, Gaussian observations and explicit budgets; no sensitivity requirement.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def fit_scalar(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_scalar",
+      "interface": "rust",
+      "api": "fit_scalar",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "One bounded declared non-fixed parameter, Gaussian observations and explicit budgets; no sensitivity requirement.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/scalar_fit.rs",
+      "symbol": "pub fn fit_scalar(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_scalar",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: fit_scalar",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "diffsol_rosenbrock23",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"fit_scalar\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_artifact",
+      "interface": "mcp",
+      "api": "get_artifact",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and verified admitted session. Metadata is read only; complete-byte retrieval additionally requires the artifact-specific qspquest.platform-result-bytes/v1 immutable retention and exact same-origin authenticated range contract. A compiled adapter does not qualify a deployed platform.",
+      "limits": {
+        "scope": "Artifact bytes at most 128,000,000; byte chunks at most 48,000; declared retention at most seven days; resource deadline 15 seconds. Every resource read reauthorizes the caller and shares two per-tenant and configured global slots. Legacy metadata does not promise bytes."
+      },
+      "example_ids": [
+        "managed-artifact-retrieval"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_artifact(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_capability",
+      "interface": "mcp",
+      "api": "get_capability",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Six-dimensional source declaration and active native-model blockers; request admission and exact evidence remain separate.",
+      "limits": {
+        "scope": "16 KiB metadata-only input; no computation or private platform lookup."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_capability(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_job",
+      "interface": "mcp",
+      "api": "get_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_model",
+      "interface": "mcp",
+      "api": "get_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_model(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_patient_parameters",
+      "interface": "mcp",
+      "api": "get_patient_parameters",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Bind scalar inputs and retained initial states; evaluate selected outputs at time zero before administrations. Complete static preparation and expected_plan_hash guard are supported; no integration occurs. Evaluation and declared units do not establish scientific or physical qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_patient_parameters(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_scenario_request",
+      "interface": "mcp",
+      "api": "get_scenario_request",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_scenario_request(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "import_omex",
+      "interface": "python_interchange",
+      "api": "import_omex",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "interchange"
+      ],
+      "requirements": "Bounded declarative interchange profile; supported subset and archive validation contracts apply.",
+      "limits": {
+        "scope": "XML/archive member, size, path and request admission limits in the bounded interchange profile."
+      },
+      "example_ids": [
+        "interchange-roundtrip"
+      ],
+      "source": "bindings/python/python/qspquest/interchange.py",
+      "symbol": "def import_omex(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "import_sbml",
+      "interface": "python_interchange",
+      "api": "import_sbml",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "interchange"
+      ],
+      "requirements": "Bounded declarative interchange profile; supported subset and archive validation contracts apply.",
+      "limits": {
+        "scope": "XML/archive member, size, path and request admission limits in the bounded interchange profile."
+      },
+      "example_ids": [
+        "interchange-roundtrip"
+      ],
+      "source": "bindings/python/python/qspquest/interchange.py",
+      "symbol": "def import_sbml(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "inspect_model",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: inspect_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"inspect_model\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "iterate_periodic",
+      "interface": "cli",
+      "api": "qspquest iterate-periodic",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Bounded phase-periodic iteration with BDF; convergence and event contracts apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"iterate-periodic\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "iterate_periodic",
+      "interface": "python",
+      "api": "CompiledModel.iterate_periodic_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Bounded phase-periodic iteration with BDF; convergence and event contracts apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def iterate_periodic_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "iterate_periodic",
+      "interface": "rust",
+      "api": "iterate_periodic_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Bounded phase-periodic iteration with BDF; convergence and event contracts apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/steady_state.rs",
+      "symbol": "pub fn iterate_periodic_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "iterate_periodic",
+      "interface": "wasm_direct",
+      "api": "CompiledSimulation.iterate_periodic_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Bounded phase-periodic iteration with BDF; convergence and event contracts apply. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn iterate_periodic_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "model_template",
+      "interface": "mcp",
+      "api": "model_template",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn model_template(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "cli",
+      "api": "qspquest morris",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"morris\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "mcp",
+      "api": "morris_screening",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn morris_screening(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "python",
+      "api": "CompiledModel.morris",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def morris(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "r",
+      "api": "morris_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "morris_model <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "rust",
+      "api": "execute_morris",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/morris.rs",
+      "symbol": "pub fn execute_morris(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "wasm_direct",
+      "api": "CompiledSimulation.morris",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit or seeded bounded screening; generated points retain simulation admission requirements. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn morris(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "morris_screening",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: morris_screening",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "diffsol_rosenbrock23",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"morris_screening\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "preview_job",
+      "interface": "mcp",
+      "api": "preview_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn preview_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "profile_likelihood",
+      "interface": "python_analysis",
+      "api": "CompiledModel.profile_likelihood",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "L-BFGS-B"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Fix each grid value and refit nuisance parameters; approximate grid-based likelihood-ratio intervals.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/uncertainty.py",
+      "symbol": "def profile_likelihood(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "progress_cancel_checkpoint",
+      "interface": "python_analysis",
+      "api": "AnalysisControl",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Progress callbacks, cooperative cancellation and restart checkpoints apply to Python population fitting, VPC and bootstrap; no mid-native-solve interruption guarantee.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/control.py",
+      "symbol": "class AnalysisControl",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "cli",
+      "api": "qspquest scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"scan\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "mcp",
+      "api": "scan_parameters",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn scan_parameters(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "python",
+      "api": "CompiledModel.scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def scan(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "r",
+      "api": "scan_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "scan_model <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "rust",
+      "api": "scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/scan.rs",
+      "symbol": "pub fn scan(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "wasm_direct",
+      "api": "CompiledSimulation.scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Explicit finite parameter points and aggregate budgets; simulation solver/model requirements apply. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn scan(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "scan_parameters",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: scan_parameters",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "diffsol_rosenbrock23",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"scan_parameters\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "search_models",
+      "interface": "mcp",
+      "api": "search_models",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn search_models(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "sensitivities",
+      "interface": "cli",
+      "api": "qspquest sensitivities",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Fixed-event forward sensitivity contracts; BDF or Rodas5P; no run-level stochastic seed.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"sensitivities\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "sensitivities",
+      "interface": "python",
+      "api": "CompiledSensitivities.run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Fixed-event forward sensitivity contracts; BDF or Rodas5P; no run-level stochastic seed.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "sensitivities",
+      "interface": "rust",
+      "api": "run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Fixed-event forward sensitivity contracts; BDF or Rodas5P; no run-level stochastic seed.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/run.rs",
+      "symbol": "pub fn run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "sensitivities",
+      "interface": "wasm_direct",
+      "api": "CompiledSensitivities.execute",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "m0-conformance"
+      ],
+      "requirements": "Fixed-event forward sensitivity contracts; BDF or Rodas5P; no run-level stochastic seed. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn execute(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "cli",
+      "api": "qspquest run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"run\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "mcp",
+      "api": "simulate",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn simulate(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "python",
+      "api": "CompiledModel.run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [
+        "python-typed-run"
+      ],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "r",
+      "api": "simulate_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "r-quickstart"
+      ],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "simulate_model <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "rust",
+      "api": "execute",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "crates/qspquest-modeling/src/document.rs",
+      "symbol": "pub fn execute(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "wasm_direct",
+      "api": "CompiledSimulation.execute",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn execute(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: simulate",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "diffsol_rosenbrock23",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"simulate\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "simulate",
+      "interface": "wasm_worker",
+      "api": "WorkerClient.run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "worker"
+      ],
+      "required_features": [],
+      "requirements": "The declared public scientific Worker request currently specifies BDF; use direct bindings for other operations. Lifecycle cancellation terminates the Worker.",
+      "limits": {
+        "source_bytes": 1000000,
+        "request_bytes": 1000000,
+        "scope": "Public Worker payload and scientific run contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/js/client.d.mts",
+      "symbol": "solver: 'diffsol_bdf'",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "cli",
+      "api": "qspquest steady-state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Fully contained periodic linear_pk cycle; analytic_linear_pk only; no run seed or initial overrides.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"steady-state\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "mcp",
+      "api": "steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Fully contained periodic linear_pk cycle; analytic_linear_pk only; no run seed or initial overrides. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn steady_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "python",
+      "api": "CompiledModel.periodic_steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Fully contained periodic linear_pk cycle; analytic_linear_pk only; no run seed or initial overrides.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "    def periodic_steady_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "rust",
+      "api": "periodic_steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Fully contained periodic linear_pk cycle; analytic_linear_pk only; no run seed or initial overrides.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/steady_state.rs",
+      "symbol": "pub fn periodic_steady_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "wasm_direct",
+      "api": "CompiledSimulation.periodic_steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Fully contained periodic linear_pk cycle; analytic_linear_pk only; no run seed or initial overrides. The sandbox-abi build omits the browser classes.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Direct browser binding admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/wasm/src/browser.rs",
+      "symbol": "pub fn periodic_steady_state(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "steady_state",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"steady_state\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "submit_population_fit",
+      "interface": "mcp",
+      "api": "submit_population_fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn submit_population_fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "submit_scan",
+      "interface": "mcp",
+      "api": "submit_scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn submit_scan(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "submit_simulation",
+      "interface": "mcp",
+      "api": "submit_simulation",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn submit_simulation(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "summarize_profile",
+      "interface": "mcp",
+      "api": "summarize_profile",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn summarize_profile(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "validate_model",
+      "interface": "mcp",
+      "api": "validate_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Active tool/deployment policy and model-card contracts apply. Metadata inspection is not execution or scientific qualification.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn validate_model(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "validate_model",
+      "interface": "wasm_sandbox",
+      "api": "execute_json: validate_model",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "wasm32-unknown-unknown"
+      ],
+      "modes": [
+        "sandbox"
+      ],
+      "required_features": [
+        "sandbox-abi"
+      ],
+      "requirements": "Raw sandbox ABI JSON dispatch; separate from browser classes and Worker contracts. Host memory/fuel limits and native request admission apply.",
+      "limits": {
+        "scope": "Raw ABI input at most 2 MiB; model source at most 1 MiB. Host memory/fuel configuration applies."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/core/compute.rs",
+      "symbol": "\"validate_model\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "visual_predictive_check",
+      "interface": "python_analysis",
+      "api": "CompiledModel.visual_predictive_check",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [
+        "analysis"
+      ],
+      "requirements": "Seeded joint-IIV/residual simulation, VPC/pcVPC and BLQ fractions; observed-design and budget constraints apply.",
+      "limits": {
+        "scope": "Explicit per-call max_simulations and workflow-specific iteration, dimension and replicate limits."
+      },
+      "example_ids": [],
+      "source": "bindings/python/python/qspquest/diagnostics.py",
+      "symbol": "def visual_predictive_check(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "wait_for_job",
+      "interface": "mcp",
+      "api": "wait_for_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "managed_http"
+      ],
+      "required_features": [
+        "managed"
+      ],
+      "requirements": "Configured managed backend and a verified admitted session. Platform preview, pricing, operation readiness and target are governed by the backend; this target denotes the MCP transport build.",
+      "limits": {
+        "scope": "Backend admission, pricing, authorization and operation-specific budgets apply."
+      },
+      "example_ids": [],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn wait_for_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_run",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Static native preparation only; no solver, readout, optimizer or qualification is executed. Full run/scan domain, unit, budget and observation contracts apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "crates/qspquest-modeling/src/document/planning.rs",
+      "symbol": "pub fn plan_run",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_run",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Static native preparation only; no solver, readout, optimizer or qualification is executed. Full run/scan domain, unit, budget and observation contracts apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"plan\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scan",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_scan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Static native preparation only; no solver, readout, optimizer or qualification is executed. Full run/scan domain, unit, budget and observation contracts apply.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "crates/qspquest-modeling/src/document/scan.rs",
+      "symbol": "pub fn plan_scan",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scan",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Static native preparation only; no solver, readout, optimizer or qualification is executed. Full run/scan domain, unit, budget and observation contracts apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [
+        "synthetic-one-compartment-run"
+      ],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"plan\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_sensitivities",
+      "interface": "rust",
+      "api": "CompiledSensitivityDocument.plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Actual augmented scientific preparation; no integration/readouts, convergence or scientific qualification. Fixed-event sensitivity restrictions apply.",
+      "limits": {
+        "scope": "Static augmented preparation, exact row/storage reservations and prospective sensitivity identity; budgets are ceilings."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/planning.rs",
+      "symbol": "pub fn plan_run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_sensitivities",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Actual augmented scientific preparation; no integration/readouts, convergence or scientific qualification. Fixed-event sensitivity restrictions apply.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "Static augmented preparation, exact row/storage reservations and prospective sensitivity identity; budgets are ceilings."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "model.plan_run(&request)",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_gaussian_objective",
+      "interface": "rust",
+      "api": "CompiledSensitivityDocument.plan_gaussian_objective",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Actual Gaussian observation/prior preparation and augmented simulation with reserved storage; no predictions, likelihood, gradients or fitting qualification.",
+      "limits": {
+        "scope": "Static augmented preparation, exact row/storage reservations and prospective sensitivity identity; budgets are ceilings."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/planning.rs",
+      "symbol": "pub fn plan_gaussian_objective(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_fit",
+      "interface": "rust",
+      "api": "CompiledSensitivityDocument.plan_fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled",
+        "laplace",
+        "focei",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Actual estimator-specific preparation at admitted starts; no integration, optimization, random draws, covariance, final-result identity or scientific qualification.",
+      "limits": {
+        "scope": "Aggregate conservative descriptive-record ceiling; subject numerical budgets and estimator restrictions remain in force.",
+        "metadata_items": 1000000
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/sensitivity/fit_planning.rs",
+      "symbol": "pub fn plan_fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_fit",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled",
+        "laplace",
+        "focei",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Actual estimator-specific preparation at admitted starts; no integration, optimization, random draws, covariance, final-result identity or scientific qualification.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "Aggregate conservative descriptive-record ceiling; subject numerical budgets and estimator restrictions remain in force.",
+        "metadata_items": 1000000
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "model.plan_fit(&request)",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scalar_fit",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_scalar_fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Actual estimator-specific preparation at admitted starts; no integration, optimization, random draws, covariance, final-result identity or scientific qualification.",
+      "limits": {
+        "scope": "Aggregate conservative descriptive-record ceiling; subject numerical budgets and estimator restrictions remain in force.",
+        "metadata_items": 1000000
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/scalar_fit.rs",
+      "symbol": "pub fn plan_scalar_fit(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scalar_fit",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Actual estimator-specific preparation at admitted starts; no integration, optimization, random draws, covariance, final-result identity or scientific qualification.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "Aggregate conservative descriptive-record ceiling; subject numerical budgets and estimator restrictions remain in force.",
+        "metadata_items": 1000000
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "compiled.plan_scalar_fit(&request)",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_scalar",
+      "interface": "cli",
+      "api": "qspquest fit",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "One bounded declared non-fixed parameter, Gaussian observations and explicit budgets; no sensitivity requirement.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "Bounded scalar Gaussian fitting with ordinary native scalar admission."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "compiled.fit_scalar(&request)",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_run",
+      "interface": "mcp",
+      "api": "plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Actual shared adapter and scientific preparation; no integration, objective evaluation, optimization, random draws, file export or job submission. Hosted user source requires the configured isolated WASM engine. No scientific qualification or execution reservation. Optional analysis builds also prepare complete native Morris designs and admit exact selected rows and equal time/side grids before integration. Analysis builds also prepare periodic steady-state requests with exact normalized cycles and conservative per-cycle budgets; changed inputs are refused with expected_plan_hash.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "local_plan_bytes": 4000000,
+        "scope": "Complete inline metadata or bounded chunked local plan; numeric budgets remain ceilings and estimator-specific restrictions apply."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn plan_run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scan",
+      "interface": "mcp",
+      "api": "plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Actual shared adapter and scientific preparation; no integration, objective evaluation, optimization, random draws, file export or job submission. Hosted user source requires the configured isolated WASM engine. No scientific qualification or execution reservation.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "local_plan_bytes": 4000000,
+        "scope": "Complete inline metadata or bounded chunked local plan; numeric budgets remain ceilings and estimator-specific restrictions apply."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn plan_run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_fit",
+      "interface": "mcp",
+      "api": "plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "individual",
+        "pooled",
+        "laplace",
+        "focei",
+        "saem_native"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_rodas5p"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Actual shared adapter and scientific preparation; no integration, objective evaluation, optimization, random draws, file export or job submission. Hosted user source requires the configured isolated WASM engine. No scientific qualification or execution reservation.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "local_plan_bytes": 4000000,
+        "scope": "Complete inline metadata or bounded chunked local plan; numeric budgets remain ceilings and estimator-specific restrictions apply."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn plan_run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_scalar_fit",
+      "interface": "mcp",
+      "api": "plan_run",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "scalar_gaussian"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Actual shared adapter and scientific preparation; no integration, objective evaluation, optimization, random draws, file export or job submission. Hosted user source requires the configured isolated WASM engine. No scientific qualification or execution reservation.",
+      "limits": {
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "local_plan_bytes": 4000000,
+        "scope": "Complete inline metadata or bounded chunked local plan; numeric budgets remain ceilings and estimator-specific restrictions apply."
+      },
+      "example_ids": [
+        "mcp-offline-documentation"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn plan_run(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_morris",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_morris",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Complete explicit or deterministic seeded Morris design, converted range units, exact point/trajectory/row mapping and shared scan admission. No integration, effects, statistics or scientific qualification.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/morris.rs",
+      "symbol": "pub fn plan_morris",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_morris",
+      "interface": "cli",
+      "api": "qspquest plan",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Complete explicit or deterministic seeded Morris design, converted range units, exact point/trajectory/row mapping and shared scan admission. No integration, effects, statistics or scientific qualification.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "compiled.plan_morris(&request)",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_periodic_steady_state",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_periodic_steady_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Exact static periodic admission, normalized carryover, converted state tolerances and conservative per-cycle budgets. No transition, fixed point, integration or scientific qualification.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/steady_state.rs",
+      "symbol": "pub fn plan_periodic_steady_state",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_periodic_steady_state",
+      "interface": "cli",
+      "api": "qspquest plan-steady-state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "analytic_linear_pk"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Exact static periodic admission, normalized carryover, converted state tolerances and conservative per-cycle budgets. No transition, fixed point, integration or scientific qualification.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"plan-steady-state\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_iterate_periodic_state",
+      "interface": "rust",
+      "api": "CompiledDocument.plan_iterate_periodic_state",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Exact static periodic admission, normalized carryover, converted state tolerances and conservative per-cycle budgets. No transition, fixed point, integration or scientific qualification.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [],
+      "source": "crates/qspquest-modeling/src/document/steady_state.rs",
+      "symbol": "pub fn plan_iterate_periodic_state",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "plan_iterate_periodic_state",
+      "interface": "cli",
+      "api": "qspquest plan-iterate-periodic",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "diffsol_bdf"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Exact static periodic admission, normalized carryover, converted state tolerances and conservative per-cycle budgets. No transition, fixed point, integration or scientific qualification.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "\"plan-iterate-periodic\" =>",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "format_response",
+      "interface": "mcp",
+      "api": "format_response",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio",
+        "public_http",
+        "managed_http"
+      ],
+      "required_features": [],
+      "requirements": "Exact copies from complete successful trajectories; explicit run, returned column, units, sample times and event side. Optional candidate must match all requested keys and identifiers. No solving, interpolation, conversion or scientific qualification.",
+      "limits": {
+        "runs": 32,
+        "fields": 64,
+        "identifiers": 32,
+        "times_per_field": 4096,
+        "input_bytes": 1000000,
+        "encoded_response_bytes": 256000,
+        "scope": "Local owning run/artifact references or pinned caller-supplied JSON; hosted accepts supplied JSON only.",
+        "aggregate_source_bytes": 128000000
+      },
+      "example_ids": [
+        "mcp-response-guard"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn format_response(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "submit_local_job",
+      "interface": "mcp",
+      "api": "submit_local_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio"
+      ],
+      "required_features": [],
+      "requirements": "Local stdio with distinct --jobs-dir and --artifact-dir private directories. Same executable required for restart; ordered bounded work units retain immutable full results. Job metadata is not scientific completion.",
+      "limits": {
+        "scope": "1 MB admission; 1..25 units; 32 active and 64 live jobs; 512 MB job-store reservations; 24-hour job input retention and independent artifact quotas/retention. Native unit budgets apply; cancellation drains the current unit. At most three resumes; interrupted uncommitted work requires explicit acknowledgement."
+      },
+      "example_ids": [
+        "mcp-local-jobs"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn submit_local_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "get_local_job",
+      "interface": "mcp",
+      "api": "get_local_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio"
+      ],
+      "required_features": [],
+      "requirements": "Local stdio with distinct --jobs-dir and --artifact-dir private directories. Same executable required for restart; ordered bounded work units retain immutable full results. Job metadata is not scientific completion.",
+      "limits": {
+        "scope": "1 MB admission; 1..25 units; 32 active and 64 live jobs; 512 MB job-store reservations; 24-hour job input retention and independent artifact quotas/retention. Native unit budgets apply; cancellation drains the current unit. At most three resumes; interrupted uncommitted work requires explicit acknowledgement."
+      },
+      "example_ids": [
+        "mcp-local-jobs"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn get_local_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "cancel_local_job",
+      "interface": "mcp",
+      "api": "cancel_local_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio"
+      ],
+      "required_features": [],
+      "requirements": "Local stdio with distinct --jobs-dir and --artifact-dir private directories. Same executable required for restart; ordered bounded work units retain immutable full results. Job metadata is not scientific completion.",
+      "limits": {
+        "scope": "1 MB admission; 1..25 units; 32 active and 64 live jobs; 512 MB job-store reservations; 24-hour job input retention and independent artifact quotas/retention. Native unit budgets apply; cancellation drains the current unit. At most three resumes; interrupted uncommitted work requires explicit acknowledgement."
+      },
+      "example_ids": [
+        "mcp-local-jobs"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn cancel_local_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "resume_local_job",
+      "interface": "mcp",
+      "api": "resume_local_job",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "none"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "local_stdio"
+      ],
+      "required_features": [],
+      "requirements": "Local stdio with distinct --jobs-dir and --artifact-dir private directories. Same executable required for restart; ordered bounded work units retain immutable full results. Job metadata is not scientific completion.",
+      "limits": {
+        "scope": "1 MB admission; 1..25 units; 32 active and 64 live jobs; 512 MB job-store reservations; 24-hour job input retention and independent artifact quotas/retention. Native unit budgets apply; cancellation drains the current unit. At most three resumes; interrupted uncommitted work requires explicit acknowledgement."
+      },
+      "example_ids": [
+        "mcp-local-jobs"
+      ],
+      "source": "bindings/mcp/src/server.rs",
+      "symbol": "async fn resume_local_job(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    }
+  ],
+  "operation_labels": {
+    "simulate": "Native simulation",
+    "scan_parameters": "Native parameter scans",
+    "morris_screening": "Native Morris screening",
+    "fit_scalar": "Native bounded scalar Gaussian fit",
+    "sensitivities": "Native fixed-event sensitivities",
+    "fit_individual": "Native individual/pooled Gaussian fit",
+    "fit_population": "Native bounded population fit",
+    "steady_state": "Periodic linear PK steady state",
+    "iterate_periodic": "Bounded periodic-state iteration",
+    "analysis_fit_individual": "Python likelihood fit with fitted errors and M3",
+    "analysis_fit_population": "Python SAEM with 1\u20138 effects",
+    "visual_predictive_check": "VPC and prediction-corrected VPC",
+    "profile_likelihood": "Profile likelihood",
+    "bootstrap_population": "Subject bootstrap",
+    "compare_regimens": "Paired regimen comparison",
+    "event_sensitivities": "Numerical moving-event sensitivities",
+    "fit_diagnostics": "Conditional fit diagnostics",
+    "exposure_summary": "Sampled-grid exposure summaries",
+    "import_sbml": "Bounded SBML import",
+    "export_sbml": "Bounded SBML export",
+    "import_omex": "Bounded experiment archive import",
+    "export_omex": "Bounded experiment archive export",
+    "progress_cancel_checkpoint": "Progress, cancellation and restart checkpoints",
+    "get_model": "Inspect model interface",
+    "search_models": "Search model catalog",
+    "get_patient_parameters": "Evaluate initial patient quantities",
+    "get_scenario_request": "Retrieve stored scenario request",
+    "validate_model": "Validate model",
+    "model_template": "Retrieve synthetic model template",
+    "summarize_profile": "Summarize supplied sampled profile",
+    "get_capability": "Query capability and model blockers",
+    "preview_job": "Preview governed job",
+    "submit_simulation": "Submit governed simulation",
+    "submit_population_fit": "Submit governed population fit",
+    "submit_scan": "Submit governed scan",
+    "get_job": "Read governed job",
+    "wait_for_job": "Wait for governed job",
+    "get_artifact": "Read governed artifact",
+    "compile_model": "Compile model",
+    "inspect_model": "Parse model without compilation",
+    "plan_run": "Prepare a native run",
+    "plan_scan": "Prepare a native parameter scan",
+    "plan_sensitivities": "Prepare augmented sensitivities",
+    "plan_gaussian_objective": "Prepare Gaussian observation objective",
+    "plan_fit": "Prepare native fitting workflows",
+    "plan_scalar_fit": "Prepare bounded scalar fitting",
+    "plan_morris": "Prepare bounded Morris screening",
+    "plan_periodic_steady_state": "Plan periodic linear steady state",
+    "plan_iterate_periodic_state": "Plan periodic BDF iteration",
+    "format_response": "Format complete decision responses",
+    "submit_local_job": "Submit offline local job",
+    "get_local_job": "Inspect offline local job",
+    "cancel_local_job": "Cancel offline local job",
+    "resume_local_job": "Resume offline local job"
+  },
+  "compiler_source_sha256": "sha256:34354d12c5c962cca95fab09ceb5c1084100f2b87e41f89269868ad5942b97ec",
+  "vendor_source_sha256": "57608fe049e137061e6ba7c2d9bce15ba3d36b8d69d6e1d6494dff437a68fff1"
+}

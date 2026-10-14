@@ -1,0 +1,30 @@
+{
+  "schema": "unibio.diffsol-shared-source/v1",
+  "upstream_repository": "https://github.com/martinjrobins/diffsol",
+  "shared_files": [
+    {
+      "path": "crates/diffsol/src/ode_solver/rosenbrock.rs",
+      "sha256": "c5df30890ed552b01a05a2a041d3337c97c70cbf64037663eb1b912a263cbeec"
+    },
+    {
+      "path": "crates/diffsol/src/ode_solver/rosenbrock_harness_tests.rs",
+      "sha256": "5221c37480d00a2e3499588b96b03c0d1a951223bc76a8bb3c0c5a6a91b4e7bc"
+    },
+    {
+      "path": "crates/diffsol/src/ode_solver/runge_kutta.rs",
+      "sha256": "b50433f30f296d92ad95ac298b80c3b9f517d7c1715a21dbce5fd0b180ab8d0b"
+    },
+    {
+      "path": "crates/diffsol/src/ode_solver/tableau.rs",
+      "sha256": "2ba71c1fd4471d7c411f171cd93f6bb46b8838ead407c5adf9d39a0b84105fe0"
+    },
+    {
+      "path": "crates/diffsol/src/op/nonlinear_op.rs",
+      "sha256": "9998f621651d7fe116d6d31b53fb24b95bf3acfcfbc3567da633d103f8955b5a"
+    },
+    {
+      "path": "crates/diffsol/src/ode_equations/test_models/rosenbrock_reference/rodas5p-julia-2.7.1.txt",
+      "sha256": "3fe0a69be7253f27a673cc24455805c7da7b322d76fc9d9a47d124bb4f9f1551"
+    }
+  ]
+}

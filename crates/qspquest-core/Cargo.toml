@@ -1,0 +1,20 @@
+[package]
+name = "qspquest-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+serde_jcs = "=0.2.0"
+sha2 = "=0.10.9"
+schemars = { version = "=0.8.22", optional = true }
+
+[features]
+schema = ["dep:schemars"]
+
+[[example]]
+name = "export_schemas"
+required-features = ["schema"]

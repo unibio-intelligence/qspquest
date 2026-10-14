@@ -1,0 +1,20 @@
+model illustrative_transit
+ time_unit = h
+ description = "Synthetic two-stage absorption transit model"
+parameters
+ ktr = 1 [1/h] estimated
+ ke = 0.1 [1/h] estimated
+ volume = 3 [L] fixed
+states
+ depot = 0 [mg]
+ transit = 0 [mg]
+ central = 0 [mg]
+dynamics
+ d/dt(depot) = input_depot - ktr * depot
+ d/dt(transit) = ktr * depot - ktr * transit
+ d/dt(central) = ktr * transit - ke * central
+dosing
+ depot [mg] = 1
+outputs
+ cp = central / volume [mg/L]
+end

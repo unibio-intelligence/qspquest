@@ -1,0 +1,33 @@
+/target/
+/bindings/wasm/pkg/
+/node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+
+/bindings/r/src/*.o
+/bindings/r/src/*.so
+/bindings/r/src/*.dll
+
+# Reproducible local documentation and analysis outputs
+docs/_site/
+docs/tutorials/theoph-tutorial-output/
+theoph-tutorial-output/
+installation-artifacts/
+
+# Persistent user workspace for the Docker notebook
+/notebook-work/
+
+# Executed interchange tutorial outputs
+docs/tutorials/interchange-output/
+interchange-output/
+
+# Local quickstart environment and results
+/.venv/
+/first-run.csv
+/simulation.json
+
+/oral-pk-output/
+/docs/tutorials/oral-pk-output/

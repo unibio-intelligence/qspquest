@@ -1,0 +1,68 @@
+{
+  "run": {
+    "schema": "qspquest.run/v0.1",
+    "solver": "analytic_linear_pk",
+    "budgets": {
+      "solver_callbacks": 1000000,
+      "events": 100,
+      "output_values": 10000
+    },
+    "regimen": {
+      "end": {
+        "value": 8,
+        "unit": "h"
+      },
+      "samples": [],
+      "administrations": [
+        {
+          "target": "depot",
+          "time": {
+            "value": 0,
+            "unit": "h"
+          },
+          "amount": {
+            "value": 0.04,
+            "unit": "g"
+          },
+          "delivery": {
+            "kind": "bolus"
+          },
+          "lag": {
+            "value": 30,
+            "unit": "min"
+          },
+          "bioavailability": 0.5
+        },
+        {
+          "target": "central",
+          "time": {
+            "value": 1,
+            "unit": "h"
+          },
+          "amount": {
+            "value": 12,
+            "unit": "mg"
+          },
+          "delivery": {
+            "kind": "infusion",
+            "span": {
+              "kind": "duration",
+              "duration": {
+                "value": 2,
+                "unit": "h"
+              }
+            }
+          },
+          "bioavailability": 1
+        }
+      ],
+      "rtol": 1e-10,
+      "atol": 1e-12
+    }
+  },
+  "absolute_tolerance": {
+    "value": 1e-09,
+    "unit": "mg"
+  },
+  "relative_tolerance": 1e-10
+}

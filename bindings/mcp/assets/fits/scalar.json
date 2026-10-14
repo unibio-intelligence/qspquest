@@ -1,0 +1,209 @@
+{
+  "scientific_status": "synthetic/illustrative",
+  "narrative": "Analytic synthetic observations generated from the declared truth; no clinical observations or drug-specific validation. Proportional Gaussian errors include a likelihood variance term, so noiseless optimum can differ slightly from truth. Population uses fixed Omega and a bounded native method.",
+  "tool": "fit_scalar",
+  "arguments": {
+    "model": {
+      "source": "model synthetic_one_compartment\ntime_unit = h\ndescription = \"Synthetic linear PK fixture; no drug-specific parameters.\"\n\nparameters\n  cl = 0.3 [L/h] log estimated\n  v = 3 [L] log estimated\n\nstates\n  central = 0 [mg]\n\ndynamics\n  d/dt(central) = (input_central - ((cl / v) * central))\n\noutputs\n  cp = (central / v) [mg/L]\n\ndosing\n  central [mg] = 1\nend\n"
+    },
+    "request": {
+      "schema": "qspquest.run/v0.1",
+      "solver": "diffsol_bdf",
+      "budgets": {
+        "solver_callbacks": 1000000,
+        "events": 100,
+        "output_values": 10000
+      },
+      "regimen": {
+        "end": {
+          "value": 24,
+          "unit": "h"
+        },
+        "samples": [],
+        "administrations": [
+          {
+            "target": "central",
+            "time": {
+              "value": 0,
+              "unit": "h"
+            },
+            "amount": {
+              "value": 6,
+              "unit": "mg"
+            },
+            "delivery": {
+              "kind": "bolus"
+            },
+            "bioavailability": 1.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12,
+        "observations": [
+          {
+            "time": {
+              "value": 0,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 1,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 2,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 4,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 8,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 12,
+              "unit": "h"
+            },
+            "side": "post"
+          },
+          {
+            "time": {
+              "value": 24,
+              "unit": "h"
+            },
+            "side": "post"
+          }
+        ]
+      },
+      "parameters": {
+        "v": {
+          "value": 4.5,
+          "unit": "L"
+        }
+      }
+    },
+    "parameter": "cl",
+    "bounds": {
+      "lower": {
+        "value": 0.1,
+        "unit": "L/h"
+      },
+      "upper": {
+        "value": 1,
+        "unit": "L/h"
+      }
+    },
+    "observations": [
+      {
+        "row": 1,
+        "output": "cp",
+        "value": {
+          "value": 1.16689775872393,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      },
+      {
+        "row": 2,
+        "output": "cp",
+        "value": {
+          "value": 1.0212377844861982,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      },
+      {
+        "row": 3,
+        "output": "cp",
+        "value": {
+          "value": 0.782194959346709,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      },
+      {
+        "row": 4,
+        "output": "cp",
+        "value": {
+          "value": 0.4588717158205498,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      },
+      {
+        "row": 5,
+        "output": "cp",
+        "value": {
+          "value": 0.26919535732620725,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      },
+      {
+        "row": 6,
+        "output": "cp",
+        "value": {
+          "value": 0.0543496053044883,
+          "unit": "mg/L"
+        },
+        "error": {
+          "additive_sd": {
+            "value": 0.1,
+            "unit": "mg/L"
+          },
+          "proportional_sd": 0
+        }
+      }
+    ]
+  },
+  "expected_parameters": {
+    "cl": 0.6
+  },
+  "absolute_tolerance": 0.0001
+}

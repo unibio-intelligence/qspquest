@@ -1,0 +1,6 @@
+# Numerical versions used in the verified Python 3.14 Linux workflow.
+numpy==2.5.3
+scipy==1.18.1
+pandas==3.0.6
+matplotlib==3.11.2
+python-libsbml==5.21.1

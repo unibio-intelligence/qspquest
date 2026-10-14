@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Please cite the exact QSPQuest release or commit used in your research. No paper DOI is assigned in this development citation."
+type: software
+title: QSPQuest
+abstract: "A unit-aware Rust engine for pharmacology model compilation and simulation, with native and browser bindings and scoped Python analysis workflows."
+authors:
+  - name: UniBio Intelligence
+    website: https://unibiointelligence.com
+version: 0.1.0
+license:
+  - Apache-2.0
+keywords:
+  - pharmacokinetics
+  - pharmacodynamics
+  - systems pharmacology
+  - simulation
+  - reproducibility

@@ -1,0 +1,173 @@
+{
+  "schema": "qspquest.fit/v0.1",
+  "problem": {
+    "kind": "individual",
+    "request": {
+      "objective": {
+        "simulation": {
+          "schema": "qspquest.sensitivity/v0.1",
+          "run": {
+            "schema": "qspquest.run/v0.1",
+            "solver": "diffsol_bdf",
+            "budgets": {
+              "solver_callbacks": 1000000,
+              "events": 100,
+              "output_values": 10000
+            },
+            "regimen": {
+              "end": {
+                "value": 4,
+                "unit": "h"
+              },
+              "samples": [
+                {
+                  "value": 0,
+                  "unit": "h"
+                },
+                {
+                  "value": 1,
+                  "unit": "h"
+                },
+                {
+                  "value": 2,
+                  "unit": "h"
+                },
+                {
+                  "value": 4,
+                  "unit": "h"
+                }
+              ],
+              "administrations": [
+                {
+                  "target": "central",
+                  "time": {
+                    "value": 0,
+                    "unit": "h"
+                  },
+                  "amount": {
+                    "value": 6,
+                    "unit": "mg"
+                  },
+                  "delivery": {
+                    "kind": "bolus"
+                  },
+                  "bioavailability": 1.0
+                }
+              ],
+              "rtol": 1e-12,
+              "atol": 1e-12
+            }
+          },
+          "with_respect_to": [
+            "cl",
+            "v"
+          ],
+          "derivative_absolute_tolerances": {
+            "cl": {
+              "central": {
+                "value": 1e-12,
+                "unit": "mg.h/L"
+              }
+            },
+            "v": {
+              "central": {
+                "value": 1e-12,
+                "unit": "mg/L"
+              }
+            }
+          }
+        },
+        "observations": [
+          {
+            "row": 1,
+            "output": "cp",
+            "value": {
+              "value": 1.3333333333333333,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0.1,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 0
+            }
+          },
+          {
+            "row": 2,
+            "output": "cp",
+            "value": {
+              "value": 1.16689775872393,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0.1,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 0
+            }
+          },
+          {
+            "row": 3,
+            "output": "cp",
+            "value": {
+              "value": 1.0212377844861982,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0.1,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 0
+            }
+          },
+          {
+            "row": 4,
+            "output": "cp",
+            "value": {
+              "value": 0.782194959346709,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0.1,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 0
+            }
+          }
+        ],
+        "priors": []
+      },
+      "bounds": [
+        {
+          "parameter": "cl",
+          "lower": {
+            "value": 0.05,
+            "unit": "L/h"
+          },
+          "upper": {
+            "value": 1.2,
+            "unit": "L/h"
+          }
+        },
+        {
+          "parameter": "v",
+          "lower": {
+            "value": 1,
+            "unit": "L"
+          },
+          "upper": {
+            "value": 8,
+            "unit": "L"
+          }
+        }
+      ],
+      "max_evaluations": 400,
+      "max_iterations": 100,
+      "gradient_tolerance": 1e-05
+    }
+  }
+}

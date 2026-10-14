@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible software or scientific-contract failure.
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+      description: Include the scientific operation and what differed. Remove confidential data.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal model and request
+      description: Include explicit units, event sides and solver settings.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Installation and version
+      description: Paste qspquest-doctor --json, exact commit/version, and any structured error.
+    validations:
+      required: true

@@ -1,0 +1,1045 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AccuracyControl": {
+      "description": "Local integration or bounded sampled-trajectory convergence checking.",
+      "enum": [
+        "local",
+        "sampled"
+      ],
+      "type": "string"
+    },
+    "ActiveInputs": {
+      "enum": [
+        "continue",
+        "stop_target"
+      ],
+      "type": "string"
+    },
+    "Administration": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "bioavailability": {
+          "format": "double",
+          "type": "number"
+        },
+        "delivery": {
+          "$ref": "#/definitions/Delivery"
+        },
+        "lag": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Repeat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "amount",
+        "bioavailability",
+        "delivery",
+        "target",
+        "time"
+      ],
+      "type": "object"
+    },
+    "Budgets": {
+      "additionalProperties": false,
+      "description": "Work counts RHS and Jacobian calls, including solver setup, or bounded analytic interval propagations when an analytic model opts into that path.",
+      "properties": {
+        "events": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "solver_callbacks": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events",
+        "output_values",
+        "solver_callbacks"
+      ],
+      "type": "object"
+    },
+    "CovariateChange": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "name",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Delivery": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "bolus"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "infusion"
+              ],
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/definitions/InfusionSpan"
+            }
+          },
+          "required": [
+            "kind",
+            "span"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FitBound": {
+      "additionalProperties": false,
+      "description": "Finite search box in natural parameter units. Search coordinates are affine.",
+      "properties": {
+        "lower": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "upper": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "lower",
+        "parameter",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "FitProblem": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "individual"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/GaussianFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "pooled"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/PooledGaussianFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Bounded one-effect Laplace approximation using finite-difference conditional curvature.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "laplace"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/PopulationFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Bounded FOCEI using first-order expected conditional curvature. Supports one effect or two effects with fixed correlated Omega.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "focei"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/PopulationFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "saem"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/PopulationFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FitSchema": {
+      "enum": [
+        "qspquest.fit/v0.1"
+      ],
+      "type": "string"
+    },
+    "GaussianCensoring": {
+      "enum": [
+        "left"
+      ],
+      "type": "string"
+    },
+    "GaussianError": {
+      "additionalProperties": false,
+      "properties": {
+        "additive_sd": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            }
+          ],
+          "description": "Independent additive standard deviation in the observable's units."
+        },
+        "model": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/GaussianErrorModel"
+            }
+          ],
+          "description": "Normal errors act on the observable; lognormal errors act on its log."
+        },
+        "proportional_sd": {
+          "description": "Independent proportional standard deviation, dimensionless.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "additive_sd",
+        "proportional_sd"
+      ],
+      "type": "object"
+    },
+    "GaussianErrorModel": {
+      "enum": [
+        "normal",
+        "lognormal"
+      ],
+      "type": "string"
+    },
+    "GaussianFitRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "items": {
+            "$ref": "#/definitions/FitBound"
+          },
+          "type": "array"
+        },
+        "gradient_tolerance": {
+          "description": "Infinity norm of the projected gradient in affine box coordinates.",
+          "format": "double",
+          "type": "number"
+        },
+        "max_evaluations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "objective": {
+          "$ref": "#/definitions/GaussianObjectiveRequest"
+        }
+      },
+      "required": [
+        "bounds",
+        "gradient_tolerance",
+        "max_evaluations",
+        "max_iterations",
+        "objective"
+      ],
+      "type": "object"
+    },
+    "GaussianObjectiveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "observations": {
+          "items": {
+            "$ref": "#/definitions/GaussianObservation"
+          },
+          "type": "array"
+        },
+        "priors": {
+          "description": "Independent normal priors on natural parameter values; empty for MLE.",
+          "items": {
+            "$ref": "#/definitions/GaussianPrior"
+          },
+          "type": "array"
+        },
+        "simulation": {
+          "$ref": "#/definitions/SensitivityRequest"
+        }
+      },
+      "required": [
+        "observations",
+        "priors",
+        "simulation"
+      ],
+      "type": "object"
+    },
+    "GaussianObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "censoring": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GaussianCensoring"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "M3-style observation that is known to be below its declared value."
+        },
+        "error": {
+          "$ref": "#/definitions/GaussianError"
+        },
+        "output": {
+          "type": "string"
+        },
+        "row": {
+          "description": "Row in the simulation's ordered observation/result grid.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "value": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            }
+          ],
+          "description": "Measured value, or the quantification limit for a censored row."
+        }
+      },
+      "required": [
+        "error",
+        "output",
+        "row",
+        "value"
+      ],
+      "type": "object"
+    },
+    "GaussianPrior": {
+      "additionalProperties": false,
+      "properties": {
+        "mean": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "sd": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "mean",
+        "parameter",
+        "sd"
+      ],
+      "type": "object"
+    },
+    "InfusionSpan": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "duration": {
+              "$ref": "#/definitions/Quantity"
+            },
+            "kind": {
+              "enum": [
+                "duration"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "rate"
+              ],
+              "type": "string"
+            },
+            "rate": {
+              "$ref": "#/definitions/Quantity"
+            }
+          },
+          "required": [
+            "kind",
+            "rate"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ObservationPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/ObservationSide"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "side",
+        "time"
+      ],
+      "type": "object"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "PooledGaussianFitRequest": {
+      "additionalProperties": false,
+      "description": "Shared-parameter fit. Priors are declared once in `fit.objective`. Additional subjects supply separate regimens, observations and fixed inputs.",
+      "properties": {
+        "additional_subjects": {
+          "items": {
+            "$ref": "#/definitions/GaussianObjectiveRequest"
+          },
+          "type": "array"
+        },
+        "fit": {
+          "$ref": "#/definitions/GaussianFitRequest"
+        }
+      },
+      "required": [
+        "additional_subjects",
+        "fit"
+      ],
+      "type": "object"
+    },
+    "PopulationAdditiveErrorFit": {
+      "additionalProperties": false,
+      "properties": {
+        "initial": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "lower": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "output": {
+          "type": "string"
+        },
+        "upper": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "initial",
+        "lower",
+        "output",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "PopulationCovariateEffect": {
+      "additionalProperties": false,
+      "properties": {
+        "additional": {
+          "description": "Additional independent, subject-constant exponential effects on the same parameter. Nested `additional` entries are invalid.",
+          "items": {
+            "$ref": "#/definitions/PopulationCovariateEffect"
+          },
+          "type": "array"
+        },
+        "bounds": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "covariate": {
+          "type": "string"
+        },
+        "initial": {
+          "description": "Dimensionless coefficient in `theta_i = theta_ref * exp(coefficient * (x_i-reference))`.",
+          "format": "double",
+          "type": "number"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "reference": {
+          "format": "double",
+          "type": "number"
+        },
+        "subject_values": {
+          "description": "One finite, subject-constant numeric value per subject in subject order.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "bounds",
+        "covariate",
+        "initial",
+        "parameter",
+        "reference",
+        "subject_values"
+      ],
+      "type": "object"
+    },
+    "PopulationFitRequest": {
+      "additionalProperties": false,
+      "description": "One population shares fixed effects and an eta covariance. Each subject supplies its own regimen, covariates, observations and residual error. Random effects use `individual_parameter = fixed_effect * exp(eta)`. Eta and every entry of Omega are dimensionless.",
+      "properties": {
+        "additive_error_fit": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationAdditiveErrorFit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opt-in estimation of one common additive Gaussian SD by one-effect FOCEI or one-effect SAEM. Every observed row must use this output, zero proportional error, and declare the same starting additive SD. Other methods reject this field."
+        },
+        "burn_in_iterations": {
+          "description": "SAEM exploration iterations before the decreasing stochastic gain. When omitted, the legacy default is one third of max_iterations.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "covariate_effect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationCovariateEffect"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "One estimable exponential covariate effect on a one-effect SAEM model."
+        },
+        "eta_bound": {
+          "description": "Absolute bound on each subject eta during conditional optimization.",
+          "format": "double",
+          "type": "number"
+        },
+        "fixed_effects": {
+          "items": {
+            "$ref": "#/definitions/FitBound"
+          },
+          "type": "array"
+        },
+        "gradient_tolerance": {
+          "description": "Laplace and FOCEI stop when normalized coordinate-search steps fall below this value. SAEM uses it in a windowed, Monte Carlo-aware drift check on the log fixed effect and log eta variance; its effective threshold is capped.",
+          "format": "double",
+          "type": "number"
+        },
+        "max_evaluations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_iterations": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "omega": {
+          "description": "Covariance of the dimensionless subject eta values, in random_effects order.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "omega_diagonal_bounds": {
+          "description": "Lower and upper variance limits. Equal endpoints keep a variance fixed.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "random_effects": {
+          "items": {
+            "$ref": "#/definitions/PopulationRandomEffect"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Reproducible SAEM stream; ignored by deterministic Laplace and FOCEI arithmetic.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "subjects": {
+          "items": {
+            "$ref": "#/definitions/GaussianObjectiveRequest"
+          },
+          "type": "array"
+        },
+        "uncertainty": {
+          "description": "Estimate local observed-objective covariance after a converged fit. SAEM currently supports one random effect with fixed residual error; estimates at active parameter bounds are rejected.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "eta_bound",
+        "fixed_effects",
+        "gradient_tolerance",
+        "max_evaluations",
+        "max_iterations",
+        "omega",
+        "omega_diagonal_bounds",
+        "random_effects",
+        "seed",
+        "subjects"
+      ],
+      "type": "object"
+    },
+    "PopulationRandomEffect": {
+      "additionalProperties": false,
+      "properties": {
+        "parameter": {
+          "description": "A selected model parameter with a shared fitted fixed effect.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "parameter"
+      ],
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Repeat": {
+      "additionalProperties": false,
+      "properties": {
+        "additional": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "interval": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "additional",
+        "interval"
+      ],
+      "type": "object"
+    },
+    "Request": {
+      "additionalProperties": false,
+      "description": "Unit-bearing times and administrations with the existing scalar tolerance contract.",
+      "properties": {
+        "absolute_tolerances": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "description": "Exactly one positive quantity for each state, identified by name.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "administrations": {
+          "items": {
+            "$ref": "#/definitions/Administration"
+          },
+          "type": "array"
+        },
+        "atol": {
+          "description": "Legacy scalar in each state's numeric unit; exclusive with absolute_tolerances.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "checkpoints": {
+          "default": [],
+          "description": "Fixed solver restart times; these do not change state or parameters.",
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "covariate_changes": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/CovariateChange"
+          },
+          "type": "array"
+        },
+        "covariates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "end": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/definitions/ObservationPoint"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "resets": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/StateReset"
+          },
+          "type": "array"
+        },
+        "rtol": {
+          "format": "double",
+          "type": "number"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "administrations",
+        "end",
+        "rtol",
+        "samples"
+      ],
+      "type": "object"
+    },
+    "RunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "accuracy_control": {
+          "$ref": "#/definitions/AccuracyControl"
+        },
+        "budgets": {
+          "$ref": "#/definitions/Budgets"
+        },
+        "initial_states": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "regimen": {
+          "$ref": "#/definitions/Request"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/RunSchema"
+        },
+        "seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "solver": {
+          "$ref": "#/definitions/Solver"
+        }
+      },
+      "required": [
+        "budgets",
+        "regimen",
+        "schema",
+        "solver"
+      ],
+      "type": "object"
+    },
+    "RunSchema": {
+      "enum": [
+        "qspquest.run/v0.1"
+      ],
+      "type": "string"
+    },
+    "SensitivityRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "derivative_absolute_tolerances": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "$ref": "#/definitions/Quantity"
+            },
+            "type": "object"
+          },
+          "description": "Parameter -> state -> positive state/parameter quantity.",
+          "type": "object"
+        },
+        "run": {
+          "$ref": "#/definitions/RunRequest"
+        },
+        "schema": {
+          "$ref": "#/definitions/SensitivitySchema"
+        },
+        "with_respect_to": {
+          "description": "Ordered independent model parameters, in their declared numeric units.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "derivative_absolute_tolerances",
+        "run",
+        "schema",
+        "with_respect_to"
+      ],
+      "type": "object"
+    },
+    "SensitivitySchema": {
+      "enum": [
+        "qspquest.sensitivity/v0.1"
+      ],
+      "type": "string"
+    },
+    "Solver": {
+      "enum": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "type": "string"
+    },
+    "StateReset": {
+      "additionalProperties": false,
+      "properties": {
+        "active_inputs": {
+          "$ref": "#/definitions/ActiveInputs"
+        },
+        "order": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "active_inputs",
+        "order",
+        "target",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "problem": {
+      "$ref": "#/definitions/FitProblem"
+    },
+    "schema": {
+      "$ref": "#/definitions/FitSchema"
+    }
+  },
+  "required": [
+    "problem",
+    "schema"
+  ],
+  "title": "FitRequest",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

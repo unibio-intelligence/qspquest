@@ -1,0 +1,8 @@
+CARGO ?= cargo
+CARGO_TARGET_DIR = ../../../target
+PKG_LIBS = $(CARGO_TARGET_DIR)/release/libqspquest_r.a
+.PHONY: rustlib
+all: $(SHLIB)
+$(SHLIB): rustlib
+rustlib:
+	$(CARGO) build --manifest-path rust/Cargo.toml --package qspquest-r --release --locked --target-dir $(CARGO_TARGET_DIR)

@@ -1,0 +1,207 @@
+name: MCP qualification
+on:
+  pull_request:
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
+  push:
+    branches: [main]
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
+  workflow_dispatch:
+    inputs:
+      cache_only:
+        description: Run only release-cache platform checks
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  release-cache:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-14, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Preserve Windows source bytes
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.longpaths true
+          git config --global core.autocrlf false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: python3 scripts/check_build_pins.py
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: rustup default 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Create an unrelated private cache owned by root
+        if: runner.os == 'Linux'
+        run: |
+          foreign_cache=$(sudo mktemp -d /tmp/qspquest-cache-owner.XXXXXX)
+          echo "QSPQUEST_TEST_FOREIGN_CACHE=$foreign_cache" >> "$GITHUB_ENV"
+      - name: Pinned release cache, ownership and refresh recovery
+        run: cargo test -p qspquest-mcp --release --locked --test release_cache --test contracts --test csv_exports --no-default-features
+      - name: Runnable CSV tutorial
+        if: runner.os != 'Windows'
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --csv-output "$RUNNER_TEMP/qspquest-csv-results"
+  contracts:
+    if: ${{ inputs.cache_only != true }}
+    runs-on: ubuntu-24.04
+    env:
+      QSPQUEST_LIBRARY_DIR: bindings/mcp/assets/library
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: python3 scripts/check_build_pins.py
+      - run: rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown
+      - run: rustup default 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - run: sh scripts/build-mcp.sh
+      - run: cargo test -p qspquest-modeling --release --locked --test sparse_execution
+      - run: python3 -m pip install pytest jsonschema
+      - run: python3 -m pytest scripts/tests/test_mcp_latency.py -q
+      - run: cargo test -p qspquest-mcp --release --locked --features sandbox,widget,managed,analysis -- --skip all_scenarios_native_and_sandbox_parity
+      - name: Navigate offline documentation and example resources
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --documentation
+      - name: Complete named source precision profiles
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --precision-profiles
+      - name: Scheduled boundaries and explicit observation sides
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --scheduled-boundaries
+      - name: Scientific assessment workflow
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --scientific-assessments
+      - name: Protocol initialization and denominator policies
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --initialization
+      - name: Named counterfactual input receipts
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --comparison
+      - name: Oral and intravenous linear PK dose receipts
+        run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --linear-pk-doses
+      - run: python3 bindings/mcp/scripts/managed_http.py --binary target/release/qspquest-mcp --output mcp-managed-http.json
+      - name: HTTP workflows and browser-only edits
+        run: |
+          export QSPQUEST_MCP_PREWARM=0
+          export QSPQUEST_WIDGET_WORKER_URL=http://127.0.0.1:18765/assets/js/engine-worker.mjs
+          target/release/qspquest-mcp --http 127.0.0.1:18765 > mcp-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          python3 bindings/mcp/scripts/smoke.py --url http://127.0.0.1:18765 --output mcp-workflows.json --widget-context mcp-widget-context.json
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+          node bindings/mcp/tests/widget.mjs mcp-widget-context.json bindings/mcp/assets/widget.html mcp-widget
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: mcp-contract-evidence
+          path: |
+            mcp-workflows.json
+            mcp-managed-http.*
+            mcp-widget.*
+            mcp-http.log
+  scientific-parity:
+    if: ${{ inputs.cache_only != true }}
+    timeout-minutes: 90
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: python3 scripts/check_build_pins.py
+      - run: rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown
+      - run: rustup default 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: cargo build -p qspquest-wasm --release --locked --target wasm32-unknown-unknown --features sandbox-abi
+      - run: mkdir -p target/mcp-assets && cp target/wasm32-unknown-unknown/release/qspquest_wasm.wasm target/mcp-assets/sandbox.wasm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy==2.3.3 scipy==1.16.2 sympy==1.14.0
+      - run: python -B -m unittest discover -s scripts/tests -p test_numerical_qualification.py -v
+      - name: Independent numerical accuracy and dose invariants
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          cargo run -p qspquest-mcp --release --locked --features sandbox --example reference_dump -- mcp-numerical-inputs --wasm
+          cargo run -p qspquest-mcp --release --locked --features sandbox --example reference_dump -- mcp-event-inputs --large --wasm --dose-sides
+          python bindings/mcp/scripts/independent_reference.py mcp-numerical-inputs mcp-references --analytic-jac --policy bindings/mcp/qualification/output-bounds.json
+          python bindings/mcp/scripts/check_numerical_qualification.py mcp-numerical-inputs mcp-references bindings/mcp/qualification/output-bounds.json mcp-numerical-qualification.json --event-inputs mcp-event-inputs
+      - name: Output parity and separate strict determinism diagnostic
+        run: |
+          cargo test -p qspquest-mcp --release --locked --features sandbox --example parity_audit
+          cargo run -p qspquest-mcp --release --locked --features sandbox --example parity_audit > mcp-parity.json
+          python - <<'PY'
+          import json
+          rows=json.load(open('mcp-parity.json'))['scenarios']
+          assert len(rows)==47
+          assert all(r.get('numerical_parity_pass') for r in rows), 'Numerical parity failed; inspect retained report'
+          print('Strict absolute 1e-9 diagnostic:', sum(r.get('absolute_1e9_pass',False) for r in rows), '/', len(rows))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: mcp-scientific-parity
+          path: |
+            mcp-parity.json
+            mcp-numerical-qualification.json
+            mcp-numerical-inputs/
+            mcp-event-inputs/
+            mcp-references/
+  container:
+    if: ${{ inputs.cache_only != true }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: python3 scripts/check_build_pins.py
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: bindings/mcp/Dockerfile
+          target: public
+          platforms: linux/${{ matrix.architecture }}
+          load: true
+          push: false
+          tags: qspquest-mcp:ci
+          cache-from: type=gha,scope=qspquest-mcp-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=qspquest-mcp-${{ matrix.architecture }}
+      - name: Packaged agent quickstart over HTTP and offline stdio
+        run: |
+          docker tag qspquest-mcp:ci qspquest-mcp:local
+          docker run -d --name mcp-starter --init -p 127.0.0.1:18766:8080 --read-only --cap-drop ALL --security-opt no-new-privileges qspquest-mcp:local
+          trap 'docker logs mcp-starter > mcp-starter.log 2>&1; docker rm -f mcp-starter' EXIT
+          python3 bindings/mcp/scripts/quickstart.py --url http://127.0.0.1:18766/mcp > mcp-starter-http.json
+          python3 bindings/mcp/scripts/quickstart.py --stdio-image qspquest-mcp:local > mcp-starter-stdio.json
+          docker save qspquest-mcp:local | gzip > qspquest-mcp-${{ matrix.architecture }}.tar.gz
+      - name: Stateless HTTP tools and fitting in the exact image
+        run: |
+          docker run -d --name mcp-check -p 18765:8080 -v "$PWD/bindings/mcp/assets/library:/opt/qspquest/library:ro" -e QSPQUEST_LIBRARY_DIR=/opt/qspquest/library -e QSPQUEST_MCP_PREWARM=0 qspquest-mcp:ci
+          trap 'docker rm -f mcp-check' EXIT
+          python3 bindings/mcp/scripts/smoke.py --url http://127.0.0.1:18765 --output mcp-container.json
+          python3 -m pip install jsonschema
+          python3 scripts/benchmark-mcp-latency.py http://127.0.0.1:18765 mcp-latency.json
+          python3 - <<'PY'
+          import json
+          result=json.load(open('mcp-latency.json'))
+          assert result['interactive_target_met'] and result['heavy_route_target_met']
+          PY
+          docker run --rm --network none --entrypoint tar qspquest-mcp:ci -C /opt/qspquest -cf - inventories > mcp-inventories.tar
+          docker image inspect qspquest-mcp:ci > mcp-image.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: mcp-container-${{ matrix.architecture }}
+          path: |
+            mcp-container.json
+            mcp-starter-http.json
+            mcp-starter-stdio.json
+            mcp-starter.log
+            qspquest-mcp-${{ matrix.architecture }}.tar.gz
+            mcp-image.json
+            mcp-inventories.tar
+            mcp-latency.json

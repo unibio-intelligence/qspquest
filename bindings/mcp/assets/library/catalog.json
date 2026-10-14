@@ -1,0 +1,298 @@
+{
+  "schema": "qspquest.models.library/v1",
+  "publication_status": "pending",
+  "scope": "Eight released model identities, 47 named deterministic scenarios; standalone QSPQuest simulation",
+  "models": [
+    {
+      "archive": "models/qspquest_diffdose_2026_bite_benchmark/0.1.0/model.omex",
+      "description": "How does absorbed bispecific exposure populate binary and ternary complexes?",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_diffdose_2026_bite_benchmark",
+      "license": "Apache-2.0",
+      "name": "Bispecific exposure and ternary binding",
+      "omex_sha256": "395b1ea1e2cc9b5605401a7d62b6beb5cf9d2a34f2c4b70ba8b26cf2d53538f8",
+      "scenario_ids": [
+        "untreated",
+        "lower_exposure",
+        "higher_exposure"
+      ],
+      "version": "0.1.0",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_diffdose_2026_idr_benchmark/0.3.0/model.omex",
+      "description": "How does repeated exposure accelerate biomarker removal?",
+      "fit_ready": true,
+      "fitting_supported": true,
+      "id": "qspquest_diffdose_2026_idr_benchmark",
+      "license": "Apache-2.0",
+      "name": "Drug-stimulated biomarker turnover",
+      "omex_sha256": "34dd0d01af9ef951fa84969ce4d008c860ac7abe55ae701b0866b80a8be426c0",
+      "scenario_ids": [
+        "untreated",
+        "lower_exposure",
+        "higher_exposure"
+      ],
+      "version": "0.3.0",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_diffdose_2026_tgi_benchmark/0.1.0/model.omex",
+      "description": "How does injury to proliferating tumor propagate through dying-cell stages?",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_diffdose_2026_tgi_benchmark",
+      "license": "Apache-2.0",
+      "name": "Drug injury and delayed tumor loss",
+      "omex_sha256": "e4e040c93dbc5b3732e12a9e9c1f0c75a2ba03cc76a5b3034ae74367939e3818",
+      "scenario_ids": [
+        "untreated",
+        "lower_exposure",
+        "higher_exposure"
+      ],
+      "version": "0.1.0",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/model.omex",
+      "description": "Mechanistic rat QSP linking IV, intracisterna-magna, or intrastriatal AAV delivery to whole-body vector disposition, transgene-derived anti-TargetX antibody, FcRn-aware protein distribution, and free TargetX in plasma, brain ISF, and CSF.",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+      "license": "Apache-2.0",
+      "name": "Whole-body AAV\u2013anti-TargetX rat brain QSP",
+      "omex_sha256": "15d69ba86b5a021f6716b1a5d0ce1735bc0effed5d4d9a6601e9a3742171d8c7",
+      "scenario_ids": [
+        "source_structure_no_dose_smoke",
+        "figure3a_exogenous_targetx_shape",
+        "figure3b_targetx_steady_state",
+        "figure3_mab_iv_3mgkg",
+        "figure3_mab_iv_10mgkg",
+        "figure3_mab_iv_30mgkg",
+        "figure3_mab_iv_100mgkg",
+        "iv_5e12_aav9",
+        "icm_5e11_aav9",
+        "icm_1e12_aav9",
+        "icm_5e12_aav9",
+        "ist_2_5e11_aav9",
+        "icm_5e12_aav5"
+      ],
+      "version": "2.1.2",
+      "publication_status": "pending",
+      "source_family": {
+        "family_id": "liu-2026-aav-mab-targetx-rat-brain",
+        "paper_id": "10.1007/s10928-026-10051-w",
+        "canonical_model": {
+          "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+          "version": "2.1.2"
+        }
+      },
+      "model_fidelity": "full",
+      "source_interpretations": {
+        "schema": "qspquest.source-interpretations/v1",
+        "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+        "model_version": "2.1.2",
+        "archive_sha256": "15d69ba86b5a021f6716b1a5d0ce1735bc0effed5d4d9a6601e9a3742171d8c7",
+        "native_model_sha256": "47ca5c6823c4a8068ff65f0d9369e9ff64fe750da4c1b0cca4e4793c0d69ac01",
+        "coverage": "selected_structural_interpretations",
+        "author_code_qualification": "not_assessed",
+        "dimensional_qualification": false,
+        "entries": [
+          {
+            "id": "lymph-binding-locality",
+            "source_locator": "DOI 10.1007/s10928-026-10051-w; supplementary equations 134-136, printed page 32.",
+            "printed_coordinates": [
+              "mab_plasma",
+              "target_plasma",
+              "complex_plasma"
+            ],
+            "adopted_coordinates": [
+              "mab_lymph",
+              "target_lymph",
+              "complex_lymph"
+            ],
+            "source_definitions": [
+              "binding_mab_lymph",
+              "binding_target_lymph",
+              "binding_complex_lymph"
+            ],
+            "native_definitions": [
+              "source_symbol_1110",
+              "source_symbol_1148",
+              "source_symbol_1072"
+            ],
+            "rationale": "The printed equations use plasma concentrations while declaring Y as Plasma or Lymph. This implementation evaluates association and dissociation with concentrations in the named local compartment. This is a disclosed locality interpretation; the author control stream has not been checked.",
+            "conservation_implications": "The binding contribution cancels in antibody plus complex and target plus complex for either convention. That stoichiometric cancellation does not certify whole-body conservation, physical dimensions or positivity. A plasma-driven lymph reaction can consume local species without local reactant availability.",
+            "qualification_limits": "A literal printed-plasma reconstruction and a local-lymph reconstruction represent distinct source conventions. Neither is rejected as scientifically incorrect solely for this choice. Complete author-code, dimensional and whole-body conservation qualification remain open."
+          }
+        ]
+      },
+      "limitations": "Lymph binding uses local lymph coordinates rather than the plasma coordinates printed in supplementary equations 134-136 (page 32). This disclosed source interpretation is archive-bound in source_interpretations; author-code and physical-unit qualification remain open. BBB and BCSFB reflection inputs are separate for AAV vector and proteins. sigma_vector_bbb and sigma_vector_bcsfb affect AAV equations; sigma_protein_bbb and sigma_protein_bcsfb affect mAb, TargetX and their complex together. A protein-only perturbation leaves all vector equation coefficients unchanged. A shared perturbation must explicitly set both vector and protein inputs and therefore affects AAV, mAb, TargetX and complex. All four coefficients use unit 1, values from 0 through 1 and the retained source numerical scale. The protein profile deliberately groups mAb, TargetX and complex at their disclosed common barrier defaults; a TargetX-only perturbation is not represented. Other organ reflection, interstitial/CSF reflection, diffusion, receptor and transgene coordinates are unchanged. Complete source, author-code, physical-unit and whole-body conservation qualification remain open.",
+      "parameter_effects": {
+        "sigma_protein_bbb": {
+          "affected_modalities": [
+            "mab",
+            "target",
+            "complex"
+          ],
+          "default": 0.9975,
+          "direct_states": [
+            "complex_brain_i",
+            "complex_brain_v",
+            "mab_brain_i",
+            "mab_brain_v",
+            "target_brain_i",
+            "target_brain_v"
+          ],
+          "native_name": "sigma_protein_bbb",
+          "qualification": "source_scale_unqualified",
+          "source_locator": "Liu 2026 Table 1, page 11, BBB and BCSFB vascular reflection rows",
+          "unit": "1"
+        },
+        "sigma_protein_bcsfb": {
+          "affected_modalities": [
+            "mab",
+            "target",
+            "complex"
+          ],
+          "default": 0.9973,
+          "direct_states": [
+            "complex_brain_lv",
+            "complex_brain_tfv",
+            "complex_brain_v",
+            "mab_brain_lv",
+            "mab_brain_tfv",
+            "mab_brain_v",
+            "target_brain_lv",
+            "target_brain_tfv",
+            "target_brain_v"
+          ],
+          "native_name": "sigma_protein_bcsfb",
+          "qualification": "source_scale_unqualified",
+          "source_locator": "Liu 2026 Table 1, page 11, BBB and BCSFB vascular reflection rows",
+          "unit": "1"
+        },
+        "sigma_vector_bbb": {
+          "affected_modalities": [
+            "aav"
+          ],
+          "default": 0.9975,
+          "direct_states": [
+            "aav_brain_i",
+            "aav_brain_v"
+          ],
+          "native_name": "sigma_vector_bbb",
+          "qualification": "source_scale_unqualified",
+          "source_locator": "Liu 2026 Table 1, page 11, BBB and BCSFB vascular reflection rows",
+          "unit": "1"
+        },
+        "sigma_vector_bcsfb": {
+          "affected_modalities": [
+            "aav"
+          ],
+          "default": 0.9973,
+          "direct_states": [
+            "aav_brain_lv",
+            "aav_brain_tfv",
+            "aav_brain_v"
+          ],
+          "native_name": "sigma_vector_bcsfb",
+          "qualification": "source_scale_unqualified",
+          "source_locator": "Liu 2026 Table 1, page 11, BBB and BCSFB vascular reflection rows",
+          "unit": "1"
+        }
+      },
+      "protocol_initialization": {
+        "path": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/PROTOCOL_INITIALIZATION.json",
+        "sha256": "31e6c377d0dd5ca3ae7271ab1b0d72d31ab17dbaf6682f5e81c5875c3e692a96"
+      }
+    },
+    {
+      "archive": "models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/model.omex",
+      "description": "Mouse systems model linking an IV AAV8 dose to tissue vector genomes, intracellular transduction, secreted trastuzumab, whole-body antibody distribution, FcRn salvage, and vector/antibody immunogenicity losses.",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk",
+      "license": "Apache-2.0",
+      "name": "Whole-body AAV8 gene-delivery and transgene-antibody PBPK",
+      "omex_sha256": "b41fd4238bcccffdf9ab64d6e9b9a4c7b78b4626d2605b6962176b72bbdc01cb",
+      "scenario_ids": [
+        "figure3_5_iv_aav8_2e10_vg_mouse",
+        "figure3_5_iv_aav8_1e11_vg_mouse",
+        "figure3_5_iv_aav8_2e11_vg_mouse"
+      ],
+      "version": "0.1.0",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_ubi_2026_membrane_ternary_binding/0.1.2/model.omex",
+      "description": "Explores how an open ligand reservoir, asymmetric binary affinities, membrane site densities, and two crosslink routes produce binary occupancy, ternary bridging, and a high-ligand hook regime.",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_ubi_2026_membrane_ternary_binding",
+      "license": "Apache-2.0",
+      "name": "Membrane Ternary Binding",
+      "omex_sha256": "c274521139e3ca5b12861f06f15cb45452485a7d39a06e0f448e8b4e2c4e5974",
+      "scenario_ids": [
+        "zero_ligand_control",
+        "low_ligand",
+        "intermediate_ligand",
+        "high_ligand_hook",
+        "high_left_site_density"
+      ],
+      "version": "0.1.2",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0/model.omex",
+      "description": "Explores how systemic closure, tumor-gate abundance and affinity, gate-assisted opening, tumor retention, cargo-receptor affinity, and dose combine to create a local-versus-systemic receptor-occupancy window.",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_ubi_2026_target_gated_cargo_qsp",
+      "license": "Apache-2.0",
+      "name": "Target-Gated Cargo QSP",
+      "omex_sha256": "74030ec1980893b183d737a47d3feb31c9c8d2bbe7fc2d62fd6787ae7b3e34be",
+      "scenario_ids": [
+        "no_dose_homeostasis",
+        "balanced_gate_30nmol_iv",
+        "no_tumor_gate_30nmol_iv",
+        "tight_systemic_gate_30nmol_iv",
+        "leaky_systemic_gate_30nmol_iv",
+        "attenuated_cargo_receptor_30nmol_iv"
+      ],
+      "version": "2.0.0",
+      "publication_status": "pending"
+    },
+    {
+      "archive": "models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1/model.omex",
+      "description": "Links per-cell CD3\u00d75T4 trimer formation to resting-to-activated-to-effector T-cell dynamics and three-stage apoptotic tumor-cell loss across drug affinity, concentration, antigen density, and effector-to-target ratio.",
+      "fit_ready": false,
+      "fitting_supported": false,
+      "id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
+      "license": "Apache-2.0",
+      "name": "CD3\u00d75T4 In Vitro Activation and Cytotoxicity QSP",
+      "omex_sha256": "461cca3ff38dcd97abf1fe3ebaf37f50ccb62580a4b200d66473560c491f498a",
+      "scenario_ids": [
+        "mda_mb_468_untreated_et4",
+        "mda_mb_468_duobody_6_86nm_et4",
+        "mda_mb_468_duobody_6_86nm_et1",
+        "mda_mb_468_duobody_6_86nm_et8",
+        "mda_mb_468_duobody_6_86nm_et2",
+        "mda_mb_231_duobody_6_86nm_et4",
+        "mda_mb_468_high_affinity_6_86nm_et8",
+        "mda_mb_231_high_affinity_6_86nm_et8",
+        "bxpc_3_duobody_6_86nm_et4",
+        "eplc_272h_duobody_6_86nm_et4",
+        "sk_gt_4_duobody_6_86nm_et4"
+      ],
+      "version": "2.0.1",
+      "publication_status": "pending"
+    }
+  ],
+  "simulation_route": "QSPQuest",
+  "license": "Apache-2.0",
+  "comparison_evidence": "separate_one_time_dump",
+  "availability_schema": "qspquest.model-availability/v1",
+  "availability_sha256": "1b39fc34c69ccf6e568c095f06cd8f2959f3c76a34c63e6ffa825fbdf7dc4bb0"
+}

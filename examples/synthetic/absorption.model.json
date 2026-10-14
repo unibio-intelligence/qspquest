@@ -1,0 +1,177 @@
+{
+  "schema": "qspquest.model/v0.1",
+  "model_id": "synthetic_absorption",
+  "description": "Ubi synthetic first-order absorption and elimination example",
+  "time_unit": "h",
+  "parameters": [
+    {
+      "name": "cl",
+      "default": {
+        "value": 0.8,
+        "unit": "L/h"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "vc",
+      "default": {
+        "value": 6,
+        "unit": "L"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "ka",
+      "default": {
+        "value": 1.2,
+        "unit": "1/h"
+      },
+      "bounds": null,
+      "transform": "log",
+      "fixed": false,
+      "description": ""
+    }
+  ],
+  "states": [
+    {
+      "name": "depot",
+      "unit": "mg",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 0,
+          "unit": "mg"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "symbol",
+            "name": "input_depot"
+          },
+          {
+            "kind": "binary",
+            "operator": "multiply",
+            "arguments": [
+              {
+                "kind": "symbol",
+                "name": "ka"
+              },
+              {
+                "kind": "symbol",
+                "name": "depot"
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": {
+        "amount_unit": "mg",
+        "scale": {
+          "kind": "literal",
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "central",
+      "unit": "mg",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 0,
+          "unit": "mg"
+        }
+      },
+      "rhs": {
+        "kind": "binary",
+        "operator": "subtract",
+        "arguments": [
+          {
+            "kind": "binary",
+            "operator": "add",
+            "arguments": [
+              {
+                "kind": "symbol",
+                "name": "input_central"
+              },
+              {
+                "kind": "binary",
+                "operator": "multiply",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "ka"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "depot"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "binary",
+            "operator": "multiply",
+            "arguments": [
+              {
+                "kind": "binary",
+                "operator": "divide",
+                "arguments": [
+                  {
+                    "kind": "symbol",
+                    "name": "cl"
+                  },
+                  {
+                    "kind": "symbol",
+                    "name": "vc"
+                  }
+                ]
+              },
+              {
+                "kind": "symbol",
+                "name": "central"
+              }
+            ]
+          }
+        ]
+      },
+      "dosing": {
+        "amount_unit": "mg",
+        "scale": {
+          "kind": "literal",
+          "value": 1
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "cp",
+      "unit": "mg/L",
+      "expression": {
+        "kind": "binary",
+        "operator": "divide",
+        "arguments": [
+          {
+            "kind": "symbol",
+            "name": "central"
+          },
+          {
+            "kind": "symbol",
+            "name": "vc"
+          }
+        ]
+      }
+    }
+  ]
+}

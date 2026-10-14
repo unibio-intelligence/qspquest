@@ -1,0 +1,15 @@
+model synthetic_absorption
+ time_unit = h
+ description = "Ubi synthetic first-order absorption and elimination example"
+parameters
+ cl = 0.8 [L/h] log estimated
+ vc = 6 [L] log estimated
+ ka = 1.2 [1/h] log estimated
+linear_pk
+ amount_unit = mg
+ clearance = cl
+ compartment central volume vc = 0 [mg]
+ depot depot absorption ka = 0 [mg]
+outputs
+ cp = central / vc [mg/L]
+end

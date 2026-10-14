@@ -1,0 +1,16 @@
+model synthetic_saturable
+ time_unit = d
+parameters
+ cl = 0.3 [L/d] log estimated
+ vc = 4 [L] log estimated
+ vmax = 0.2 [mg/d] log estimated
+ km = 1.6 [mg/L] log estimated
+states
+ central = 0 [mg]
+dynamics
+ d/dt(central) = input_central - cl / vc * central - vmax * (central / vc) / (km + central / vc)
+dosing
+ central [mg] = 1
+outputs
+ cp = central / vc [mg/L]
+end

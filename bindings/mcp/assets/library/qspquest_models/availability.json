@@ -1,0 +1,172 @@
+{
+  "schema": "qspquest.model-availability/v1",
+  "records": {
+    "qspquest_diffdose_2026_bite_benchmark/0.1.0": {
+      "model_id": "qspquest_diffdose_2026_bite_benchmark",
+      "archive_version": "0.1.0",
+      "selected_version": "0.1.0",
+      "archive_sha256": "395b1ea1e2cc9b5605401a7d62b6beb5cf9d2a34f2c4b70ba8b26cf2d53538f8",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "higher_exposure",
+        "lower_exposure",
+        "untreated"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_diffdose_2026_tgi_benchmark/0.1.0": {
+      "model_id": "qspquest_diffdose_2026_tgi_benchmark",
+      "archive_version": "0.1.0",
+      "selected_version": "0.1.0",
+      "archive_sha256": "e4e040c93dbc5b3732e12a9e9c1f0c75a2ba03cc76a5b3034ae74367939e3818",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "higher_exposure",
+        "lower_exposure",
+        "untreated"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:52235f1405b414c11e7b4431a60ccc41bbf8517ccdc1afc1140a9ad7f72c76d9",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0": {
+      "model_id": "qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk",
+      "archive_version": "0.1.0",
+      "selected_version": "0.1.0",
+      "archive_sha256": "b41fd4238bcccffdf9ab64d6e9b9a4c7b78b4626d2605b6962176b72bbdc01cb",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "figure3_5_iv_aav8_1e11_vg_mouse",
+        "figure3_5_iv_aav8_2e10_vg_mouse",
+        "figure3_5_iv_aav8_2e11_vg_mouse"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:55055efe1971a2bfbda6d23c1b9c496ef322937f5ecbf2f779e8544f85c733d6",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_ubi_2026_membrane_ternary_binding/0.1.2": {
+      "model_id": "qspquest_ubi_2026_membrane_ternary_binding",
+      "archive_version": "0.1.2",
+      "selected_version": "0.1.2",
+      "archive_sha256": "c274521139e3ca5b12861f06f15cb45452485a7d39a06e0f448e8b4e2c4e5974",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "high_left_site_density",
+        "high_ligand_hook",
+        "intermediate_ligand",
+        "low_ligand",
+        "zero_ligand_control"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:05955b89248690dbae9560d9394c50fe2887da64ab51b3e5f3d2faee59f5c473",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0": {
+      "model_id": "qspquest_ubi_2026_target_gated_cargo_qsp",
+      "archive_version": "2.0.0",
+      "selected_version": "2.0.0",
+      "archive_sha256": "74030ec1980893b183d737a47d3feb31c9c8d2bbe7fc2d62fd6787ae7b3e34be",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "attenuated_cargo_receptor_30nmol_iv",
+        "balanced_gate_30nmol_iv",
+        "leaky_systemic_gate_30nmol_iv",
+        "no_dose_homeostasis",
+        "no_tumor_gate_30nmol_iv",
+        "tight_systemic_gate_30nmol_iv"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1": {
+      "model_id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
+      "archive_version": "2.0.1",
+      "selected_version": "2.0.1",
+      "archive_sha256": "461cca3ff38dcd97abf1fe3ebaf37f50ccb62580a4b200d66473560c491f498a",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "bxpc_3_duobody_6_86nm_et4",
+        "eplc_272h_duobody_6_86nm_et4",
+        "mda_mb_231_duobody_6_86nm_et4",
+        "mda_mb_231_high_affinity_6_86nm_et8",
+        "mda_mb_468_duobody_6_86nm_et1",
+        "mda_mb_468_duobody_6_86nm_et2",
+        "mda_mb_468_duobody_6_86nm_et4",
+        "mda_mb_468_duobody_6_86nm_et8",
+        "mda_mb_468_high_affinity_6_86nm_et8",
+        "mda_mb_468_untreated_et4",
+        "sk_gt_4_duobody_6_86nm_et4"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:5f5bc66430a82d7cea07d98b478e372826dfa03de77ae380e76eb164ad6cb1f3",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_diffdose_2026_idr_benchmark/0.3.0": {
+      "model_id": "qspquest_diffdose_2026_idr_benchmark",
+      "archive_version": "0.3.0",
+      "selected_version": "0.3.0",
+      "archive_sha256": "34dd0d01af9ef951fa84969ce4d008c860ac7abe55ae701b0866b80a8be426c0",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "higher_exposure",
+        "lower_exposure",
+        "untreated"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": true,
+      "fit_ready": true,
+      "evidence_id": "sha256:15d79cb03f9116b5270cf2f2563178e8f9b1a5c453873c4cb2201ca152d084c2",
+      "current_engine_qualification": "not_assessed"
+    },
+    "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2": {
+      "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+      "archive_version": "2.1.2",
+      "selected_version": "2.1.2",
+      "archive_sha256": "15d69ba86b5a021f6716b1a5d0ce1735bc0effed5d4d9a6601e9a3742171d8c7",
+      "availability": "dynamic",
+      "publication_review": "pending",
+      "preset_ids": [
+        "figure3_mab_iv_100mgkg",
+        "figure3_mab_iv_10mgkg",
+        "figure3_mab_iv_30mgkg",
+        "figure3_mab_iv_3mgkg",
+        "figure3a_exogenous_targetx_shape",
+        "figure3b_targetx_steady_state",
+        "icm_1e12_aav9",
+        "icm_5e11_aav9",
+        "icm_5e12_aav5",
+        "icm_5e12_aav9",
+        "ist_2_5e11_aav9",
+        "iv_5e12_aav9",
+        "source_structure_no_dose_smoke"
+      ],
+      "unit_status": "source_scale_unqualified",
+      "fitting_supported": false,
+      "fit_ready": false,
+      "evidence_id": "sha256:7764e94f911a805d0fb542fb1daf5a8c4f607a4b22d07c486509c815e1b1c7e0",
+      "current_engine_qualification": "not_assessed"
+    }
+  }
+}

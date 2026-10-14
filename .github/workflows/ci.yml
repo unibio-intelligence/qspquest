@@ -1,0 +1,72 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/check_build_pins.py', 'scripts/tests/test_build_pins.py', 'scripts/check_python_contracts.py', 'scripts/generate_python_types.py', 'scripts/tests/test_python_contracts.py', 'scripts/doc_links.py', 'scripts/generate_mcp_resources.py', 'scripts/check_documentation.py', 'scripts/capability_registry.py', 'scripts/tests/test_capability_registry.py', 'spec/capabilities.json', 'scripts/tests/test_documentation.py', 'spec/**/*.md', 'docs/**/*.md', 'spec/schema/**', 'docs/examples/python_typed.py', 'Dockerfile', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'Cargo.*', '.cargo/**', '.gitattributes', 'pyproject.toml', '.github/workflows/**']
+  pull_request:
+    paths: ['scripts/check_build_pins.py', 'scripts/tests/test_build_pins.py', 'scripts/check_python_contracts.py', 'scripts/generate_python_types.py', 'scripts/tests/test_python_contracts.py', 'scripts/doc_links.py', 'scripts/generate_mcp_resources.py', 'scripts/check_documentation.py', 'scripts/capability_registry.py', 'scripts/tests/test_capability_registry.py', 'spec/capabilities.json', 'scripts/tests/test_documentation.py', 'spec/**/*.md', 'docs/**/*.md', 'spec/schema/**', 'docs/examples/python_typed.py', 'Dockerfile', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'Cargo.*', '.cargo/**', '.gitattributes', 'pyproject.toml', '.github/workflows/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  workspace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: |
+          python3 scripts/check_build_pins.py
+          python3 -B -m unittest discover -s scripts/tests -p test_build_pins.py -v
+      - name: Check QSPQuest distribution identities
+        run: |
+          python3 scripts/check_package_names.py
+          python3 -B -m unittest discover -s scripts/tests -p test_package_names.py -v
+      - name: Check Python schema, signatures and result contracts
+        run: |
+          python3 scripts/check_python_contracts.py
+          python3 -B -m unittest discover -s scripts/tests -p test_python_contracts.py -v
+      - name: Check canonical and embedded documentation
+        run: |
+          python3 scripts/check_documentation.py
+          python3 -B -m unittest discover -s scripts/tests -p test_documentation.py -v
+      - name: Check source capability catalog and generated matrix
+        run: |
+          python3 scripts/capability_registry.py --check
+          python3 -B -m unittest discover -s scripts/tests -p test_capability_registry.py -v
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt
+      - run: rustup default 1.98.1
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p qspquest-modeling -p qspquest-core -p qspquest-cli --locked
+      - run: node --test bindings/wasm/js/client.test.mjs bindings/wasm/quickstart/app.test.mjs
+      - name: Full workspace release check
+        if: github.event_name == 'workflow_dispatch'
+        run: cargo test --workspace --locked
+      - name: Browser target release check
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check -p qspquest-wasm --locked --target wasm32-unknown-unknown
+  r-binding:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check immutable build inputs
+        run: |
+          python3 scripts/check_build_pins.py
+          python3 -B -m unittest discover -s scripts/tests -p test_build_pins.py -v
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: rustup default 1.98.1
+      - run: Rscript -e 'install.packages("jsonlite", repos="https://cloud.r-project.org")'
+      - run: cargo fetch --locked
+      - run: R CMD INSTALL bindings/r
+      - run: QSPQUEST_R_REPORT=r-checks.json Rscript scripts/native-r.R

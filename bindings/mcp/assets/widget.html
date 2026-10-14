@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>QSPQuest simulation</title>
+<style>body{font:15px system-ui;color:#18364a;background:#f6f8fa;margin:20px}button,input,select{font:inherit;padding:7px;margin:4px}canvas{width:100%;height:320px;background:white;border:1px solid #ccd8df}label{display:inline-block;margin:8px}#status{white-space:pre-wrap;color:#274556}</style>
+<h2>QSPQuest simulation</h2><p>Edits run on your device. Curves represent the model; check its scope and validation status before interpreting them.</p><div id="controls"></div><div id="doses"></div><button id="run" disabled>Simulate edits locally</button><button id="cancel" disabled>Cancel local run</button><button id="csv" disabled>Export displayed CSV</button><label>Output <select id="output"></select></label><canvas id="plot" width="1000" height="400"></canvas><p id="status">Waiting for simulation context.</p>
+<script>
+let context,displayed,worker,sequence=0,channelSource,channelOrigin,workerUrl;const byId=id=>document.getElementById(id);const status=s=>byId('status').textContent=s;
+
+function plot(r){
+displayed=r;const select=byId('output'),selected=select.value;
+select.replaceChildren(...r.outputs.map(o=>{const option=document.createElement('option');option.value=o.name;option.textContent=o.name+' ['+o.unit+']';return option}));
+if(r.outputs.some(o=>o.name===selected))select.value=selected;
+const o=r.outputs.find(o=>o.name===select.value),times=r.times;
+const ctx=byId('plot').getContext('2d');ctx.clearRect(0,0,1000,400);
+if(!times?.length||!o?.values.length)return;
+const xmin=Math.min(...times),xmax=Math.max(...times),ymin=Math.min(...o.values),ymax=Math.max(...o.values);
+const px=t=>75+(t-xmin)/(xmax-xmin||1)*875,py=y=>350-(y-ymin)/(ymax-ymin||1)*300;
+ctx.font='13px system-ui';ctx.fillStyle='#18364a';ctx.fillText(o.name+' ['+o.unit+']',75,23);
+for(let i=0;i<=4;i++){const x=xmin+(xmax-xmin)*i/4,y=ymin+(ymax-ymin)*i/4;
+ctx.strokeStyle='#dce4e9';ctx.beginPath();ctx.moveTo(px(x),50);ctx.lineTo(px(x),350);ctx.moveTo(75,py(y));ctx.lineTo(950,py(y));ctx.stroke();
+ctx.fillStyle='#18364a';ctx.fillText(Number(x.toPrecision(4)).toString(),px(x)-8,375);ctx.fillText(Number(y.toPrecision(4)).toString(),5,py(y)+4);}
+ctx.strokeStyle='#164e63';ctx.lineWidth=2;ctx.beginPath();o.values.forEach((y,i)=>{if(i)ctx.lineTo(px(times[i]),py(y));else ctx.moveTo(px(times[i]),py(y))});ctx.stroke();
+ctx.fillText('Time ['+r.time_unit+']',450,398);byId('csv').disabled=false;
+}
+byId('output').onchange=()=>plot(displayed);
+function receive(result){byId("run").disabled=true;byId("cancel").disabled=true;context=result.widget_context?{...result.widget_context,request:result.effective_request,outputs:result.effective_outputs}:null;if(!context){status('This result has no inline model context. Reduce the model or use the local engine directly.');return}const controls=byId('controls');controls.replaceChildren();context.model.parameters.forEach(p=>{const label=document.createElement('label');label.textContent=p.name+' ['+p.default.unit+'] ';const input=document.createElement('input');input.type=p.bounds?'range':'number';if(p.bounds){input.min=p.bounds[0].value;input.max=p.bounds[1].value;input.step=(input.max-input.min)/1000}else{input.step='any'}input.value=context.request.parameters?.[p.name]?.value??p.default.value;input.disabled=p.fixed===true;input.dataset.parameter=p.name;input.dataset.unit=p.default.unit;label.append(input);controls.append(label)});byId('doses').replaceChildren();context.request.regimen.administrations.forEach((d,i)=>{const label=document.createElement('label');label.textContent=d.target+' dose ['+d.amount.unit+'] ';const input=document.createElement('input');input.type='number';input.min=0;input.step='any';input.value=d.amount.value;input.dataset.dose=i;label.append(input);byId('doses').append(label)});plot(result);if(!context.worker_url){status('Configure QSPQUEST_WIDGET_WORKER_URL for the static WASM asset to enable local edits.');return}startWorker();status('Loading the browser worker for on-device edits…');}
+function workerEvent(data){if(data.type==='ready'){byId('run').disabled=false;status('Edits will run in the browser engine on this device.');return}if(data.requestId!==sequence)return;if(data.type==='started'){status('Running in the browser engine…')}else if(data.type==='error'){status(data.error.message);byId('run').disabled=false;byId('cancel').disabled=true}else if(data.type==='result'){const r=data.result;plot({...r,times:Array.from(r.times),sides:Array.from(r.sides,s=>s?'post':'pre'),outputs:r.names.map((name,i)=>({name,unit:r.units[i],values:Array.from(r.columns[i])}))});status('Local simulation complete. Sampled extrema and CSV reflect this grid.');byId('run').disabled=false;byId('cancel').disabled=true}}
+function startWorker(){
+byId('run').disabled=true;worker?.terminate();
+if(context.local_worker_bridge){window.parent.postMessage({method:'qspquest/worker-start'},channelOrigin==='null'?'*':channelOrigin);return}
+if(workerUrl)URL.revokeObjectURL(workerUrl);workerUrl=URL.createObjectURL(new Blob(['import '+JSON.stringify(context.worker_url)+'; self.postMessage({type:"ready"});'],{type:'text/javascript'}));
+worker=new Worker(workerUrl,{type:'module'});
+worker.onerror=event=>{status('The browser worker could not load. Check the static worker URL and client CSP. '+(event.message||''));byId('run').disabled=true;byId('cancel').disabled=true;};
+worker.onmessage=({data})=>workerEvent(data);
+}
+byId('cancel').onclick=()=>{sequence++;worker?.terminate();startWorker();byId('cancel').disabled=true;status('Local simulation cancelled. Reloading the browser worker…');};
+
+byId('run').onclick=()=>{const r=structuredClone(context.request);r.parameters??={};document.querySelectorAll('[data-parameter]').forEach(i=>r.parameters[i.dataset.parameter]={value:Number(i.value),unit:i.dataset.unit});document.querySelectorAll('[data-dose]').forEach(i=>r.regimen.administrations[Number(i.dataset.dose)].amount.value=Number(i.value));byId('run').disabled=true;byId('cancel').disabled=false;status('Running on this device…');const payload={kind:'run',source:context.source,request:r};if(context.outputs)payload.outputs=context.outputs;const message={type:'run',requestId:++sequence,payload};if(context.local_worker_bridge)window.parent.postMessage({method:'qspquest/local-run',params:message},channelOrigin==='null'?'*':channelOrigin);else worker.postMessage(message);};
+byId('csv').onclick=()=>{const quote=s=>'"'+String(s).replaceAll('"','""')+'"';const rows=[['time ['+displayed.time_unit+']','side',...displayed.outputs.map(o=>o.name+' ['+o.unit+']')],...displayed.times.map((t,i)=>[t,displayed.sides[i],...displayed.outputs.map(o=>o.values[i])])];const url=URL.createObjectURL(new Blob([rows.map(r=>r.map(quote).join(',')).join('\n')],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='qspquest-simulation.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+window.addEventListener('message',event=>{if(event.source!==window.parent)return;if(channelSource&&event.source!==channelSource)return;if(channelOrigin&&event.origin!==channelOrigin)return;channelSource=event.source;channelOrigin=event.origin;const m=event.data;if(m?.method==='qspquest/worker-event'&&context?.local_worker_bridge){workerEvent(m.params);return}if(m?.id===1&&m.result){window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},event.origin==='null'?'*':event.origin);return}if(m?.method==='ui/notifications/tool-result'){const value=m.params?.structuredContent;if(value)receive(value)}if(m?.method==='ui/notifications/tool-input'){const value=m.params?.arguments?.result;if(value)receive(value)}});
+window.parent.postMessage({jsonrpc:'2.0',id:1,method:'ui/initialize',params:{appInfo:{name:'QSPQuest simulation',version:'0.1.0'},appCapabilities:{},protocolVersion:'2026-01-26'}},'*');
+// Local test host may provide a value without transmitting data over HTTP.
+window.qspquestReceive=receive;
+</script></html>

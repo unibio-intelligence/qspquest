@@ -1,0 +1,5 @@
+[target.wasm32-unknown-unknown]
+# The deterministic engine must never request host entropy. Diffsol's transitive
+# faer/rand dependency otherwise requires a browser entropy backend to compile.
+# Any accidental OS-random request must fail rather than silently change a run.
+rustflags = ['--cfg', 'getrandom_backend="unsupported"']

@@ -1,0 +1,1364 @@
+use num_traits::FromPrimitive;
+use std::{cell::RefCell, rc::Rc};
+
+use crate::{
+    error::DiffsolError, vector::Vector, AdjointContext, AdjointEquations, AugmentedOdeEquations,
+    AugmentedOdeEquationsImplicit, Bdf, BdfState, CheckpointingPath, Context, DefaultDenseMatrix,
+    DenseMatrix, ExplicitRk, LinearSolver, MatrixRef, NewtonNonlinearSolver, NoLineSearch,
+    OdeEquations, OdeEquationsAdjoint, OdeEquationsImplicit, OdeEquationsImplicitAdjoint,
+    OdeEquationsImplicitSens, OdeSolverMethod, OdeSolverState, RkState, Rosenbrock, Scalar, Sdirk,
+    SensEquations, Tableau, VectorRef,
+};
+
+/// Options for the initial condition solver used to find consistent initial conditions
+/// (i.e. when a mass matrix with zeros on the diagonal is present)
+pub struct InitialConditionSolverOptions<T: Scalar> {
+    /// use a backtracking linesearch in the Newton solver (default: true)
+    pub use_linesearch: bool,
+    /// maximum number of iterations of the linesearch (default: 10)
+    pub max_linesearch_iterations: usize,
+    /// maximum number of Newton iterations for the initial condition solve (default: 10)
+    pub max_newton_iterations: usize,
+    /// maximum number of linear solver setups during the initial condition solve (default: 4)
+    /// This compounds with the max_newton_iterations to limit the total number of newton
+    /// iterations (i.e. max_newton_iterations * max_linear_solver_setups)
+    pub max_linear_solver_setups: usize,
+    /// factor to reduce the step size during the linesearch (default: 0.5)
+    pub step_reduction_factor: T,
+    /// Armijo constant for the linesearch (default: 1e-4)
+    pub armijo_constant: T,
+}
+
+impl<T: Scalar> Default for InitialConditionSolverOptions<T> {
+    fn default() -> Self {
+        Self {
+            use_linesearch: true,
+            max_linesearch_iterations: 10,
+            max_linear_solver_setups: 4,
+            max_newton_iterations: 10,
+            step_reduction_factor: T::from_f64(0.5).unwrap(),
+            armijo_constant: T::from_f64(1e-4).unwrap(),
+        }
+    }
+}
+
+/// Options for the ODE solver. These options control various aspects of the solver's behavior,
+/// including adaptive step-size control, nonlinear solver convergence, and Jacobian updates.
+///
+/// ## Step-Size Control
+///
+/// The step-size controller adapts the time step `h` at each step based on the local error
+/// estimate. A PI (Proportional-Integral) controller (Gustafsson, 1991) uses the error norm
+/// from the current step `err_n` and the previous accepted step `err_{n-1}`:
+///
+/// ```text
+/// h_{n+1} = h_n * safety * err_n^{-kI - kP} * err_{n-1}^{kP}
+/// ```
+///
+/// where `kI = pi_control_integral / (order + 1)` and
+/// `kP = pi_control_proportional / (order + 1)`. On the first step or after a rejected step,
+/// the controller falls back to P-only mode (`kP = 0`).
+///
+/// The default gains `kI = 0.5` and `kP = 0.0` produce a standard P controller (dead-beat),
+/// as this was found to be faster for the existing benchmark suite. To enable true PI control, set
+/// `pi_control_proportional` to a non-zero value (e.g. `0.4`), following Gustafsson (1991).
+///
+/// The computed factor is clamped by `[min_timestep_shrink, max_timestep_growth]`, with a
+/// dead-zone `[max_timestep_shrink, min_timestep_growth]` where the step size is left unchanged.
+/// For implicit methods (BDF, SDIRK) the safety factor also incorporates the Newton iteration
+/// count: `(2*maxiter+1) / (2*maxiter+niter)`, penalising steps that require many iterations.
+///
+/// ## Solver Limits
+///
+/// The solver aborts with an error when:
+/// - The step size falls below `min_timestep`.
+/// - The number of consecutive error test failures exceeds `max_error_test_failures`.
+/// - The number of nonlinear solver failures exceeds `max_nonlinear_solver_failures`
+///   (implicit methods only).
+///
+/// ## Nonlinear Solver (Implicit Methods)
+///
+/// Each implicit stage is solved by a Newton iteration. `max_nonlinear_solver_iterations`
+/// limits the number of Newton steps per stage. `nonlinear_solver_tolerance` is a scaling
+/// factor in the convergence test (smaller values produce a tighter tolerance).
+///
+/// ## Jacobian Updates (Implicit Methods)
+///
+/// The Jacobian matrix is updated when:
+/// - `update_jacobian_after_steps` steps have elapsed (linear solver setup only),
+/// - `update_rhs_jacobian_after_steps` steps have elapsed (full RHS Jacobian re-evaluation),
+/// - The relative step-size change `|dt_new/dt_old - 1|` exceeds `threshold_to_update_jacobian`
+///   or `threshold_to_update_rhs_jacobian`.
+///
+/// ## Reference
+///
+/// Gustafsson, K. (1991). Control theoretic techniques for stepsize selection
+/// in explicit Runge–Kutta methods. *ACM Transactions on Mathematical Software*,
+/// 17(4), 533–554.
+pub struct OdeSolverOptions<T: Scalar> {
+    /// Maximum number of nonlinear solver iterations per solve (default: 10).
+    pub max_nonlinear_solver_iterations: usize,
+    /// Maximum number of consecutive step rejections per solve before aborting (default: 40).
+    pub max_error_test_failures: usize,
+    /// Maximum number of nonlinear solver convergence failures per solve before aborting (default: 50).
+    pub max_nonlinear_solver_failures: usize,
+    /// Newton convergence test scaling factor (default: 0.2).
+    pub nonlinear_solver_tolerance: T,
+    /// Minimum allowed step size (absolute value, default: 1e-13).
+    pub min_timestep: T,
+    /// Upper bound on step-size growth `h_new/h_old` (default: solver-specific when `None`).
+    pub max_timestep_growth: Option<T>,
+    /// Lower bound for step-size growth dead-zone (default: solver-specific when `None`).
+    pub min_timestep_growth: Option<T>,
+    /// Upper bound for step-size shrink dead-zone (default: solver-specific when `None`).
+    pub max_timestep_shrink: Option<T>,
+    /// Absolute lower bound on step-size reduction `h_new/h_old` (default: 0.5 when `None`).
+    pub min_timestep_shrink: Option<T>,
+    /// Max steps between Jacobian updates (linear solver setup only, default: 20).
+    pub update_jacobian_after_steps: usize,
+    /// Max steps between full RHS Jacobian re-evaluations (default: 50).
+    pub update_rhs_jacobian_after_steps: usize,
+    /// Step-size change |dt_new / dt_old - 1| threshold for Jacobian update (default: 0.3).
+    pub threshold_to_update_jacobian: T,
+    /// Step-size change |dt_new / dt_old - 1| threshold for RHS Jacobian update (default: 0.2).
+    pub threshold_to_update_rhs_jacobian: T,
+    /// PI controller proportional gain `kP` (default: 0.0). Exponent is `kP / (order + 1)`.
+    /// Set to a non-zero value (e.g. 0.4) to enable true PI control.
+    pub pi_control_proportional: T,
+    /// PI controller integral gain `kI` (default: 0.5). Exponent is `kI / (order + 1)`.
+    pub pi_control_integral: T,
+}
+
+impl<T: Scalar> Default for OdeSolverOptions<T> {
+    fn default() -> Self {
+        Self {
+            max_nonlinear_solver_iterations: 10,
+            max_error_test_failures: 40,
+            max_nonlinear_solver_failures: 50,
+            nonlinear_solver_tolerance: T::from_f64(0.2).unwrap(),
+            min_timestep: T::from_f64(1e-13).unwrap(),
+            max_timestep_growth: None,
+            min_timestep_growth: None,
+            max_timestep_shrink: None,
+            min_timestep_shrink: None,
+            update_jacobian_after_steps: 20,
+            update_rhs_jacobian_after_steps: 50,
+            threshold_to_update_jacobian: T::from_f64(0.3).unwrap(),
+            threshold_to_update_rhs_jacobian: T::from_f64(0.2).unwrap(),
+            pi_control_proportional: T::from_f64(0.0).unwrap(),
+            pi_control_integral: T::from_f64(0.5).unwrap(),
+        }
+    }
+}
+
+/// Struct representing an ODE solver problem, encapsulating the equations,
+/// tolerances, initial conditions, and solver options. This struct can be used
+/// to create individual solvers for different methods (e.g., BDF, Runge-Kutta),
+/// solving the same underlying problem with consistent settings.
+///
+/// This struct is normally generated via the `OdeBuilder` API, which provides
+/// a more user-friendly interface for constructing ODE solver problems.
+pub struct OdeSolverProblem<Eqn>
+where
+    Eqn: OdeEquations,
+{
+    /// The ODE equations to be solved, which satisfy the `OdeEquations` trait.
+    pub eqn: Eqn,
+    /// Relative tolerance for the solver. The state equations are solved to this and the absolute tolerance, given by the norm `sum_i(y_i / (atol_i + rtol * |y0_i|)) < 1`.
+    pub rtol: Eqn::T,
+    /// Absolute tolerance for the solver. The state equations are solved to this and the relative tolerance, given by the norm `sum_i(y_i / (atol_i + rtol * |y0_i|)) < 1`.
+    pub atol: Eqn::V,
+    /// Initial time for the ODE solve.
+    pub t0: Eqn::T,
+    /// Initial step size for the ODE solver.
+    pub h0: Eqn::T,
+    /// Whether to integrate the output equations alongside the state equations.
+    pub integrate_out: bool,
+    /// Relative tolerance for the forward sensitivity equations. If `None`, sensitivities are not included in error control.
+    pub sens_rtol: Option<Eqn::T>,
+    /// Absolute tolerances for the forward sensitivities, one batch lane per (problem batch,
+    /// parameter): batch index `b * nparams + p` holds parameter `p`'s tolerance for problem batch `b`, matching the layout of
+    /// the augmented state (see [`crate::AugmentedOdeEquations`]).
+    pub sens_atol: Option<Eqn::V>,
+    /// Relative tolerance for output equations, if outputs are being integrated and used in error control.
+    pub out_rtol: Option<Eqn::T>,
+    /// Absolute tolerance for output equations, if outputs are being integrated and used in error control.
+    pub out_atol: Option<Eqn::V>,
+    /// Relative tolerance for the adjoint gradient wrt each parameter, if adjoint sensitivities are being computed and used in error control.
+    pub param_rtol: Option<Eqn::T>,
+    /// Absolute tolerance for the adjoint gradient wrt each parameter, if adjoint sensitivities are being computed and used in error control.
+    pub param_atol: Option<Eqn::V>,
+    /// Options for the initial condition solver.
+    pub ic_options: InitialConditionSolverOptions<Eqn::T>,
+    /// Options for the ODE solver.
+    pub ode_options: OdeSolverOptions<Eqn::T>,
+}
+
+macro_rules! sdirk_solver_from_tableau {
+    ($method:ident, $method_sens:ident, $method_solver:ident, $method_solver_sens:ident, $method_state_adjoint:ident, $method_solver_adjoint:ident, $method_solver_adjoint_from_state:ident, $tableau:ident) => {
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK solver instance with the given initial state.\n\n",
+            "This method uses the built-in ", stringify!($tableau), " Butcher tableau.\n\n",
+            "# Type Parameters\n",
+            "- `LS`: The linear solver type\n\n",
+            "# Arguments\n",
+            "- `state`: The initial state for the solver\n\n",
+            "# Returns\n",
+            "An SDIRK solver instance configured with the ", stringify!($tableau), " method")]
+        pub fn $method_solver<LS: LinearSolver<Eqn::M>>(
+            &self,
+            state: RkState<Eqn::V>,
+        ) -> Result<Sdirk<'_, Eqn, LS>, DiffsolError>
+        where
+            Eqn: OdeEquationsImplicit,
+        {
+            self.sdirk_solver(
+                state,
+                Tableau::<Eqn::T>::$tableau(),
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK solver instance with forward sensitivities, given the initial state.\n\n",
+            "This method uses the built-in ", stringify!($tableau), " Butcher tableau and simultaneously solves\n",
+            "the state equations and forward sensitivity equations.\n\n",
+            "# Type Parameters\n",
+            "- `LS`: The linear solver type\n\n",
+            "# Arguments\n",
+            "- `state`: The initial state for the solver (including sensitivities)\n\n",
+            "# Returns\n",
+            "An SDIRK solver instance configured for forward sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_solver_sens<LS: LinearSolver<Eqn::M>>(
+            &self,
+            state: RkState<Eqn::V>,
+        ) -> Result<
+            Sdirk<'_, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitSens,
+        {
+            self.sdirk_solver_sens(
+                state,
+                Tableau::<Eqn::T>::$tableau(),
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK solver instance for adjoint sensitivity analysis.\n\n",
+            "This method creates a solver for the backward adjoint equations using the ", stringify!($tableau), " method.\n",
+            "Requires a checkpointer to provide the forward solution during the backward solve.\n\n",
+            "# Type Parameters\n",
+            "- `LS`: The linear solver type\n",
+            "- `S`: The forward solver method type used for checkpointing\n\n",
+            "# Arguments\n",
+            "- `checkpointer`: The checkpointing path containing the stored forward solution segments and interpolation data across reset events\n",
+            "- `solver`: Optional replay solver used to rebuild checkpoint interpolation segments when interpolation leaves the current segment. This may be `None` only when the existing checkpoint segments already cover all required interpolation times\n",
+            "- `nout_override`: Optional override for the number of adjoint output equations. Use this when the backward solve should track a different output dimension than `eqn.nout()`\n\n",
+            "# Returns\n",
+            "An SDIRK solver instance configured for adjoint sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_solver_adjoint<'a, LS: LinearSolver<Eqn::M>, S: OdeSolverMethod<'a, Eqn>>(
+            &'a self,
+            checkpointer: CheckpointingPath<Eqn, S::State>,
+            solver: Option<S>,
+            nout_override: Option<usize>,
+        ) -> Result<
+            Sdirk<'a, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitAdjoint,
+        {
+            self.sdirk_solver_adjoint(
+                Tableau::<Eqn::T>::$tableau(),
+                checkpointer,
+                solver,
+                nout_override,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK adjoint initial state.")]
+        pub fn $method_state_adjoint<'a, LS: LinearSolver<Eqn::M>, S: OdeSolverMethod<'a, Eqn>>(
+            &'a self,
+            adjoint_eqn: &mut AdjointEquations<'a, Eqn, S>,
+        ) -> Result<RkState<Eqn::V>, DiffsolError>
+        where
+            Eqn: OdeEquationsImplicitAdjoint,
+        {
+            self.sdirk_state_adjoint::<LS, _>(
+                Tableau::<Eqn::T>::$tableau(),
+                adjoint_eqn,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK adjoint solver instance from an existing state.")]
+        pub fn $method_solver_adjoint_from_state<
+            'a,
+            LS: LinearSolver<Eqn::M>,
+            S: OdeSolverMethod<'a, Eqn>,
+        >(
+            &'a self,
+            state: RkState<Eqn::V>,
+            adjoint_eqn: AdjointEquations<'a, Eqn, S>,
+        ) -> Result<
+            Sdirk<'a, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitAdjoint,
+        {
+            self.sdirk_solver_adjoint_from_state(
+                Tableau::<Eqn::T>::$tableau(),
+                state,
+                adjoint_eqn,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK solver instance with a consistent initial state.\n\n",
+            "This convenience method combines state creation and solver initialization using the\n",
+            "built-in ", stringify!($tableau), " Butcher tableau. It will create a consistent initial state,\n",
+            "which may require solving a nonlinear system if a mass matrix is present.\n\n",
+            "# Type Parameters\n",
+            "- `LS`: The linear solver type\n\n",
+            "# Returns\n",
+            "An SDIRK solver instance configured with the ", stringify!($tableau), " method and consistent initial state")]
+        pub fn $method<LS: LinearSolver<Eqn::M>>(&self) -> Result<Sdirk<'_, Eqn, LS>, DiffsolError>
+        where
+            Eqn: OdeEquationsImplicit,
+        {
+            let tableau =
+                Tableau::<Eqn::T>::$tableau();
+            let state = self.rk_state_and_consistent::<LS>(&tableau)?;
+            self.sdirk_solver(state, tableau)
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " SDIRK solver instance with forward sensitivities and consistent initial state.\n\n",
+            "This convenience method combines state creation and solver initialization for forward\n",
+            "sensitivity analysis using the built-in ", stringify!($tableau), " Butcher tableau. It will create\n",
+            "a consistent initial state, which may require solving a nonlinear system if a mass matrix is present.\n\n",
+            "# Type Parameters\n",
+            "- `LS`: The linear solver type\n\n",
+            "# Returns\n",
+            "An SDIRK solver instance configured for forward sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_sens<LS: LinearSolver<Eqn::M>>(
+            &self,
+        ) -> Result<
+            Sdirk<'_, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitSens,
+        {
+            let tableau =
+                Tableau::<Eqn::T>::$tableau();
+            let state = self.rk_state_sens_and_consistent::<LS>(&tableau)?;
+            self.sdirk_solver_sens(state, tableau)
+        }
+    };
+}
+
+macro_rules! rk_solver_from_tableau {
+    ($method:ident, $method_sens:ident, $method_solver:ident, $method_solver_sens:ident, $method_state_adjoint:ident, $method_solver_adjoint:ident, $method_solver_adjoint_from_state:ident, $tableau:ident) => {
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta solver instance with the given initial state.\n\n",
+            "This method uses the built-in ", stringify!($tableau), " Butcher tableau.\n\n",
+            "# Arguments\n",
+            "- `state`: The initial state for the solver\n\n",
+            "# Returns\n",
+            "An explicit RK solver instance configured with the ", stringify!($tableau), " method")]
+        pub fn $method_solver(
+            &self,
+            state: RkState<Eqn::V>,
+        ) -> Result<ExplicitRk<'_, Eqn>, DiffsolError>
+        where
+            Eqn: OdeEquations,
+        {
+            self.explicit_rk_solver(
+                state,
+                Tableau::<Eqn::T>::$tableau(),
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta solver instance with forward sensitivities, given the initial state.\n\n",
+            "This method uses the built-in ", stringify!($tableau), " Butcher tableau and simultaneously solves\n",
+            "the state equations and forward sensitivity equations.\n\n",
+            "# Arguments\n",
+            "- `state`: The initial state for the solver (including sensitivities)\n\n",
+            "# Returns\n",
+            "An explicit RK solver instance configured for forward sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_solver_sens(
+            &self,
+            state: RkState<Eqn::V>,
+        ) -> Result<
+            ExplicitRk<'_, Eqn, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitSens,
+        {
+            self.explicit_rk_solver_sens(
+                state,
+                Tableau::<Eqn::T>::$tableau(),
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta solver instance for adjoint sensitivity analysis.\n\n",
+            "This method creates a solver for the backward adjoint equations using the ", stringify!($tableau), " method.\n",
+            "Requires a checkpointer to provide the forward solution during the backward solve.\n\n",
+            "# Type Parameters\n",
+            "- `S`: The forward solver method type used for checkpointing\n\n",
+            "# Arguments\n",
+            "- `checkpointer`: The checkpointing path containing the stored forward solution segments and interpolation data across reset events\n",
+            "- `solver`: Optional replay solver used to rebuild checkpoint interpolation segments when interpolation leaves the current segment. This may be `None` only when the existing checkpoint segments already cover all required interpolation times\n",
+            "- `nout_override`: Optional override for the number of adjoint output equations. Use this when the backward solve should track a different output dimension than `eqn.nout()`\n\n",
+            "# Returns\n",
+            "An explicit RK solver instance configured for adjoint sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_solver_adjoint<'a, S: OdeSolverMethod<'a, Eqn>>(
+            &'a self,
+            checkpointer: CheckpointingPath<Eqn, S::State>,
+            solver: Option<S>,
+            nout_override: Option<usize>,
+        ) -> Result<
+            ExplicitRk<'a, Eqn, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsAdjoint,
+        {
+            self.explicit_rk_solver_adjoint(
+                Tableau::<Eqn::T>::$tableau(),
+                checkpointer,
+                solver,
+                nout_override,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta adjoint initial state.")]
+        pub fn $method_state_adjoint<'a, S: OdeSolverMethod<'a, Eqn>>(
+            &'a self,
+            adjoint_eqn: &mut AdjointEquations<'a, Eqn, S>,
+        ) -> Result<RkState<Eqn::V>, DiffsolError>
+        where
+            Eqn: OdeEquationsAdjoint,
+        {
+            self.explicit_rk_state_adjoint(
+                Tableau::<Eqn::T>::$tableau(),
+                adjoint_eqn,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta adjoint solver instance from an existing state.")]
+        pub fn $method_solver_adjoint_from_state<'a, S: OdeSolverMethod<'a, Eqn>>(
+            &'a self,
+            state: RkState<Eqn::V>,
+            adjoint_eqn: AdjointEquations<'a, Eqn, S>,
+        ) -> Result<
+            ExplicitRk<'a, Eqn, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsAdjoint,
+        {
+            self.explicit_rk_solver_adjoint_from_state(
+                Tableau::<Eqn::T>::$tableau(),
+                state,
+                adjoint_eqn,
+            )
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta solver instance with initial state.\n\n",
+            "This convenience method combines state creation and solver initialization using the\n",
+            "built-in ", stringify!($tableau), " Butcher tableau.\n\n",
+            "# Returns\n",
+            "An explicit RK solver instance configured with the ", stringify!($tableau), " method")]
+        pub fn $method(&self) -> Result<ExplicitRk<'_, Eqn>, DiffsolError>
+        where
+            Eqn: OdeEquations,
+        {
+            let tableau =
+                Tableau::<Eqn::T>::$tableau();
+            let state = self.rk_state(&tableau)?;
+            self.explicit_rk_solver(state, tableau)
+        }
+
+        #[doc = concat!("Create a new ", stringify!($tableau), " explicit Runge-Kutta solver instance with forward sensitivities.\n\n",
+            "This convenience method combines state creation and solver initialization for forward\n",
+            "sensitivity analysis using the built-in ", stringify!($tableau), " Butcher tableau.\n\n",
+            "# Returns\n",
+            "An explicit RK solver instance configured for forward sensitivity analysis using ", stringify!($tableau))]
+        pub fn $method_sens(
+            &self,
+        ) -> Result<
+            ExplicitRk<'_, Eqn, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+            DiffsolError,
+        >
+        where
+            Eqn: OdeEquationsImplicitSens,
+        {
+            let tableau =
+                Tableau::<Eqn::T>::$tableau();
+            let state = self.rk_state_sens(&tableau)?;
+            self.explicit_rk_solver_sens(state, tableau)
+        }
+    };
+}
+
+impl<Eqn> OdeSolverProblem<Eqn>
+where
+    Eqn: OdeEquations,
+{
+    /// Returns whether outputs are included in the error control.
+    ///
+    /// This returns `true` if all of the following conditions are met:
+    /// - Output integration is enabled (`integrate_out` is true)
+    /// - The equations have output functions defined
+    /// - Output relative tolerance is specified
+    /// - Output absolute tolerance is specified
+    pub fn output_in_error_control(&self) -> bool {
+        self.integrate_out
+            && self.eqn.out().is_some()
+            && self.out_rtol.is_some()
+            && self.out_atol.is_some()
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        eqn: Eqn,
+        rtol: Eqn::T,
+        atol: Eqn::V,
+        sens_rtol: Option<Eqn::T>,
+        sens_atol: Option<Eqn::V>,
+        out_rtol: Option<Eqn::T>,
+        out_atol: Option<Eqn::V>,
+        param_rtol: Option<Eqn::T>,
+        param_atol: Option<Eqn::V>,
+        t0: Eqn::T,
+        h0: Eqn::T,
+        integrate_out: bool,
+        ic_options: InitialConditionSolverOptions<Eqn::T>,
+        ode_options: OdeSolverOptions<Eqn::T>,
+    ) -> Result<Self, DiffsolError> {
+        Ok(Self {
+            eqn,
+            rtol,
+            atol,
+            out_atol,
+            out_rtol,
+            param_atol,
+            param_rtol,
+            sens_atol,
+            sens_rtol,
+            t0,
+            h0,
+            integrate_out,
+            ic_options,
+            ode_options,
+        })
+    }
+
+    /// Returns a reference to the ODE equations being solved.
+    pub fn eqn(&self) -> &Eqn {
+        &self.eqn
+    }
+    /// Returns a mutable reference to the ODE equations being solved.
+    pub fn eqn_mut(&mut self) -> &mut Eqn {
+        &mut self.eqn
+    }
+    /// Returns a reference to the context associated with the ODE equations.
+    pub fn context(&self) -> &Eqn::C {
+        self.eqn.context()
+    }
+}
+
+impl<Eqn> OdeSolverProblem<Eqn>
+where
+    Eqn: OdeEquationsAdjoint,
+{
+    pub fn adjoint_equations<'a, S: OdeSolverMethod<'a, Eqn>>(
+        &'a self,
+        checkpointer: CheckpointingPath<Eqn, S::State>,
+        solver: Option<S>,
+        nout_override: Option<usize>,
+    ) -> Result<AdjointEquations<'a, Eqn, S>, DiffsolError> {
+        let nout = nout_override.unwrap_or_else(|| self.eqn.nout());
+        // the adjoint state holds one channel per output in its batch lanes
+        let aug_ctx = self
+            .context()
+            .clone_with_nbatch(self.context().nbatch() * nout)?;
+        let context = Rc::new(RefCell::new(AdjointContext::new(
+            &self.eqn,
+            self.t0,
+            checkpointer,
+            solver,
+            nout,
+            aug_ctx,
+        )));
+        Ok(AdjointEquations::new(self, context, self.integrate_out))
+    }
+}
+
+impl<Eqn> OdeSolverProblem<Eqn>
+where
+    Eqn: OdeEquations,
+    Eqn::V: DefaultDenseMatrix<T = Eqn::T, C = Eqn::C>,
+    for<'b> &'b Eqn::V: VectorRef<Eqn::V>,
+    for<'b> &'b Eqn::M: MatrixRef<Eqn::M>,
+{
+    /// Create a Rosenbrock solver with a caller-supplied state and tableau.
+    pub fn rosenbrock_solver<
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<T = Eqn::T, V = Eqn::V, C = Eqn::C>,
+    >(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+    ) -> Result<Rosenbrock<'_, Eqn, LS, DM>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        Rosenbrock::new(self, state, tableau, LS::default())
+    }
+    /// Create a fifth-order Rodas5P Rosenbrock solver.
+    pub fn rodas5p<LS: LinearSolver<Eqn::M>>(&self) -> Result<Rosenbrock<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rodas5p_solver(self.rodas5p_state::<LS>()?)
+    }
+    /// Restart a Rodas5P solver from a caller-supplied state.
+    pub fn rodas5p_solver<LS: LinearSolver<Eqn::M>>(
+        &self,
+        state: RkState<Eqn::V>,
+    ) -> Result<Rosenbrock<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rosenbrock_solver(state, Tableau::rodas5p())
+    }
+    /// Create consistent initial conditions and an initial step size for Rodas5P.
+    pub fn rodas5p_state<LS: LinearSolver<Eqn::M>>(&self) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rk_state_and_consistent::<LS>(&Tableau::rodas5p())
+    }
+    /// Create a second-order Rosenbrock23 Rosenbrock solver.
+    pub fn rosenbrock23<LS: LinearSolver<Eqn::M>>(
+        &self,
+    ) -> Result<Rosenbrock<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rosenbrock23_solver(self.rosenbrock23_state::<LS>()?)
+    }
+    /// Restart a Rosenbrock23 solver from a caller-supplied state.
+    pub fn rosenbrock23_solver<LS: LinearSolver<Eqn::M>>(
+        &self,
+        state: RkState<Eqn::V>,
+    ) -> Result<Rosenbrock<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rosenbrock_solver(state, Tableau::rosenbrock23())
+    }
+    /// Create consistent initial conditions and an initial step size for Rosenbrock23.
+    pub fn rosenbrock23_state<LS: LinearSolver<Eqn::M>>(
+        &self,
+    ) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        self.rk_state_and_consistent::<LS>(&Tableau::rosenbrock23())
+    }
+
+    /// Create a new state for the Bdf solver. This will provide a consistent initial state,
+    /// so might require solving a nonlinear system if a mass matrix is present.
+    pub fn bdf_state<LS: LinearSolver<Eqn::M>>(&self) -> Result<BdfState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        BdfState::new_and_consistent::<LS, Eqn>(self, 1)
+    }
+
+    /// Create a new state for the Bdf solver with sensitivities. This will provide a consistent initial state,
+    /// so might require solving a nonlinear system if a mass matrix is present.
+    pub fn bdf_state_sens<LS: LinearSolver<Eqn::M>>(&self) -> Result<BdfState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        BdfState::new_with_sensitivities_and_consistent::<LS, Eqn>(self, 1)
+    }
+
+    /// Create a new BDF solver instance for the problem with the given initial state.
+    ///
+    /// This method creates a BDF solver with a Newton nonlinear solver using the specified
+    /// linear solver type. The state must be provided and should typically be created using
+    /// [`Self::bdf_state`], which ensures consistency for problems with mass matrices.
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver
+    ///
+    /// # Returns
+    /// A BDF solver instance configured for this problem
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_solver<LS: LinearSolver<Eqn::M>>(
+        &self,
+        state: BdfState<Eqn::V>,
+    ) -> Result<Bdf<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        Bdf::new(self, state, LS::default())
+    }
+
+    /// Create a new BDF solver instance for the problem. This will create a consistent initial state,
+    /// so might require solving a nonlinear system if a mass matrix is present.
+    ///
+    /// This is a convenience method that combines [`Self::bdf_state`] and [`Self::bdf_solver`].
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    ///
+    /// # Returns
+    /// A BDF solver instance configured for this problem with a consistent initial state
+    #[allow(clippy::type_complexity)]
+    pub fn bdf<LS: LinearSolver<Eqn::M>>(&self) -> Result<Bdf<'_, Eqn, LS>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        let state = self.bdf_state::<LS>()?;
+        self.bdf_solver(state)
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn bdf_solver_aug<
+        LS: LinearSolver<Eqn::M>,
+        Aug: AugmentedOdeEquationsImplicit<Eqn>,
+    >(
+        &self,
+        state: BdfState<Eqn::V>,
+        aug_eqn: Aug,
+    ) -> Result<Bdf<'_, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, Aug>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        Bdf::new_augmented(state, self, aug_eqn, LS::default())
+    }
+
+    /// Create a new BDF solver instance for the backwards solve for the adjoint equations. This requires
+    /// a checkpointer to provide the forward solution during the backward solve.
+    ///
+    /// If you are computing adjoint sensitivites of the continuous integral of the outputs, the number
+    /// of output equations are taken from the equations being solved. If you are computing adjoint sensitivities
+    /// for a discrete sum of outputs not in your equations, you must override the number of outputs via `nout_override`.
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    /// - `S`: The forward solver method type used for checkpointing (this can be auto-deduced from the `checkpointer`)
+    ///
+    /// # Arguments
+    /// - `checkpointer`: The checkpointing path containing the forward solution segments
+    /// - `nout_override`: Optional override for the number of output equations
+    ///
+    /// # Returns
+    /// An initial BDF state configured for adjoint sensitivity analysis
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_state_adjoint<'a, LS: LinearSolver<Eqn::M>, S: OdeSolverMethod<'a, Eqn>>(
+        &'a self,
+        augmented_eqn: &mut AdjointEquations<'a, Eqn, S>,
+    ) -> Result<BdfState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let h = augmented_eqn.last_h();
+        let t = augmented_eqn.last_t();
+        let mut newton_solver = NewtonNonlinearSolver::new(LS::default(), NoLineSearch);
+        let mut state = BdfState::new_without_initialise_augmented_at(self, augmented_eqn, t)?;
+        *state.as_mut().t = t;
+        if let Some(h) = h {
+            *state.as_mut().h = -h;
+        }
+        state.as_mut().set_consistent(self, &mut newton_solver)?;
+        state
+            .as_mut()
+            .set_consistent_augmented(self, augmented_eqn, &mut newton_solver)?;
+        let h = state.h;
+        let atol = &self.atol;
+        let rtol = self.rtol;
+        state
+            .as_mut()
+            // the heuristic works on the main state and the main tolerances, so it is the main
+            // equations that are evaluated (the augmented rhs writes one channel per batch lane)
+            .set_step_size(h, atol, rtol, &self.eqn, 1);
+
+        Ok(state)
+    }
+
+    /// Create a new BDF solver instance for the backwards solve for the adjoint equations, using
+    /// a caller-supplied state.
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_solver_adjoint_from_state<
+        'a,
+        LS: LinearSolver<Eqn::M>,
+        S: OdeSolverMethod<'a, Eqn>,
+    >(
+        &'a self,
+        state: BdfState<Eqn::V>,
+        mut augmented_eqn: AdjointEquations<'a, Eqn, S>,
+    ) -> Result<
+        Bdf<'a, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+        DiffsolError,
+    >
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let mut newton_solver = NewtonNonlinearSolver::new(LS::default(), NoLineSearch);
+        let mut state = state;
+        state.as_mut().set_consistent(self, &mut newton_solver)?;
+        state
+            .as_mut()
+            .set_consistent_augmented(self, &mut augmented_eqn, &mut newton_solver)?;
+        Bdf::new_augmented(state, self, augmented_eqn, LS::default())
+    }
+
+    /// Create a new BDF solver instance for the backwards solve for the adjoint equations.
+    ///
+    /// This method creates a solver for the backward adjoint equations using BDF and requires
+    /// a checkpointer to provide the forward solution during the backward solve.
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    /// - `S`: The forward solver method type used for checkpointing
+    ///
+    /// # Arguments
+    /// - `checkpointer`: The checkpointing path containing the stored forward solution segments and interpolation data across reset events
+    /// - `solver`: Optional replay solver used to rebuild checkpoint interpolation segments when interpolation leaves the current segment. This may be `None` only when the existing checkpoint segments already cover all required interpolation times
+    /// - `nout_override`: Optional override for the number of adjoint output equations. Use this when the backward solve should track a different output dimension than `eqn.nout()`
+    ///
+    /// # Returns
+    /// A BDF solver instance configured for adjoint sensitivity analysis
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_solver_adjoint<'a, LS: LinearSolver<Eqn::M>, S: OdeSolverMethod<'a, Eqn>>(
+        &'a self,
+        checkpointer: CheckpointingPath<Eqn, S::State>,
+        solver: Option<S>,
+        nout_override: Option<usize>,
+    ) -> Result<
+        Bdf<'a, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, AdjointEquations<'a, Eqn, S>>,
+        DiffsolError,
+    >
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let mut augmented_eqn = self.adjoint_equations(checkpointer, solver, nout_override)?;
+        let state = self.bdf_state_adjoint::<LS, _>(&mut augmented_eqn)?;
+        self.bdf_solver_adjoint_from_state::<LS, _>(state, augmented_eqn)
+    }
+
+    /// Create a new BDF solver instance for the problem with forward sensitivities, given the initial state.
+    ///
+    /// This method creates a BDF solver that simultaneously solves the state equations and the
+    /// forward sensitivity equations with respect to the parameters.
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver (including sensitivities)
+    ///
+    /// # Returns
+    /// A BDF solver instance configured for forward sensitivity analysis
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_solver_sens<LS: LinearSolver<Eqn::M>>(
+        &self,
+        state: BdfState<Eqn::V>,
+    ) -> Result<
+        Bdf<'_, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+        DiffsolError,
+    >
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        let sens_eqn = SensEquations::new(self)?;
+        self.bdf_solver_aug(state, sens_eqn)
+    }
+
+    /// Create a new BDF solver instance for the problem with forward sensitivities. This will create
+    /// a consistent initial state, so might require solving a nonlinear system if a mass matrix is present.
+    ///
+    /// This is a convenience method that combines [`Self::bdf_state_sens`] and [`Self::bdf_solver_sens`].
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type used in the Newton solver
+    ///
+    /// # Returns
+    /// A BDF solver instance configured for forward sensitivity analysis with a consistent initial state
+    #[allow(clippy::type_complexity)]
+    pub fn bdf_sens<LS: LinearSolver<Eqn::M>>(
+        &self,
+    ) -> Result<
+        Bdf<'_, Eqn, LS, <Eqn::V as DefaultDenseMatrix>::M, SensEquations<'_, Eqn>>,
+        DiffsolError,
+    >
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        let state = self.bdf_state_sens::<LS>()?;
+        self.bdf_solver_sens(state)
+    }
+
+    /// Create a new state for the Runge-Kutta solvers (explict or implicit).
+    /// Note: This function will not provide a consistent initial state for
+    /// problems with a mass matrix, for this case please use [Self::rk_state_and_consistent]
+    /// or initialise the state manually.
+    ///
+    /// Note that in-built tableaus (e.g. TR-BDF2, ESDIRK34) have their own methods, so
+    /// only use this method for custom tableaus.
+    pub fn rk_state(&self, tableau: &Tableau<Eqn::T>) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquations,
+    {
+        RkState::new(self, tableau.order())
+    }
+
+    /// Create a new state for the Runge-Kutta solvers (explict or implicit). This will provide
+    /// a consistent initial state for problems with a mass matrix, so might require solving
+    /// a nonlinear system if a mass matrix is present.
+    pub fn rk_state_and_consistent<LS: LinearSolver<Eqn::M>>(
+        &self,
+        tableau: &Tableau<Eqn::T>,
+    ) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        RkState::new_and_consistent::<LS, _>(self, tableau.order())
+    }
+
+    /// Create a new state for the Runge-Kutta solvers with sensitivities. Note: This function will not
+    /// provide a consistent initial state for problems with a mass matrix, for this case please use
+    /// [Self::rk_state_sens_and_consistent] or initialise the state manually.
+    pub fn rk_state_sens(&self, tableau: &Tableau<Eqn::T>) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        RkState::new_with_sensitivities(self, tableau.order())
+    }
+
+    /// Create a new state for the Runge-Kutta solvers with sensitivities. This will provide
+    /// a consistent initial state for problems with a mass matrix, so might require solving
+    /// a nonlinear system if a mass matrix is present.
+    pub fn rk_state_sens_and_consistent<LS: LinearSolver<Eqn::M>>(
+        &self,
+        tableau: &Tableau<Eqn::T>,
+    ) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        RkState::new_with_sensitivities_and_consistent::<LS, _>(self, tableau.order())
+    }
+
+    /// Create a new SDIRK (Singly Diagonally Implicit Runge-Kutta) solver instance with a custom tableau.
+    ///
+    /// This method creates an SDIRK solver using the provided Butcher tableau. For built-in tableaus
+    /// like TR-BDF2 or ESDIRK34, use the specialized methods [`Self::tr_bdf2_solver`] or [`Self::esdirk34_solver`].
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type
+    /// - `DM`: The dense matrix type used for the solver's internal stage differences
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver
+    /// - `tableau`: The Butcher tableau defining the SDIRK method
+    ///
+    /// # Returns
+    /// An SDIRK solver instance configured for this problem
+    pub fn sdirk_solver<
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+    >(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+    ) -> Result<Sdirk<'_, Eqn, LS, DM>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        let linear_solver = LS::default();
+        Sdirk::new(self, state, tableau, linear_solver)
+    }
+
+    pub(crate) fn sdirk_solver_aug<
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        Aug: AugmentedOdeEquationsImplicit<Eqn>,
+    >(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+        aug_eqn: Aug,
+    ) -> Result<Sdirk<'_, Eqn, LS, DM, Aug>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+    {
+        Sdirk::new_augmented(self, state, tableau, LS::default(), aug_eqn)
+    }
+
+    pub(crate) fn sdirk_solver_adjoint<
+        'a,
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        S: OdeSolverMethod<'a, Eqn>,
+    >(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        checkpointer: CheckpointingPath<Eqn, S::State>,
+        solver: Option<S>,
+        nout_override: Option<usize>,
+    ) -> Result<Sdirk<'a, Eqn, LS, DM, AdjointEquations<'a, Eqn, S>>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let mut augmented_eqn = self.adjoint_equations(checkpointer, solver, nout_override)?;
+        let state = self.sdirk_state_adjoint::<LS, _>(tableau, &mut augmented_eqn)?;
+        self.sdirk_solver_adjoint_from_state::<LS, DM, _>(tableau, state, augmented_eqn)
+    }
+
+    pub(crate) fn sdirk_state_adjoint<'a, LS: LinearSolver<Eqn::M>, S: OdeSolverMethod<'a, Eqn>>(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        augmented_eqn: &mut AdjointEquations<'a, Eqn, S>,
+    ) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let t = augmented_eqn.last_t();
+        let h = augmented_eqn.last_h();
+        let mut state = RkState::new_without_initialise_augmented_at(self, augmented_eqn, t)?;
+        *state.as_mut().t = t;
+        if let Some(h) = h {
+            *state.as_mut().h = -h;
+        }
+        let mut newton_solver = NewtonNonlinearSolver::new(LS::default(), NoLineSearch);
+        state.as_mut().set_consistent(self, &mut newton_solver)?;
+        state
+            .as_mut()
+            .set_consistent_augmented(self, augmented_eqn, &mut newton_solver)?;
+        let h = state.h;
+        let atol = &self.atol;
+        let rtol = self.rtol;
+        state
+            .as_mut()
+            // see the comment in `bdf_state_adjoint_from_state`
+            .set_step_size(h, atol, rtol, &self.eqn, tableau.order());
+        Ok(state)
+    }
+
+    pub(crate) fn sdirk_solver_adjoint_from_state<
+        'a,
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        S: OdeSolverMethod<'a, Eqn>,
+    >(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        mut state: RkState<Eqn::V>,
+        mut augmented_eqn: AdjointEquations<'a, Eqn, S>,
+    ) -> Result<Sdirk<'a, Eqn, LS, DM, AdjointEquations<'a, Eqn, S>>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitAdjoint,
+    {
+        let mut newton_solver = NewtonNonlinearSolver::new(LS::default(), NoLineSearch);
+        state.as_mut().set_consistent(self, &mut newton_solver)?;
+        state
+            .as_mut()
+            .set_consistent_augmented(self, &mut augmented_eqn, &mut newton_solver)?;
+        Sdirk::new_augmented(self, state, tableau, LS::default(), augmented_eqn)
+    }
+
+    /// Create a new SDIRK solver instance with forward sensitivities using a custom tableau.
+    ///
+    /// This method creates an SDIRK solver that simultaneously solves the state equations and the
+    /// forward sensitivity equations. For built-in tableaus, use specialized methods like
+    /// [`Self::tr_bdf2_solver_sens`] or [`Self::esdirk34_solver_sens`].
+    ///
+    /// # Type Parameters
+    /// - `LS`: The linear solver type
+    /// - `DM`: The dense matrix type used for the solver's internal stage differences
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver (including sensitivities)
+    /// - `tableau`: The Butcher tableau defining the SDIRK method
+    ///
+    /// # Returns
+    /// An SDIRK solver instance configured for forward sensitivity analysis
+    pub fn sdirk_solver_sens<
+        LS: LinearSolver<Eqn::M>,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+    >(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+    ) -> Result<Sdirk<'_, Eqn, LS, DM, SensEquations<'_, Eqn>>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        let sens_eqn = SensEquations::new(self)?;
+        self.sdirk_solver_aug::<LS, DM, _>(state, tableau, sens_eqn)
+    }
+
+    sdirk_solver_from_tableau!(
+        tr_bdf2,
+        tr_bdf2_sens,
+        tr_bdf2_solver,
+        tr_bdf2_solver_sens,
+        tr_bdf2_state_adjoint,
+        tr_bdf2_solver_adjoint,
+        tr_bdf2_solver_adjoint_from_state,
+        tr_bdf2
+    );
+    sdirk_solver_from_tableau!(
+        esdirk34,
+        esdirk34_sens,
+        esdirk34_solver,
+        esdirk34_solver_sens,
+        esdirk34_state_adjoint,
+        esdirk34_solver_adjoint,
+        esdirk34_solver_adjoint_from_state,
+        esdirk34
+    );
+
+    /// Create a new explicit Runge-Kutta solver instance with a custom tableau.
+    ///
+    /// This method creates an explicit RK solver using the provided Butcher tableau. For built-in
+    /// tableaus like Tsitouras 4(5), use the specialized method [`Self::tsit45_solver`].
+    ///
+    /// # Type Parameters
+    /// - `DM`: The dense matrix type used for the solver's internal stage differences
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver
+    /// - `tableau`: The Butcher tableau defining the explicit RK method
+    ///
+    /// # Returns
+    /// An explicit RK solver instance configured for this problem
+    pub fn explicit_rk_solver<DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>>(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+    ) -> Result<ExplicitRk<'_, Eqn, DM>, DiffsolError>
+    where
+        Eqn: OdeEquations,
+    {
+        ExplicitRk::new(self, state, tableau)
+    }
+
+    pub(crate) fn explicit_rk_solver_aug<
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        Aug: AugmentedOdeEquations<Eqn>,
+    >(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+        aug_eqn: Aug,
+    ) -> Result<ExplicitRk<'_, Eqn, DM, Aug>, DiffsolError>
+    where
+        Eqn: OdeEquations,
+    {
+        ExplicitRk::new_augmented(self, state, tableau, aug_eqn)
+    }
+
+    pub(crate) fn explicit_rk_solver_adjoint<
+        'a,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        S: OdeSolverMethod<'a, Eqn>,
+    >(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        checkpointer: CheckpointingPath<Eqn, S::State>,
+        solver: Option<S>,
+        nout_override: Option<usize>,
+    ) -> Result<ExplicitRk<'a, Eqn, DM, AdjointEquations<'a, Eqn, S>>, DiffsolError>
+    where
+        Eqn: OdeEquationsAdjoint,
+    {
+        let mut augmented_eqn = self.adjoint_equations(checkpointer, solver, nout_override)?;
+        let state = self.explicit_rk_state_adjoint(tableau, &mut augmented_eqn)?;
+        self.explicit_rk_solver_adjoint_from_state(tableau, state, augmented_eqn)
+    }
+
+    pub(crate) fn explicit_rk_state_adjoint<'a, S: OdeSolverMethod<'a, Eqn>>(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        augmented_eqn: &mut AdjointEquations<'a, Eqn, S>,
+    ) -> Result<RkState<Eqn::V>, DiffsolError>
+    where
+        Eqn: OdeEquationsAdjoint,
+    {
+        let t = augmented_eqn.last_t();
+        let h = augmented_eqn.last_h();
+        let mut state = RkState::new_without_initialise_augmented_at(self, augmented_eqn, t)?;
+        *state.as_mut().t = t;
+        if let Some(h) = h {
+            *state.as_mut().h = -h;
+        }
+
+        let h = state.h;
+        let atol = &self.atol;
+        let rtol = self.rtol;
+        state
+            .as_mut()
+            // see the comment in `bdf_state_adjoint_from_state`
+            .set_step_size(h, atol, rtol, &self.eqn, tableau.order());
+        Ok(state)
+    }
+
+    pub(crate) fn explicit_rk_solver_adjoint_from_state<
+        'a,
+        DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+        S: OdeSolverMethod<'a, Eqn>,
+    >(
+        &'a self,
+        tableau: Tableau<Eqn::T>,
+        state: RkState<Eqn::V>,
+        augmented_eqn: AdjointEquations<'a, Eqn, S>,
+    ) -> Result<ExplicitRk<'a, Eqn, DM, AdjointEquations<'a, Eqn, S>>, DiffsolError>
+    where
+        Eqn: OdeEquationsAdjoint,
+    {
+        ExplicitRk::new_augmented(self, state, tableau, augmented_eqn)
+    }
+
+    /// Create a new explicit Runge-Kutta solver instance with forward sensitivities using a custom tableau.
+    ///
+    /// This method creates an explicit RK solver that simultaneously solves the state equations and the
+    /// forward sensitivity equations. For built-in tableaus, use specialized methods like [`Self::tsit45_solver_sens`].
+    ///
+    /// # Type Parameters
+    /// - `DM`: The dense matrix type used for the solver's internal stage differences
+    ///
+    /// # Arguments
+    /// - `state`: The initial state for the solver (including sensitivities)
+    /// - `tableau`: The Butcher tableau defining the explicit RK method
+    ///
+    /// # Returns
+    /// An explicit RK solver instance configured for forward sensitivity analysis
+    pub fn explicit_rk_solver_sens<DM: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>>(
+        &self,
+        state: RkState<Eqn::V>,
+        tableau: Tableau<Eqn::T>,
+    ) -> Result<ExplicitRk<'_, Eqn, DM, SensEquations<'_, Eqn>>, DiffsolError>
+    where
+        Eqn: OdeEquationsImplicitSens,
+    {
+        let sens_eqn = SensEquations::new(self)?;
+        self.explicit_rk_solver_aug::<DM, _>(state, tableau, sens_eqn)
+    }
+
+    rk_solver_from_tableau!(
+        tsit45,
+        tsit45_sens,
+        tsit45_solver,
+        tsit45_solver_sens,
+        tsit45_state_adjoint,
+        tsit45_solver_adjoint,
+        tsit45_solver_adjoint_from_state,
+        tsit45
+    );
+}
+
+/// A single point in the ODE solver solution, consisting of the state vector and time.
+#[derive(Debug, Clone)]
+pub struct OdeSolverSolutionPoint<V: Vector> {
+    /// The state vector at this solution point
+    pub state: V,
+    /// The time at this solution point
+    pub t: V::T,
+}
+
+/// Container for the complete ODE solver solution, including state and sensitivity solution points.
+///
+/// This struct stores the solution trajectory, keeping points sorted by time. It supports both
+/// forward-time integration (increasing time) and backward-time integration (decreasing time).
+pub struct OdeSolverSolution<V: Vector> {
+    /// The solution points for the state variables, sorted by time
+    pub solution_points: Vec<OdeSolverSolutionPoint<V>>,
+    /// Optional sensitivity solution points, one vector per parameter
+    pub sens_solution_points: Option<Vec<Vec<OdeSolverSolutionPoint<V>>>>,
+    /// Relative tolerance used for the solution
+    pub rtol: V::T,
+    /// Absolute tolerance used for the solution
+    pub atol: V,
+    /// Whether this is a backward-time integration (decreasing time)
+    pub negative_time: bool,
+}
+
+impl<V: Vector> OdeSolverSolution<V> {
+    /// Add a new solution point to the solution, maintaining time-sorted order.
+    ///
+    /// The point is inserted at the correct position to keep the solution points
+    /// sorted by time (increasing for forward integration, decreasing for backward).
+    ///
+    /// # Arguments
+    /// - `state`: The state vector at this solution point
+    /// - `t`: The time at this solution point
+    pub fn push(&mut self, state: V, t: V::T) {
+        // find the index to insert the new point keeping the times sorted
+        let index = self.get_index(t);
+        // insert the new point at that index
+        self.solution_points
+            .insert(index, OdeSolverSolutionPoint { state, t });
+    }
+    fn get_index(&self, t: V::T) -> usize {
+        if self.negative_time {
+            self.solution_points
+                .iter()
+                .position(|x| x.t < t)
+                .unwrap_or(self.solution_points.len())
+        } else {
+            self.solution_points
+                .iter()
+                .position(|x| x.t > t)
+                .unwrap_or(self.solution_points.len())
+        }
+    }
+    /// Add a new solution point with sensitivities to the solution, maintaining time-sorted order.
+    ///
+    /// This method adds both the state and its sensitivities with respect to parameters.
+    /// The points are inserted at the correct position to keep all solution points sorted by time.
+    ///
+    /// # Arguments
+    /// - `state`: The state vector at this solution point
+    /// - `t`: The time at this solution point
+    /// - `sens`: The sensitivity vectors at this solution point (one per parameter)
+    pub fn push_sens(&mut self, state: V, t: V::T, sens: &[V]) {
+        // find the index to insert the new point keeping the times sorted
+        let index = self.get_index(t);
+        // insert the new point at that index
+        self.solution_points
+            .insert(index, OdeSolverSolutionPoint { state, t });
+        // if the sensitivity solution is not initialized, initialize it
+        if self.sens_solution_points.is_none() {
+            self.sens_solution_points = Some(vec![vec![]; sens.len()]);
+        }
+        // insert the new sensitivity point at that index
+        for (i, s) in sens.iter().enumerate() {
+            self.sens_solution_points.as_mut().unwrap()[i].insert(
+                index,
+                OdeSolverSolutionPoint {
+                    state: s.clone(),
+                    t,
+                },
+            );
+        }
+    }
+}
+
+impl<V: Vector> Default for OdeSolverSolution<V> {
+    fn default() -> Self {
+        Self {
+            solution_points: Vec::new(),
+            sens_solution_points: None,
+            rtol: V::T::from_f64(1e-6).unwrap(),
+            atol: V::from_element(1, V::T::from_f64(1e-6).unwrap(), V::C::default()),
+            negative_time: false,
+        }
+    }
+}

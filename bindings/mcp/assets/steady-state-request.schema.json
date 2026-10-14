@@ -1,0 +1,479 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AccuracyControl": {
+      "description": "Local integration or bounded sampled-trajectory convergence checking.",
+      "enum": [
+        "local",
+        "sampled"
+      ],
+      "type": "string"
+    },
+    "ActiveInputs": {
+      "enum": [
+        "continue",
+        "stop_target"
+      ],
+      "type": "string"
+    },
+    "Administration": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "bioavailability": {
+          "format": "double",
+          "type": "number"
+        },
+        "delivery": {
+          "$ref": "#/definitions/Delivery"
+        },
+        "lag": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Repeat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "amount",
+        "bioavailability",
+        "delivery",
+        "target",
+        "time"
+      ],
+      "type": "object"
+    },
+    "Budgets": {
+      "additionalProperties": false,
+      "description": "Work counts RHS and Jacobian calls, including solver setup, or bounded analytic interval propagations when an analytic model opts into that path.",
+      "properties": {
+        "events": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "output_values": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "solver_callbacks": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events",
+        "output_values",
+        "solver_callbacks"
+      ],
+      "type": "object"
+    },
+    "CovariateChange": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "name",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Delivery": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "bolus"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "infusion"
+              ],
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/definitions/InfusionSpan"
+            }
+          },
+          "required": [
+            "kind",
+            "span"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "InfusionSpan": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "duration": {
+              "$ref": "#/definitions/Quantity"
+            },
+            "kind": {
+              "enum": [
+                "duration"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "rate"
+              ],
+              "type": "string"
+            },
+            "rate": {
+              "$ref": "#/definitions/Quantity"
+            }
+          },
+          "required": [
+            "kind",
+            "rate"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ObservationPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/ObservationSide"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "side",
+        "time"
+      ],
+      "type": "object"
+    },
+    "ObservationSide": {
+      "enum": [
+        "pre",
+        "post"
+      ],
+      "type": "string"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Repeat": {
+      "additionalProperties": false,
+      "properties": {
+        "additional": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "interval": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "additional",
+        "interval"
+      ],
+      "type": "object"
+    },
+    "Request": {
+      "additionalProperties": false,
+      "description": "Unit-bearing times and administrations with the existing scalar tolerance contract.",
+      "properties": {
+        "absolute_tolerances": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "description": "Exactly one positive quantity for each state, identified by name.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "administrations": {
+          "items": {
+            "$ref": "#/definitions/Administration"
+          },
+          "type": "array"
+        },
+        "atol": {
+          "description": "Legacy scalar in each state's numeric unit; exclusive with absolute_tolerances.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "checkpoints": {
+          "default": [],
+          "description": "Fixed solver restart times; these do not change state or parameters.",
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "covariate_changes": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/CovariateChange"
+          },
+          "type": "array"
+        },
+        "covariates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "end": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/definitions/ObservationPoint"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "resets": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/StateReset"
+          },
+          "type": "array"
+        },
+        "rtol": {
+          "format": "double",
+          "type": "number"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "type": "array"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "administrations",
+        "end",
+        "rtol",
+        "samples"
+      ],
+      "type": "object"
+    },
+    "RunRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "accuracy_control": {
+          "$ref": "#/definitions/AccuracyControl"
+        },
+        "budgets": {
+          "$ref": "#/definitions/Budgets"
+        },
+        "initial_states": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Quantity"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "regimen": {
+          "$ref": "#/definitions/Request"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "$ref": "#/definitions/RunSchema"
+        },
+        "seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "solver": {
+          "$ref": "#/definitions/Solver"
+        }
+      },
+      "required": [
+        "budgets",
+        "regimen",
+        "schema",
+        "solver"
+      ],
+      "type": "object"
+    },
+    "RunSchema": {
+      "enum": [
+        "qspquest.run/v0.1"
+      ],
+      "type": "string"
+    },
+    "Solver": {
+      "enum": [
+        "diffsol_bdf",
+        "diffsol_tsit45",
+        "diffsol_esdirk34",
+        "diffsol_tr_bdf2",
+        "diffsol_rosenbrock23",
+        "diffsol_rodas5p",
+        "analytic_linear_pk"
+      ],
+      "type": "string"
+    },
+    "StateReset": {
+      "additionalProperties": false,
+      "properties": {
+        "active_inputs": {
+          "$ref": "#/definitions/ActiveInputs"
+        },
+        "order": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "time": {
+          "$ref": "#/definitions/Quantity"
+        },
+        "value": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "active_inputs",
+        "order",
+        "target",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "A single periodic cycle. The nested run supplies parameters, regimen and budgets. Initial overrides are prohibited: this operation solves for the initial state.",
+  "properties": {
+    "absolute_tolerance": {
+      "$ref": "#/definitions/Quantity"
+    },
+    "relative_tolerance": {
+      "format": "double",
+      "type": "number"
+    },
+    "run": {
+      "$ref": "#/definitions/RunRequest"
+    }
+  },
+  "required": [
+    "absolute_tolerance",
+    "relative_tolerance",
+    "run"
+  ],
+  "title": "SteadyStateRequest",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

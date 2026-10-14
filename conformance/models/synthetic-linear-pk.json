@@ -1,0 +1,174 @@
+{
+  "schema": "qspquest.model/v0.1",
+  "model_id": "synthetic_linear_pk",
+  "description": "Owned three-compartment model with absorption and mixed units",
+  "time_unit": "h",
+  "parameters": [
+    {
+      "name": "cl",
+      "default": {
+        "value": 700,
+        "unit": "mL/h"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "vc",
+      "default": {
+        "value": 3,
+        "unit": "L"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "vp",
+      "default": {
+        "value": 9000,
+        "unit": "mL"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "vt",
+      "default": {
+        "value": 18,
+        "unit": "L"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "q1",
+      "default": {
+        "value": 0.5,
+        "unit": "L/h"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "q2",
+      "default": {
+        "value": 200,
+        "unit": "mL/h"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    },
+    {
+      "name": "ka",
+      "default": {
+        "value": 0.4,
+        "unit": "1/h"
+      },
+      "bounds": null,
+      "transform": "identity",
+      "fixed": false,
+      "description": ""
+    }
+  ],
+  "states": [],
+  "linear_pk": {
+    "amount_unit": "mg",
+    "clearance": "cl",
+    "compartments": [
+      {
+        "state": "central",
+        "volume": "vc",
+        "initial": {
+          "kind": "quantity",
+          "quantity": {
+            "value": 1,
+            "unit": "mg"
+          }
+        }
+      },
+      {
+        "state": "peripheral",
+        "volume": "vp",
+        "initial": {
+          "kind": "quantity",
+          "quantity": {
+            "value": 1,
+            "unit": "mg"
+          }
+        }
+      },
+      {
+        "state": "tissue",
+        "volume": "vt",
+        "initial": {
+          "kind": "quantity",
+          "quantity": {
+            "value": 1,
+            "unit": "mg"
+          }
+        }
+      }
+    ],
+    "exchange_clearances": [
+      "q1",
+      "q2"
+    ],
+    "depot": {
+      "state": "depot",
+      "absorption": "ka",
+      "initial": {
+        "kind": "quantity",
+        "quantity": {
+          "value": 1,
+          "unit": "mg"
+        }
+      }
+    }
+  },
+  "outputs": [
+    {
+      "name": "depot",
+      "unit": "mg",
+      "expression": {
+        "kind": "symbol",
+        "name": "depot"
+      }
+    },
+    {
+      "name": "central",
+      "unit": "mg",
+      "expression": {
+        "kind": "symbol",
+        "name": "central"
+      }
+    },
+    {
+      "name": "peripheral",
+      "unit": "mg",
+      "expression": {
+        "kind": "symbol",
+        "name": "peripheral"
+      }
+    },
+    {
+      "name": "tissue",
+      "unit": "mg",
+      "expression": {
+        "kind": "symbol",
+        "name": "tissue"
+      }
+    }
+  ]
+}

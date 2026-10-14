@@ -1,0 +1,17 @@
+model synthetic_distribution
+ time_unit = h
+ description = "Ubi synthetic two-pool distribution and elimination example"
+parameters
+ cl = 0.8 [L/h] log estimated
+ vc = 6 [L] log estimated
+ vp = 12 [L] log estimated
+ q = 1.1 [L/h] log estimated
+linear_pk
+ amount_unit = mg
+ clearance = cl
+ exchange_clearances = q
+ compartment central volume vc = 0 [mg]
+ compartment peripheral volume vp = 0 [mg]
+outputs
+ cp = central / vc [mg/L]
+end

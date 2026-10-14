@@ -1,0 +1,35 @@
+{
+  "schema": "qspquest.suite-compatibility/v1",
+  "engine_version": "0.1.0",
+  "components": {
+    "models": {
+      "repository": "unibio-intelligence/qspquest-models",
+      "commit": "65ad8c61c8db11f82009d1ba0b4ca5d5275eece9",
+      "catalog_sha256": "124070815f0a8b526b874feee8ebaf0d507a78bf6ad8b0c2967cf7157ae112e8",
+      "version": "0.1.0"
+    },
+    "validation": {
+      "repository": "unibio-intelligence/qspquest-validation",
+      "commit": "f1c487f9094e07039c39d4a0ccd5fb9b7e33a205",
+      "manifest_sha256": "f877e5911833e756c16c7d7765e8c3e3246f83cc663d906e35450bb016c8684e"
+    }
+  },
+  "required_engine_files": [
+    ".cargo/config.toml",
+    "spec/schema/run.schema.json",
+    "spec/schema/result.schema.json",
+    "docs/examples/first-run.json",
+    "examples/synthetic/absorption.qsp"
+  ],
+  "case": {
+    "model_id": "qspquest_diffdose_2026_bite_benchmark",
+    "model_version": "0.1.0",
+    "scenario": "higher_exposure",
+    "solvers": [
+      "diffsol_bdf",
+      "diffsol_rodas5p"
+    ],
+    "absolute_tolerance": 1e-08,
+    "relative_tolerance": 0.0001
+  }
+}

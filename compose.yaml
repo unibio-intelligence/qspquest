@@ -1,0 +1,56 @@
+name: qspquest
+x-library: &library
+  type: bind
+  source: ${QSPQUEST_LIBRARY_DIR:?Set QSPQUEST_LIBRARY_DIR to the extracted model library}
+  target: /models
+  read_only: true
+x-environment: &environment
+  QSPQUEST_LIBRARY_DIR: /models
+  PYTHONPATH: /models
+services:
+  models:
+    build:
+      context: .
+      target: runtime
+    image: qspquest:local
+    environment: *environment
+    volumes:
+      - *library
+    entrypoint: [qspquest-library]
+    command: [--search, rituximab]
+    network_mode: none
+  r:
+    build:
+      context: .
+      target: r
+    image: qspquest:r
+    environment: *environment
+    volumes:
+      - *library
+    entrypoint: [Rscript]
+    command: [-e, "library(qspquest); print(packageVersion('qspquest'))"]
+    network_mode: none
+  notebook:
+    build:
+      context: .
+      target: notebook
+    image: qspquest:notebook
+    user: "${QSPQUEST_UID:-10001}:${QSPQUEST_GID:-10001}"
+    environment: *environment
+    volumes:
+      - *library
+      - ./notebook-work:/work
+    ports:
+      - 127.0.0.1:8888:8888
+  mcp:
+    build:
+      context: .
+      dockerfile: bindings/mcp/Dockerfile
+      target: public
+    image: qspquest-mcp:local
+    environment:
+      QSPQUEST_LIBRARY_DIR: /models
+    volumes:
+      - *library
+    ports:
+      - 127.0.0.1:8080:8080
