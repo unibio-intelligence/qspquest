@@ -1,13 +1,15 @@
 name: Docker images
 on:
-  pull_request:
-    paths: ['.cargo/**', '.gitattributes', 'Cargo.*', 'Dockerfile', 'compose.yaml', '.dockerignore', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'pyproject.toml', 'examples/**', 'docs/**', 'scripts/**', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
   push:
     branches: [main]
     paths: ['.cargo/**', '.gitattributes', 'Cargo.*', 'Dockerfile', 'compose.yaml', '.dockerignore', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'pyproject.toml', 'examples/**', 'docs/**', 'scripts/**', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-docker-${{ github.event_name == 'push' && github.ref || format('qualification-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 jobs:
   image:
     strategy:

@@ -3,14 +3,13 @@ on:
   push:
     branches: [main]
     paths: ['scripts/check_build_pins.py', 'scripts/tests/test_build_pins.py', 'scripts/check_python_contracts.py', 'scripts/generate_python_types.py', 'scripts/tests/test_python_contracts.py', 'scripts/doc_links.py', 'scripts/generate_mcp_resources.py', 'scripts/check_documentation.py', 'scripts/capability_registry.py', 'scripts/tests/test_capability_registry.py', 'spec/capabilities.json', 'scripts/tests/test_documentation.py', 'spec/**/*.md', 'docs/**/*.md', 'spec/schema/**', 'docs/examples/python_typed.py', 'Dockerfile', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'Cargo.*', '.cargo/**', '.gitattributes', 'pyproject.toml', '.github/workflows/**']
-  pull_request:
-    paths: ['scripts/check_build_pins.py', 'scripts/tests/test_build_pins.py', 'scripts/check_python_contracts.py', 'scripts/generate_python_types.py', 'scripts/tests/test_python_contracts.py', 'scripts/doc_links.py', 'scripts/generate_mcp_resources.py', 'scripts/check_documentation.py', 'scripts/capability_registry.py', 'scripts/tests/test_capability_registry.py', 'spec/capabilities.json', 'scripts/tests/test_documentation.py', 'spec/**/*.md', 'docs/**/*.md', 'spec/schema/**', 'docs/examples/python_typed.py', 'Dockerfile', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'Cargo.*', '.cargo/**', '.gitattributes', 'pyproject.toml', '.github/workflows/**']
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-ci-${{ github.event_name == 'push' && github.ref || format('qualification-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 jobs:
   workspace:
     runs-on: ubuntu-24.04

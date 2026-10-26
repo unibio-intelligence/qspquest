@@ -1,7 +1,5 @@
 name: Suite compatibility
 on:
-  pull_request:
-    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
   push:
     branches: [main]
     paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
@@ -9,8 +7,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: suite-compatibility-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-suite-${{ github.event_name == 'push' && github.ref || format('qualification-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 jobs:
   compatibility:
     runs-on: ubuntu-24.04
