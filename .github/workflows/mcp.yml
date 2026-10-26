@@ -1,7 +1,5 @@
 name: MCP qualification
 on:
-  pull_request:
-    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
   push:
     branches: [main]
     paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
@@ -13,6 +11,10 @@ on:
         default: false
 permissions:
   contents: read
+concurrency:
+  group: ci-mcp-${{ github.event_name == 'push' && github.ref || format('qualification-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
 jobs:
   release-cache:
     strategy:
