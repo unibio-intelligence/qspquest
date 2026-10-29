@@ -1,6 +1,6 @@
 {
   "schema": "qspquest.documentation/v1",
-  "package_version": "0.1.0",
+  "package_version": "0.1.0-rc.1",
   "scope": "Structural model, request, unit, error and source-declared capability guidance; documentation is not model or release qualification.",
   "capabilities_uri": "qspquest://capabilities",
   "capability_catalog_uri": "qspquest://capability-catalog",
@@ -27,8 +27,8 @@
       "mime_type": "application/json",
       "asset": "guides/spec/capabilities.json",
       "source": "spec/capabilities.json",
-      "source_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
-      "content_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
+      "source_sha256": "84ba084be59369f45b8757396d035005be3a48169b44bccb7491c00f0997c648",
+      "content_sha256": "84ba084be59369f45b8757396d035005be3a48169b44bccb7491c00f0997c648",
       "anchors": []
     },
     {

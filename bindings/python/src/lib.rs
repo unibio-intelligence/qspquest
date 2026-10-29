@@ -400,6 +400,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(normalize_interchange_expression, m)?)?;
     m.add_function(wrap_pyfunction!(convert_interchange_quantity, m)?)?;
     m.add("NativeError", m.py().get_type::<NativeError>())?;
-    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add(
+        "__version__",
+        env!("CARGO_PKG_VERSION").replace("-rc.", "rc"),
+    )?;
     Ok(())
 }

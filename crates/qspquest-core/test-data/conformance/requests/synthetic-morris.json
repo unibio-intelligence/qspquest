@@ -1,0 +1,94 @@
+{
+  "schema": "qspquest.morris/v0.1",
+  "problem": {
+    "kind": "generated",
+    "request": {
+      "run": {
+        "schema": "qspquest.run/v0.1",
+        "solver": "diffsol_bdf",
+        "budgets": {
+          "solver_callbacks": 1000000,
+          "events": 100,
+          "output_values": 10000
+        },
+        "regimen": {
+          "end": {
+            "value": 4,
+            "unit": "h"
+          },
+          "samples": [
+            {
+              "value": 0,
+              "unit": "h"
+            },
+            {
+              "value": 1,
+              "unit": "h"
+            },
+            {
+              "value": 2,
+              "unit": "h"
+            },
+            {
+              "value": 4,
+              "unit": "h"
+            }
+          ],
+          "administrations": [
+            {
+              "target": "central",
+              "time": {
+                "value": 0,
+                "unit": "h"
+              },
+              "amount": {
+                "value": 6,
+                "unit": "mg"
+              },
+              "delivery": {
+                "kind": "bolus"
+              },
+              "bioavailability": 1.0
+            }
+          ],
+          "rtol": 1e-10,
+          "atol": 1e-12
+        }
+      },
+      "ranges": [
+        {
+          "parameter": "cl",
+          "lower": {
+            "value": 0.1,
+            "unit": "L/h"
+          },
+          "upper": {
+            "value": 0.7,
+            "unit": "L/h"
+          }
+        },
+        {
+          "parameter": "v",
+          "lower": {
+            "value": 3,
+            "unit": "L"
+          },
+          "upper": {
+            "value": 6,
+            "unit": "L"
+          }
+        }
+      ],
+      "trajectory_count": 2,
+      "num_levels": 4,
+      "seed": 42,
+      "total_budgets": {
+        "solver_callbacks": 6000000,
+        "events": 600,
+        "output_values": 60000
+      },
+      "output": "cp",
+      "row": 4
+    }
+  }
+}

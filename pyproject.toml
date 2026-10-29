@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "qspquest"
-version = "0.1.0"
+version = "0.1.0rc1"
 requires-python = ">=3.10"
 description = "Rust pharmacology model compiler and simulation engine"
 readme = "bindings/python/README.md"
@@ -41,6 +41,9 @@ include = [
   { path = "bindings/python/README.md", format = "sdist" },
   { path = "bindings/python/python/qspquest/SECURITY.md", format = "sdist" },
   { path = "crates/*/Cargo.toml", format = "sdist" },
+  { path = "crates/*/README.md", format = "sdist" },
+  { path = "crates/*/LICENSE", format = "sdist" },
+  { path = "crates/*/test-data/**/*", format = "sdist" },
   { path = "crates/*/build.rs", format = "sdist" },
   { path = "crates/*/src/**/*.rs", format = "sdist" },
   { path = "crates/*/examples/**/*.rs", format = "sdist" },

@@ -1,6 +1,6 @@
 {
   "schema": "qspquest.capability-catalog/v1",
-  "package_version": "0.1.0",
+  "package_version": "0.1.0-rc.1",
   "scope": "Source-declared supported contracts; active build/deployment, request admission and exact release evidence determine executable and qualified status.",
   "key_dimensions": [
     "operation",
@@ -11,7 +11,7 @@
     "execution_mode"
   ],
   "source_snapshot": {
-    "Cargo.toml": "08cd393b6d5bf35ddcf28e63261425483d374802b705fd328b4b8e15f0e52ac1",
+    "Cargo.toml": "f237bdff62767f14ea9be4f812bc683205a62324b60bfbc80fce532a4a3c5759",
     "bindings/cli/src/main.rs": "9f356bb0f8af4c90bb36f04c6554a3e0c749fcc2084b8678675948f2ae9ff64c",
     "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
     "bindings/mcp/Dockerfile": "152ef1530703f75e39f4b26058582669200fc6f243e2fd8b561f2393d3fa338e",
@@ -83,7 +83,7 @@
     "bindings/python/python/qspquest/interchange.py": "5ac4895c9a5a7c460cc8fa7789b53e75fafc69a89c514374435a5243912e53a2",
     "bindings/python/python/qspquest/population.py": "006e23aa4830a9498a9e5996b831b623f3b842e6b07a78c94154880f835a999d",
     "bindings/python/python/qspquest/uncertainty.py": "31e0d3d76f5722761196e3cc31a75084be203297907a558da9a36e945cd6ca2c",
-    "bindings/python/src/lib.rs": "49135ed91d45ba12fbeb1cd0e1aff3db8a7c5dcf3d4d8391eb211dac504b8a59",
+    "bindings/python/src/lib.rs": "5a57dadcba877cdcc21d66f88155d3afce7357d23acc86aaf4adc3ebe49c076a",
     "bindings/r/NAMESPACE": "0983343cd518d0f9fb502ca332bc673e3db2d2e4aebd94f0ab41b7470d473f39",
     "bindings/r/R/qspquest.R": "ce9c3ab0f93123cd0561b27a07dc2d4054a72c9c6e989a3b09b8534b3d034969",
     "bindings/r/src/rust/src/lib.rs": "4522a5b5c654e87fa1d92ccdcd7d96bdff4dd28044d90c48dc8a8e9297fbb083",
@@ -4817,6 +4817,6 @@
     "fit_gamma_poisson": "Gamma\u2013Poisson count fitting",
     "fit_probit_normal_binomial": "Probit-normal binomial fitting"
   },
-  "compiler_source_sha256": "sha256:6896afe45da27cf101e0e68d10019dc387ae8877219d49e61c68b069a561e6b3",
+  "compiler_source_sha256": "sha256:6ec89e155cf8c8b832ee890bf63e2846e4c95ab180047e7bad02e0385c626418",
   "vendor_source_sha256": "36eb02e7fab3d73ba5d9bd123c99341cec9fa1aa4b15b6310e5fe9cfbdedac67"
 }
