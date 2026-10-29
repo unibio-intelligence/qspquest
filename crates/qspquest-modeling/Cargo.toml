@@ -12,6 +12,7 @@ qspquest-core.workspace = true
 diffsol.workspace = true
 
 [dev-dependencies]
+flate2 = "1"
 serde.workspace = true
 
 [build-dependencies]

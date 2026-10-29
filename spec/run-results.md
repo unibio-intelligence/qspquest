@@ -279,7 +279,7 @@ lockfile, Cargo configuration, and the complete vendored Diffsol source. This di
 under the same package version. It is a source/build fingerprint, not a binary
 signature, OCI attestation or proof of installed dependencies. Standalone crate
 packaging and release attestation remain unfinished. The backend pins Diffsol
-0.17.1 plus the local Rosenbrock methods; `backend_version` includes the exact
+0.18.0 with the included solver configuration; `backend_version` includes the exact
 vendored-source SHA-256. Matching these fields identifies the numerical backend
 inputs; it does not establish qualification for another model, method or target.
 Required copyright and license notices accompany the distribution.

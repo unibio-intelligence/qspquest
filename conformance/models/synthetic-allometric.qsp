@@ -1,0 +1,25 @@
+model allometric_pk
+time_unit = h
+parameters
+  tv_cl = 0.3 [L/h] log
+  tv_v = 3 [L] log
+  wt = 70 [kg] log
+  wt_ref = 70 [kg] log fixed
+  f = 0.8 [1]
+  start = 2 [mg/L]
+individual
+  k = cl / v
+  initial = start * ratio [mg/L]
+  scale = f / v
+  cl = tv_cl * ratio^0.75
+  v = tv_v * ratio [L]
+  ratio = wt / wt_ref
+states
+  c = initial [mg/L]
+dynamics
+  d/dt(c) = input_c - k * c
+outputs
+  cp = c [mg/L]
+dosing
+  c [mg] = scale
+end

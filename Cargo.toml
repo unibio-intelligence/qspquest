@@ -15,7 +15,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 qspquest-core = { path = "crates/qspquest-core" }
 qspquest-modeling = { path = "crates/qspquest-modeling" }
-diffsol = { path = "vendor/diffsol/crates/diffsol", version = "=0.17.1", default-features = false, features = ["nalgebra", "faer", "deterministic"] }
+diffsol = { path = "vendor/diffsol/crates/diffsol", version = "=0.18.0", default-features = false, features = ["nalgebra", "faer", "deterministic"] }
 
 [profile.release]
 lto = "thin"

@@ -67,7 +67,7 @@ fn all_diffsol_methods_follow_bolus_and_infusion_boundaries() {
             assert!(result
                 .identity
                 .backend_version
-                .starts_with("0.17.1+sha256:"));
+                .starts_with("0.18.0+sha256:"));
             assert_eq!(result.identity.algorithm, algorithm);
             assert!(hashes.insert(result.identity.run_request_hash));
             for (i, &time) in result.times.iter().enumerate() {

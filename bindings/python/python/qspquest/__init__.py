@@ -11,6 +11,8 @@ __all__ = [
     "PopulationFitDataset",
     "population_fit_dataset",
     "format_model",
+    "fit_gamma_poisson",
+    "fit_probit_normal_binomial",
     "fitting_identity",
     "__version__",
     "fit_data",
@@ -193,6 +195,24 @@ def fitting_identity(source, request, operation, *, result=None):
 def format_model(source):
     """Return canonical text after validating current engine support."""
     return _call(_native.format_model, _encode(source))
+
+
+def fit_gamma_poisson(request):
+    """Fit independent count/exposure rows with a shared Gamma shape and rate.
+
+    The native bounded likelihood integrates the individual Poisson rates.
+    Exposure quantities must be compatible with the Gamma rate parameter unit.
+    """
+    return json.loads(_call(_native.fit_gamma_poisson_json, _encode(request)))
+
+
+def fit_probit_normal_binomial(request):
+    """Fit two groups of independent binomial litters with normal probit effects.
+
+    Means and SDs are dimensionless. Native optimization uses variance
+    coordinates and includes the full unbounded normal mixture.
+    """
+    return json.loads(_call(_native.fit_probit_normal_binomial_json, _encode(request)))
 
 
 class CompiledSensitivities:

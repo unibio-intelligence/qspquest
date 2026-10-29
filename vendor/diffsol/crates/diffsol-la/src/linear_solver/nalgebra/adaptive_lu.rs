@@ -96,6 +96,30 @@ impl Factors {
         }
         Ok(())
     }
+    fn solve_transpose(&self, x: &mut [f64]) -> Result<(), LaError> {
+        if x.len() != self.rows.len() {
+            return Err(LaError::Other("sparse vector dimension mismatch".into()));
+        }
+        // U^T, then L^T, followed by the inverse row permutation.
+        for (i, row) in self.rows.iter().enumerate() {
+            x[i] /= row[&i];
+            for (&j, &a) in row.range(i + 1..) {
+                x[j] -= a * x[i];
+            }
+        }
+        for (i, row) in self.rows.iter().enumerate().rev() {
+            for (&j, &a) in row.range(..i) {
+                x[j] -= a * x[i];
+            }
+        }
+        for &(i, j) in self.swaps.iter().rev() {
+            x.swap(i, j);
+        }
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(LaError::Other("nonfinite sparse solution".into()));
+        }
+        Ok(())
+    }
 }
 impl LinearSolver<NalgebraMat<f64>> for AdaptiveLU {
     fn set_sparsity<
@@ -156,12 +180,25 @@ impl LinearSolver<NalgebraMat<f64>> for AdaptiveLU {
             return Err(LaError::Other("sparse factorization failed".into()));
         }
         if let Some(f) = &self.sparse {
-            if state.context.nbatch() != 1 {
-                return Err(LaError::Other("sparse path requires one batch".into()));
+            for batch in state.data.as_mut_slice().chunks_mut(f.rows.len()) {
+                f.solve(batch)?;
             }
-            f.solve(state.data.as_mut_slice())
+            Ok(())
         } else {
             self.dense.solve_in_place(state)
+        }
+    }
+    fn solve_transpose_in_place(&self, state: &mut NalgebraVec<f64>) -> Result<(), LaError> {
+        if self.failed {
+            return Err(LaError::Other("sparse factorization failed".into()));
+        }
+        if let Some(f) = &self.sparse {
+            for batch in state.data.as_mut_slice().chunks_mut(f.rows.len()) {
+                f.solve_transpose(batch)?;
+            }
+            Ok(())
+        } else {
+            self.dense.solve_transpose_in_place(state)
         }
     }
 }
@@ -170,7 +207,7 @@ mod tests {
     use super::*;
     #[test]
     fn pivot_fill_and_residual_agree_with_independent_dense_lu() {
-        use crate::{MatrixCommon, Vector};
+        use crate::Vector;
         let n = 79;
         let mut a = NalgebraMat::zeros(n, n, Default::default());
         for i in 0..n {
@@ -203,7 +240,11 @@ mod tests {
             .lu()
             .solve(&NalgebraVec::from_vec(b.clone(), Default::default()).data)
             .unwrap();
+        let mut xt = b.clone();
+        factor.solve_transpose(&mut xt).unwrap();
         for i in 0..n {
+            let residual_t = (0..n).map(|j| a.data[(j, i)] * xt[j]).sum::<f64>() - b[i];
+            assert!(residual_t.abs() < 1e-12);
             assert!((x[i] - dense[i]).abs() < 1e-12);
             let residual = (0..n).map(|j| a.data[(i, j)] * x[j]).sum::<f64>() - b[i];
             assert!(residual.abs() < 1e-12);

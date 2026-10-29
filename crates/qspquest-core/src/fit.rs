@@ -126,6 +126,17 @@ pub struct GaussianFitResult {
     pub fit_request_hash: String,
 }
 
+/// Normal observation errors SD = scale[output] * abs(prediction).
+/// Scales are jointly estimated by exact likelihood profiling, without priors.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProfiledProportionalGaussianFitResult {
+    pub fit: GaussianFitResult,
+    /// Dimensionless MLE standard deviations, grouped by observable name.
+    pub residual_scales: std::collections::BTreeMap<String, f64>,
+}
+
 /// Derivative-free fit for one bounded parameter when sensitivity compilation
 /// would exceed the model expression budget.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -298,6 +309,15 @@ pub struct PopulationFittedObservation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PopulationFitResult {
+    /// Asymptotic 95% log-Wald intervals for positive fixed effects of a
+    /// converged SAEM fit with valid observed-information covariance.
+    /// Absent when covariance was not requested or the method is unsupported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_effect_intervals: Option<crate::population_intervals::PositiveFixedEffectIntervals>,
+    /// Diagnostic when optional fixed-effect intervals cannot be computed.
+    /// Fitted estimates, convergence and covariance remain available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_effect_interval_error: Option<crate::Error>,
     pub status: FitStatus,
     pub fixed_effects: std::collections::BTreeMap<String, Quantity>,
     pub omega: Vec<Vec<f64>>,
@@ -347,6 +367,10 @@ pub struct PopulationResidualErrorEstimate {
 #[serde(deny_unknown_fields)]
 pub struct PopulationSaemDiagnostics {
     pub burn_in_iterations: usize,
+    /// Deterministic marginal point-refinement steps included in total iterations.
+    /// They do not advance the stochastic approximation gain clock.
+    #[serde(default)]
+    pub marginal_refinement_iterations: usize,
     /// Stochastic-approximation gain on the last completed M-step.
     pub final_step_size: Option<f64>,
     /// Largest relative change in fixed effect or eta variance on that M-step.
@@ -360,17 +384,23 @@ pub struct PopulationSaemDiagnostics {
     pub consecutive_stable_iterations: usize,
     /// Acceptance per coordinate after burn-in, including out-of-bound proposals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub post_burn_acceptance_by_axis: Option<[f64; 2]>,
+    /// One entry per random-effect coordinate (one or two).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    pub post_burn_acceptance_by_axis: Option<Vec<f64>>,
     /// Lowest subject-level acceptance per coordinate after burn-in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub post_burn_min_subject_acceptance_by_axis: Option<[f64; 2]>,
+    /// One entry per random-effect coordinate (one or two).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    pub post_burn_min_subject_acceptance_by_axis: Option<Vec<f64>>,
     /// Longest run of post-burn-in iterations without an accepted move for any subject.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub post_burn_max_subject_stall_iterations: Option<usize>,
     /// Largest positive within-subject lag-one correlation per coordinate.
     /// This is a mixing warning, not an effective sample size estimate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub post_burn_max_lag_one_correlation_by_axis: Option<[f64; 2]>,
+    /// One entry per random-effect coordinate (one or two).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    pub post_burn_max_lag_one_correlation_by_axis: Option<Vec<f64>>,
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -439,6 +469,8 @@ pub enum FitResultSchema {
 )]
 pub enum FitProblem {
     Individual(GaussianFitRequest),
+    /// Joint normal MLE/MAP with a profiled proportional residual scale per output.
+    ProfiledProportional(GaussianFitRequest),
     Pooled(PooledGaussianFitRequest),
     /// Bounded one-effect Laplace approximation using finite-difference conditional curvature.
     Laplace(PopulationFitRequest),
@@ -457,7 +489,9 @@ pub struct FitRequest {
 impl FitRequest {
     pub fn parameters(&self) -> &[String] {
         match &self.problem {
-            FitProblem::Individual(r) => &r.objective.simulation.with_respect_to,
+            FitProblem::Individual(r) | FitProblem::ProfiledProportional(r) => {
+                &r.objective.simulation.with_respect_to
+            }
             FitProblem::Pooled(r) => &r.fit.objective.simulation.with_respect_to,
             FitProblem::Laplace(r) | FitProblem::Focei(r) | FitProblem::Saem(r) => r
                 .subjects
@@ -476,4 +510,7 @@ pub struct FitResult {
     pub fit: Option<GaussianFitResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub population: Option<PopulationFitResult>,
+    /// Estimated dimensionless proportional SDs; present only for explicit profiling.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub residual_scales: Option<std::collections::BTreeMap<String, f64>>,
 }

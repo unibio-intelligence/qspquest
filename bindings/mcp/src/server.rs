@@ -156,14 +156,24 @@ impl Server {
         ));
         Ok(self)
     }
+    fn ensure_identity(value: &mut Value) {
+        if value.get("identity").is_none() && value["schema"] == "qspquest.scalar-fit-result/v0.1" {
+            if let Ok(identity) = serde_json::from_value::<crate::contract::EngineIdentity>(
+                value["objective"]["identity"].clone(),
+            ) {
+                value["identity"] = serde_json::to_value(identity).unwrap();
+            }
+        }
+        if value.get("identity").is_none() {
+            value["identity"] = json!({"engine":concat!("qspquest/",env!("CARGO_PKG_VERSION")),"source_hash":hash(value.to_string().as_bytes()),"backend":"metadata","backend_version":env!("CARGO_PKG_VERSION")});
+        }
+    }
     fn persist_result(&self, operation: &str, result: &mut Value) -> Result<bool, Value> {
         let Some(store) = &self.artifact_store else {
             return Ok(false);
         };
         let text = result.as_object_mut().unwrap().remove("_text");
-        if result.get("identity").is_none() {
-            result["identity"] = json!({"engine":concat!("qspquest/",env!("CARGO_PKG_VERSION")),"source_hash":hash(result.to_string().as_bytes()),"backend":"metadata","backend_version":env!("CARGO_PKG_VERSION")});
-        }
+        Self::ensure_identity(result);
         let library_version = result["library_version"]
             .as_str()
             .map(str::to_owned)
@@ -320,9 +330,7 @@ impl Server {
             .map(str::to_owned)
             .unwrap_or_else(|| self.library.read().unwrap().version.clone());
         value["library_version"] = json!(library_version);
-        if value.get("identity").is_none() {
-            value["identity"] = json!({"engine":concat!("qspquest/",env!("CARGO_PKG_VERSION")),"source_hash":hash(value.to_string().as_bytes()),"backend":"metadata","backend_version":env!("CARGO_PKG_VERSION")})
-        }
+        Self::ensure_identity(&mut value);
         crate::contract::attach(&mut value, &library_version, false);
         let mut result = if value.get("error").is_some() {
             CallToolResult::structured_error(value)
@@ -3645,6 +3653,97 @@ fn widget_meta() -> Value {
 #[cfg(test)]
 mod core_library_response_tests {
     use super::*;
+    fn scalar_identity_fixture() -> Value {
+        json!({"model_content_hash":"model", "spec_version":"spec",
+            "compiler_version":"compiler", "compiler_source_sha256":"source",
+            "rustc_version":"rustc", "target":"target", "build_profile":"release",
+            "rustflags_sha256":"flags", "bound_value_hash":"bound",
+            "run_request_hash":"request", "backend":"diffsol",
+            "backend_version":"backend", "algorithm":"bdf"})
+    }
+    #[test]
+    fn scalar_identity_response_preserves_execution_and_convergence_status() {
+        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        let identity = scalar_identity_fixture();
+        for (status, expected) in [
+            ("converged", "success"),
+            ("iteration_limit", "scientific_failure"),
+        ] {
+            let payload = json!({"schema":"qspquest.scalar-fit-result/v0.1", "status":status,
+                "parameters":{"cl":{"value":0.6,"unit":"L/h"}},
+                "objective":{"identity":identity,"negative_log_likelihood":-8.3}});
+            let value = server.response(payload.clone()).structured_content.unwrap();
+            assert_eq!(value["objective"], payload["objective"]);
+            assert_eq!(value["parameters"], payload["parameters"]);
+            assert_eq!(value["identity"], identity);
+            assert_eq!(value["contract"]["identity"]["execution"], identity);
+            assert_eq!(value["contract"]["identity"]["scope"], "execution");
+            assert_eq!(value["contract"]["status"], expected);
+        }
+    }
+    #[test]
+    fn scalar_identity_persistence_preserves_execution_in_stored_result() {
+        let directory = std::env::temp_dir().join(format!(
+            "qspquest-scalar-identity-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2)
+            .with_artifact_storage(&directory)
+            .unwrap();
+        let identity = scalar_identity_fixture();
+        let mut payload = json!({"schema":"qspquest.scalar-fit-result/v0.1", "status":"converged",
+            "objective":{"identity":identity,"negative_log_likelihood":-8.3}});
+        assert!(server.persist_result("fit_scalar", &mut payload).unwrap());
+        let descriptor: crate::artifacts::Descriptor =
+            serde_json::from_value(payload["result_artifact"].clone()).unwrap();
+        let id = descriptor
+            .uri
+            .strip_prefix(crate::artifacts::URI_PREFIX)
+            .unwrap();
+        let store = server.artifact_store.as_ref().unwrap();
+        let text: String = (0..descriptor.chunk_count)
+            .map(|i| store.chunk(id, i).unwrap())
+            .collect();
+        let stored: Value = serde_json::from_str(&text).unwrap();
+        drop(server);
+        std::fs::remove_dir_all(directory).unwrap();
+        assert_eq!(stored["identity"], identity);
+        assert_eq!(stored["objective"]["identity"], identity);
+        assert_eq!(stored["contract"]["identity"]["execution"], identity);
+        assert_eq!(stored["contract"]["identity"]["scope"], "execution");
+    }
+    #[test]
+    fn scalar_identity_incomplete_or_unrelated_payload_stays_metadata() {
+        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        for payload in [
+            json!({"schema":"qspquest.scalar-fit-result/v0.1",
+                "objective":{"identity":{"backend":"diffsol","model_content_hash":"model"}}}),
+            json!({"schema":"qspquest.metadata/v1","objective":{"identity":scalar_identity_fixture()}}),
+        ] {
+            let value = server.response(payload).structured_content.unwrap();
+            assert_eq!(value["identity"]["backend"], "metadata");
+            assert_eq!(value["contract"]["identity"]["scope"], "metadata");
+            assert!(value["contract"]["identity"]["execution"].is_null());
+        }
+    }
+    #[test]
+    fn scalar_identity_explicit_top_level_identity_is_preserved() {
+        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        let mut explicit = scalar_identity_fixture();
+        explicit["run_request_hash"] = json!("explicit");
+        let value = server
+            .response(json!({"schema":"qspquest.scalar-fit-result/v0.1",
+            "status":"converged", "identity":explicit,
+            "objective":{"identity":scalar_identity_fixture()}}))
+            .structured_content
+            .unwrap();
+        assert_eq!(value["identity"], explicit);
+        assert_eq!(value["contract"]["identity"]["execution"], explicit);
+    }
     #[tokio::test]
     async fn compiled_cache_binds_captured_versions_and_preserves_trajectories() {
         let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 4);

@@ -51,6 +51,7 @@ impl FitPlanBuilder {
         model: &CompiledSensitivityDocument,
         request: &GaussianObjectiveRequest,
         prepared: &super::objective::PreparedGaussianObjective,
+        profile_proportional: bool,
     ) -> Result<(), Error> {
         self.forward(
             model,
@@ -58,10 +59,15 @@ impl FitPlanBuilder {
             prepared.data.len(),
             prepared.priors.len(),
         )?;
+        let mut description = model.describe_gaussian_objective(request, prepared)?;
+        if profile_proportional {
+            description.prospective_identity = super::objective::profiled_identity(
+                request.simulation.run.solver,
+                description.prospective_identity,
+            )?;
+        }
         self.subjects
-            .push(FitSubjectPlan::GaussianObjective(Box::new(
-                model.describe_gaussian_objective(request, prepared)?,
-            )));
+            .push(FitSubjectPlan::GaussianObjective(Box::new(description)));
         Ok(())
     }
     pub(super) fn focei(
@@ -198,13 +204,18 @@ impl CompiledSensitivityDocument {
         let (coordinates, population, max_evaluations, max_iterations, gradient_tolerance) =
             match &request.problem {
                 FitProblem::Individual(fit)
+                | FitProblem::ProfiledProportional(fit)
                 | FitProblem::Pooled(PooledGaussianFitRequest { fit, .. }) => {
                     let additional = match &request.problem {
                         FitProblem::Pooled(p) => p.additional_subjects.as_slice(),
                         _ => &[],
                     };
-                    let p =
-                        self.prepare_gaussian_fit_observed(fit, additional, Some(&mut builder))?;
+                    let p = self.prepare_gaussian_fit_observed(
+                        fit,
+                        additional,
+                        matches!(&request.problem, FitProblem::ProfiledProportional(_)),
+                        Some(&mut builder),
+                    )?;
                     let coordinates = self
                         .parameters()
                         .iter()

@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "DiscreteFitResultSchema": {
+      "enum": [
+        "qspquest.discrete-fit-result/v0.1"
+      ],
+      "type": "string"
+    },
+    "FitStatus": {
+      "enum": [
+        "converged",
+        "evaluation_limit",
+        "iteration_limit",
+        "line_search_failed"
+      ],
+      "type": "string"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "active_bounds": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "algorithm": {
+      "type": "string"
+    },
+    "compiler_source_sha256": {
+      "type": "string"
+    },
+    "evaluations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "fit_request_hash": {
+      "type": "string"
+    },
+    "iterations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "likelihood": {
+      "type": "string"
+    },
+    "negative_log_likelihood": {
+      "description": "Full normalized count likelihood, including count factorials.",
+      "format": "double",
+      "type": "number"
+    },
+    "observations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Quantity"
+      },
+      "type": "object"
+    },
+    "projected_gradient_norm": {
+      "format": "double",
+      "type": "number"
+    },
+    "schema": {
+      "$ref": "#/definitions/DiscreteFitResultSchema"
+    },
+    "status": {
+      "$ref": "#/definitions/FitStatus"
+    }
+  },
+  "required": [
+    "active_bounds",
+    "algorithm",
+    "compiler_source_sha256",
+    "evaluations",
+    "fit_request_hash",
+    "iterations",
+    "likelihood",
+    "negative_log_likelihood",
+    "observations",
+    "parameters",
+    "projected_gradient_norm",
+    "schema",
+    "status"
+  ],
+  "title": "DiscreteFitResult",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

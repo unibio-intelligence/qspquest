@@ -230,6 +230,7 @@ impl Parser {
                     "floor" => Function::Floor,
                     "ceil" => Function::Ceil,
                     "hill" => Function::Hill,
+                    "inverse_gaussian_density" => Function::InverseGaussianDensity,
                     "ifelse" => Function::Ifelse,
                     _ => return Err(self.fail("Unknown function")),
                 };
@@ -462,6 +463,7 @@ pub fn format(expr: &Expr) -> String {
                 Function::Floor => "floor",
                 Function::Ceil => "ceil",
                 Function::Hill => "hill",
+                Function::InverseGaussianDensity => "inverse_gaussian_density",
                 Function::Ifelse => "ifelse",
             },
             arguments.iter().map(format).collect::<Vec<_>>().join(", ")

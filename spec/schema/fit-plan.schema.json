@@ -596,6 +596,26 @@
         },
         {
           "additionalProperties": false,
+          "description": "Joint normal MLE/MAP with a profiled proportional residual scale per output.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "profiled_proportional"
+              ],
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/definitions/GaussianFitRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "properties": {
             "kind": {
               "enum": [

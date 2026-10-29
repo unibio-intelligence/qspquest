@@ -163,8 +163,28 @@ fn budgets(
 fn binding_map(name: &str, value: &Value) -> bool {
     matches!(name, "parameters" | "initial_states" | "covariates") && value.is_object()
 }
-fn validate(value: &Value, profile: Profile, path: &str) -> Result<(), Failure> {
+fn validate(
+    value: &Value,
+    profile: Profile,
+    path: &str,
+    saem_evaluation_path: Option<&str>,
+) -> Result<(), Failure> {
     if let Some(object) = value.as_object() {
+        // The native two-effect SAEM contract supports an explicit 200,000
+        // evaluation ceiling. Scope this local allowance to its exact field;
+        // individual, one-effect and hosted request limits remain separate.
+        let two_effect_saem = value["schema"] == "qspquest.fit/v0.1"
+            && value["problem"]["kind"] == "saem"
+            && value["problem"]["request"]["random_effects"]
+                .as_array()
+                .is_some_and(|effects| effects.len() == 2);
+        let declared_path = two_effect_saem.then(|| {
+            child(
+                &child(&child(path, "problem"), "request"),
+                "max_evaluations",
+            )
+        });
+        let saem_evaluation_path = declared_path.as_deref().or(saem_evaluation_path);
         if object.get("solver").and_then(Value::as_str) == Some("diffsol_rosenbrock23") {
             return Err(Failure::at(child(path, "solver"), Reason::WithheldSolver));
         }
@@ -184,13 +204,17 @@ fn validate(value: &Value, profile: Profile, path: &str) -> Result<(), Failure> 
         }
         for field in ["max_evaluations", "max_iterations"] {
             if let Some(value) = object.get(field) {
-                positive_integer(
-                    value,
-                    child(path, field),
-                    field,
-                    profile.optimization_limit(field),
-                    false,
-                )?;
+                let at = child(path, field);
+                let maximum = match profile {
+                    Profile::Local
+                        if field == "max_evaluations"
+                            && saem_evaluation_path == Some(at.as_str()) =>
+                    {
+                        200_000
+                    }
+                    _ => profile.optimization_limit(field),
+                };
+                positive_integer(value, at, field, maximum, false)?;
             }
         }
         if let Some(value) = object.get("subjects") {
@@ -245,12 +269,17 @@ fn validate(value: &Value, profile: Profile, path: &str) -> Result<(), Failure> 
         }
         for (name, value) in object {
             if !binding_map(name, value) {
-                validate(value, profile, &child(path, name))?;
+                validate(value, profile, &child(path, name), saem_evaluation_path)?;
             }
         }
     } else if let Some(array) = value.as_array() {
         for (index, value) in array.iter().enumerate() {
-            validate(value, profile, &child(path, &index.to_string()))?;
+            validate(
+                value,
+                profile,
+                &child(path, &index.to_string()),
+                saem_evaluation_path,
+            )?;
         }
     }
     Ok(())
@@ -279,7 +308,7 @@ pub(crate) fn admit(value: &mut Value, profile: Profile) -> Result<(), Failure> 
     if value.to_string().len() > crate::policy::INPUT_LIMIT {
         return Err(Failure::at(String::new(), Reason::InputLimit));
     }
-    validate(value, profile, "")?;
+    validate(value, profile, "", None)?;
     let mut admitted = value.clone();
     fill_defaults(&mut admitted);
     if admitted.to_string().len() > crate::policy::INPUT_LIMIT {
@@ -380,6 +409,47 @@ mod tests {
                 assert!(admit(&mut request, profile).is_err());
             }
         }
+    }
+
+    #[test]
+    fn local_two_effect_saem_admits_the_native_ceiling_without_changing_other_limits() {
+        let base = json!({"schema":"qspquest.fit/v0.1", "problem":{"kind":"saem",
+            "request":{"random_effects":[{"parameter":"a"},{"parameter":"b"}],
+            "subjects":[{"observations":[]}],"max_evaluations":200_000}}});
+        let mut request = base.clone();
+        admit(&mut request, Profile::Local).unwrap();
+        assert_eq!(request, base);
+        let mut nested = json!({"fit_request":base.clone()});
+        admit(&mut nested, Profile::Local).unwrap();
+        for (kind, effects, maximum) in [
+            ("individual", 2, 200_000),
+            ("focei", 2, 200_000),
+            ("saem", 1, 200_000),
+            ("saem", 2, 200_001),
+        ] {
+            let mut request = base.clone();
+            request["problem"]["kind"] = json!(kind);
+            request["problem"]["request"]["random_effects"] = json!(vec![json!({}); effects]);
+            request["problem"]["request"]["max_evaluations"] = json!(maximum);
+            let before = request.clone();
+            let error = admit(&mut request, Profile::Local)
+                .unwrap_err()
+                .into_value();
+            assert_eq!(
+                error["error"]["expression"],
+                "/problem/request/max_evaluations"
+            );
+            assert_eq!(request, before);
+        }
+        let mut hosted = base;
+        let error = admit(&mut hosted, Profile::Hosted)
+            .unwrap_err()
+            .into_value();
+        assert_eq!(error["error"]["code"], "budget");
+        assert_eq!(
+            error["error"]["expression"],
+            "/problem/request/max_evaluations"
+        );
     }
 
     #[test]

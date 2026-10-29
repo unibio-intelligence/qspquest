@@ -1,0 +1,204 @@
+{
+  "schema": "qspquest.fit/v0.1",
+  "problem": {
+    "kind": "profiled_proportional",
+    "request": {
+      "objective": {
+        "simulation": {
+          "schema": "qspquest.sensitivity/v0.1",
+          "with_respect_to": [
+            "theta"
+          ],
+          "derivative_absolute_tolerances": {
+            "theta": {
+              "unused": {
+                "value": 1e-12,
+                "unit": "L/mg"
+              }
+            }
+          },
+          "run": {
+            "schema": "qspquest.run/v0.1",
+            "solver": "diffsol_bdf",
+            "parameters": {},
+            "budgets": {
+              "solver_callbacks": 1000000,
+              "events": 100,
+              "output_values": 10000
+            },
+            "regimen": {
+              "start": {
+                "value": 0,
+                "unit": "h"
+              },
+              "end": {
+                "value": 4,
+                "unit": "h"
+              },
+              "samples": [
+                {
+                  "value": 0,
+                  "unit": "h"
+                },
+                {
+                  "value": 1,
+                  "unit": "h"
+                },
+                {
+                  "value": 2,
+                  "unit": "h"
+                },
+                {
+                  "value": 4,
+                  "unit": "h"
+                }
+              ],
+              "administrations": [],
+              "rtol": 1e-10,
+              "atol": 1e-12
+            }
+          }
+        },
+        "observations": [
+          {
+            "row": 0,
+            "output": "y1",
+            "value": {
+              "value": 2.2,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 1,
+            "output": "y1",
+            "value": {
+              "value": 2.4,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 2,
+            "output": "y1",
+            "value": {
+              "value": 2.6,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 3,
+            "output": "y1",
+            "value": {
+              "value": 2.8,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 0,
+            "output": "y2",
+            "value": {
+              "value": 4.0,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 1,
+            "output": "y2",
+            "value": {
+              "value": 4.8,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 2,
+            "output": "y2",
+            "value": {
+              "value": 5.2,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          },
+          {
+            "row": 3,
+            "output": "y2",
+            "value": {
+              "value": 6.0,
+              "unit": "mg/L"
+            },
+            "error": {
+              "additive_sd": {
+                "value": 0,
+                "unit": "mg/L"
+              },
+              "proportional_sd": 1
+            }
+          }
+        ],
+        "priors": []
+      },
+      "bounds": [
+        {
+          "parameter": "theta",
+          "lower": {
+            "value": 1,
+            "unit": "mg/L"
+          },
+          "upper": {
+            "value": 4,
+            "unit": "mg/L"
+          }
+        }
+      ],
+      "max_evaluations": 100,
+      "max_iterations": 50,
+      "gradient_tolerance": 1e-07
+    }
+  }
+}

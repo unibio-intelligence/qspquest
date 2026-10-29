@@ -282,7 +282,7 @@ where
 {
     pub fn new(
         problem: &'a OdeSolverProblem<Eqn>,
-        state: RkState<Eqn::V>,
+        state: RkState<Eqn::V, M>,
         tableau: Tableau<Eqn::T>,
         mut linear_solver: LS,
     ) -> Result<Self, DiffsolError> {
@@ -680,8 +680,11 @@ where
     M: DenseMatrix<T = Eqn::T, V = Eqn::V, C = Eqn::C>,
     LS: LinearSolver<Eqn::M>,
 {
-    type State = RkState<Eqn::V>;
+    type State = RkState<Eqn::V, M>;
     type Config = ExplicitRkConfig<Eqn::T>;
+    fn get_statistics(&self) -> &OdeSolverStatistics {
+        self.rk.get_statistics()
+    }
     fn config(&self) -> &Self::Config {
         &self.config
     }
@@ -955,7 +958,7 @@ mod tests {
             test_interpolate(test_problem::<$mat>(false).rodas5p::<$ls>().unwrap());
             test_interpolate(test_problem::<$mat>(true).rodas5p::<$ls>().unwrap());
             test_interpolate_dy(test_problem::<$mat>(false).rodas5p::<$ls>().unwrap());
-            test_config(robertson_ode::<$mat>(false, 1).0.rodas5p::<$ls>().unwrap());
+            test_config(robertson_ode::<$mat>(1).0.rodas5p::<$ls>().unwrap());
             let (p, sol) = exponential_decay_problem::<$mat>(false);
             test_checkpointing(
                 sol,
@@ -981,7 +984,7 @@ mod tests {
                     false,
                 );
             }
-            let (p, sol) = robertson_ode::<$mat>(false, 1);
+            let (p, sol) = robertson_ode::<$mat>(1);
             test_ode_solver(&mut p.rodas5p::<$ls>().unwrap(), sol, None, false, false);
         }};
     }
@@ -1055,7 +1058,7 @@ mod tests {
         macro_rules! check {
             ($mat:ty, $ls:ty) => {{
                 let times: Vec<_> = (0..61).map(|i| 10f64.powf(-6.0 + i as f64 / 6.0)).collect();
-                let (mut reference_problem, _) = robertson_ode::<$mat>(false, 1);
+                let (mut reference_problem, _) = robertson_ode::<$mat>(1);
                 reference_problem.rtol = 1e-11;
                 reference_problem.atol.fill(1e-14);
                 let reference = reference_problem
@@ -1064,7 +1067,7 @@ mod tests {
                     .solve_dense(&times)
                     .unwrap()
                     .0;
-                let (p, _) = robertson_ode::<$mat>(false, 1);
+                let (p, _) = robertson_ode::<$mat>(1);
                 let mut s = p.rosenbrock23::<$ls>().unwrap();
                 let mut max_error: f64 = 0.0;
                 for (i, &t) in times.iter().enumerate() {
@@ -1385,11 +1388,7 @@ mod tests {
         let error = |h| {
             let p = sine_problem(-2.0, false);
             let mut s = p.rodas5p::<LS>().unwrap();
-            *s.state_mut().h = h;
-            s.step().unwrap();
-            s.rk.error_norm(h, None::<&mut NoAug<_>>, |_| Ok(()))
-                .unwrap()
-                .sqrt()
+            analytic_step(&mut s, h, 2.0)
         };
         let ratio = error(0.2) / error(0.1);
         assert!((20.0..45.0).contains(&ratio), "{ratio}");
@@ -2194,12 +2193,7 @@ mod tests {
                 test_interpolate(test_problem::<$mat>(false).rosenbrock23::<$ls>().unwrap());
                 test_interpolate(test_problem::<$mat>(true).rosenbrock23::<$ls>().unwrap());
                 test_interpolate_dy(test_problem::<$mat>(false).rosenbrock23::<$ls>().unwrap());
-                test_config(
-                    robertson_ode::<$mat>(false, 1)
-                        .0
-                        .rosenbrock23::<$ls>()
-                        .unwrap(),
-                );
+                test_config(robertson_ode::<$mat>(1).0.rosenbrock23::<$ls>().unwrap());
                 let (p, sol) = exponential_decay_problem::<$mat>(false);
                 test_checkpointing(
                     sol,
@@ -2224,7 +2218,7 @@ mod tests {
                         false,
                     );
                 }
-                let (p, sol) = robertson_ode::<$mat>(false, 1);
+                let (p, sol) = robertson_ode::<$mat>(1);
                 let mut s = p.rosenbrock23::<$ls>().unwrap();
                 test_ode_solver(&mut s, sol, None, false, false);
                 assert_eq!(
@@ -2296,13 +2290,7 @@ mod tests {
             .build()
             .unwrap();
         let mut s = p.rosenbrock23::<LS>().unwrap();
-        *s.state_mut().h = 0.01;
-        s.step().unwrap();
-        let estimate =
-            s.rk.error_norm(0.01, None::<&mut NoAug<_>>, |_| Ok(()))
-                .unwrap()
-                .sqrt()
-                * (10.0 + 10.0 * s.state().y[0].abs());
+        let estimate = analytic_step(&mut s, 0.01, 0.0);
         assert!((s.state().y[0] - 1.9607830804516306).abs() < 1e-14);
         assert!((estimate - 1.2234237241393055e-6).abs() < 1e-14);
         let p = sine_problem(-1000.0, false);
@@ -2348,11 +2336,7 @@ mod tests {
             let p = sine_problem(0.0, false);
             let mut s = p.rosenbrock23::<LS>().unwrap();
             *s.state_mut().t = 1.0;
-            *s.state_mut().h = h;
-            s.step().unwrap();
-            s.rk.error_norm(h, None::<&mut NoAug<_>>, |_| Ok(()))
-                .unwrap()
-                .sqrt()
+            analytic_step(&mut s, h, -1.0_f64.sin())
         };
         let ratio = estimate(0.05) / estimate(0.025);
         assert!((6.0..10.0).contains(&ratio), "{ratio}");
@@ -2445,7 +2429,7 @@ mod tests {
                 ],
             ),
         ] {
-            let (mut p, _) = robertson_ode::<Mat>(false, 1);
+            let (mut p, _) = robertson_ode::<Mat>(1);
             p.rtol = 10.0;
             p.atol.fill(10.0);
             let mut s = p

@@ -1,0 +1,187 @@
+{
+  "schema": "qspquest.scalar-fit/v0.1",
+  "run": {
+    "schema": "qspquest.run/v0.1",
+    "solver": "diffsol_bdf",
+    "parameters": {},
+    "budgets": {
+      "solver_callbacks": 1000000,
+      "events": 100,
+      "output_values": 10000
+    },
+    "regimen": {
+      "start": {
+        "value": 0,
+        "unit": "h"
+      },
+      "end": {
+        "value": 16,
+        "unit": "h"
+      },
+      "samples": [],
+      "administrations": [],
+      "observations": [
+        {
+          "time": {
+            "value": 0.0,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 0.5,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 1.0,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 2.0,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 4.0,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 8.0,
+            "unit": "h"
+          },
+          "side": "post"
+        },
+        {
+          "time": {
+            "value": 16.0,
+            "unit": "h"
+          },
+          "side": "post"
+        }
+      ],
+      "rtol": 1e-09,
+      "atol": 1e-11
+    }
+  },
+  "parameter": "f",
+  "lower": {
+    "value": 0.01,
+    "unit": "1"
+  },
+  "upper": {
+    "value": 1,
+    "unit": "1"
+  },
+  "observations": [
+    {
+      "row": 1,
+      "output": "cp",
+      "value": {
+        "value": 0.3862952698963501,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    },
+    {
+      "row": 2,
+      "output": "cp",
+      "value": {
+        "value": 3.0846597515978176,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    },
+    {
+      "row": 3,
+      "output": "cp",
+      "value": {
+        "value": 7.495394616702635,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    },
+    {
+      "row": 4,
+      "output": "cp",
+      "value": {
+        "value": 8.177397617496599,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    },
+    {
+      "row": 5,
+      "output": "cp",
+      "value": {
+        "value": 4.315297238983739,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    },
+    {
+      "row": 6,
+      "output": "cp",
+      "value": {
+        "value": 0.8946956557803667,
+        "unit": "mg/L"
+      },
+      "error": {
+        "model": "normal",
+        "additive_sd": {
+          "value": 0.1,
+          "unit": "mg/L"
+        },
+        "proportional_sd": 0
+      }
+    }
+  ],
+  "max_iterations": 100,
+  "absolute_tolerance": 1e-08
+}

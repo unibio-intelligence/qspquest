@@ -289,7 +289,7 @@ impl CompiledSensitivityDocument {
                     error
                 })?;
             if let Some(plan) = plan.as_deref_mut() {
-                plan.gaussian(self, subject, &prepared)?;
+                plan.gaussian(self, subject, &prepared, false)?;
             }
         }
         Ok(setup)
@@ -386,6 +386,8 @@ impl CompiledSensitivityDocument {
         };
         let (theta, omega) = decode(&x);
         Ok(PopulationFitResult {
+            fixed_effect_intervals: None,
+            fixed_effect_interval_error: None,
             status,
             fixed_effects: BTreeMap::from([(
                 setup.parameter.clone(),

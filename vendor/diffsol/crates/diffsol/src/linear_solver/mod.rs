@@ -2,12 +2,13 @@ use crate::{Matrix, NonLinearOpJacobian};
 use diffsol_la::LinearSolver as LaLinearSolver;
 use num_traits::Zero;
 
-pub use diffsol_la::{AdaptiveLU, FaerLU, FaerSparseLU, NalgebraLU, NalgebraNativeLU};
+pub use diffsol_la::{AdaptiveLU, FaerLU, FaerSparseLU, NalgebraLU};
 
 #[cfg(feature = "suitesparse")]
 pub use diffsol_la::KLU;
 
 #[cfg(feature = "cuda")]
+#[allow(deprecated)]
 pub use diffsol_la::CudaLU;
 
 #[cfg(feature = "cuda-oxide")]
@@ -21,6 +22,7 @@ pub use diffsol_la::linear_solver::{faer, nalgebra};
 pub use diffsol_la::linear_solver::suitesparse;
 
 #[cfg(feature = "cuda")]
+#[allow(deprecated)]
 pub use diffsol_la::linear_solver::cuda;
 
 #[cfg(feature = "cuda-oxide")]
@@ -145,7 +147,7 @@ pub mod tests {
     use num_traits::{FromPrimitive, One, Zero};
 
     use super::LinearSolveSolution;
-    use super::{FaerLU, NalgebraLU, NalgebraNativeLU};
+    use super::{FaerLU, NalgebraLU};
 
     /// `y = diag(p) * x`, one lane at a time.
     fn diagonal_mul<M: Matrix>(x: &[M::T], p: &[M::T], _t: M::T, y: &mut [M::T]) {
@@ -281,14 +283,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_lu_nalgebra_native() {
-        let (op, p, rtol, atol, solns) = linear_problem::<NalgebraMat<f64>>();
-        let op = ParameterisedOp::new(&op, &p);
-        let s = NalgebraNativeLU::default();
-        test_linear_solver(s, op, rtol, &atol, solns);
-    }
-
-    #[test]
     fn test_lu_faer() {
         let (op, p, rtol, atol, solns) = linear_problem::<FaerMat<f64>>();
         let op = ParameterisedOp::new(&op, &p);
@@ -316,6 +310,7 @@ pub mod tests {
     }
 
     #[cfg(feature = "cuda")]
+    #[allow(deprecated)]
     #[test]
     fn test_lu_cuda() {
         use crate::{CudaLU, CudaMat};
@@ -326,6 +321,7 @@ pub mod tests {
     }
 
     #[cfg(feature = "cuda")]
+    #[allow(deprecated)]
     #[test]
     fn test_lu_cuda_batched() {
         use crate::{CudaContext, CudaLU, CudaMat};

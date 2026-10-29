@@ -170,11 +170,15 @@ def write_analysis_report(
             )
     if vpc is not None:
         sections.append("<h2>Visual predictive check</h2>")
+        sections.append(
+            "<p>Bands span simulated cohort quantiles conditional on the supplied population parameters, variability and residual-error settings. "
+            "They do not propagate parameter-estimation uncertainty.</p>"
+        )
         sections.append('<p>Status: ' + escape(str(vpc.get('status', 'not_reported')))
                         + '; successful replicates: ' + escape(str(vpc.get('successful_replicates', 'not_reported')))
                         + '; failed replicates: ' + escape(str(vpc.get('failed_replicates', 'not_reported'))) + '.</p>')
         if vpc.get('failed_replicates', 0):
-            sections.append('<p>Incomplete predictive experiment. Confidence intervals are suppressed; successful-draw summaries are diagnostic only.</p>')
+            sections.append('<p>Incomplete predictive experiment. Replicate bands are suppressed; successful-draw summaries are diagnostic only.</p>')
         if 'replicate_records' in vpc:
             sections.append('<details><summary>Replicate status and random-stream receipts</summary><pre>'
                             + escape(json.dumps(vpc['replicate_records'], indent=2, allow_nan=False)) + '</pre></details>')
@@ -198,7 +202,7 @@ def write_analysis_report(
                 for end, label in ((0, "lower"), (1, "upper")):
                     series.append(
                         (
-                            f'{label} CI p={q["percentile"]:g}',
+                            f'{label} replicate band p={q["percentile"]:g}',
                             [
                                 (
                                     (b["start"] + b["end"]) / 2,

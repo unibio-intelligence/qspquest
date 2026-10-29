@@ -11,8 +11,8 @@
     "execution_mode"
   ],
   "source_snapshot": {
-    "Cargo.toml": "770cdaad24a9f526ff02fdece2326e2e5bea293f30c69dae89ea3891cd9a0828",
-    "bindings/cli/src/main.rs": "ebab89be5a4eba85bb3d47dc317a3313a00868090cb2877b92ee0e85fe18c0c5",
+    "Cargo.toml": "08cd393b6d5bf35ddcf28e63261425483d374802b705fd328b4b8e15f0e52ac1",
+    "bindings/cli/src/main.rs": "9f356bb0f8af4c90bb36f04c6554a3e0c749fcc2084b8678675948f2ae9ff64c",
     "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
     "bindings/mcp/Dockerfile": "152ef1530703f75e39f4b26058582669200fc6f243e2fd8b561f2393d3fa338e",
     "bindings/mcp/assets/library/catalog.json": "da147cf9db14c23e0ea6a6dc185946d8b58951582600d7e094e08cff36f08a13",
@@ -34,7 +34,7 @@
     "bindings/mcp/src/capability.rs": "6ee9679d4bcba78e700c6a6fcea53c98bf2c4d5008c8ce2e2e1cecdd5e6680e3",
     "bindings/mcp/src/contract.rs": "e82b2968747cc3303c048a1e555515d580c2a0e44996f082fa77ea59c90069c1",
     "bindings/mcp/src/core/analysis_request.rs": "7720752a5c9e3dd9183fd02af63ee0dcd1e3d01a1e4b30ca1bd7eb277889dde3",
-    "bindings/mcp/src/core/compute.rs": "43d648c9191d55b091a52d9871ef3a08d1e4635555e124348a8fbf60aa0c7f19",
+    "bindings/mcp/src/core/compute.rs": "f3b9d7d05ce737d0a43b3701ee50982360a858ddd86dff9e92a2ae6d8f92cb8c",
     "bindings/mcp/src/core/individual_request.rs": "3d2fd0eccbcd2bc286dd21497ca666e77943f26bc47cb89c036c491afa55f864",
     "bindings/mcp/src/core/input_names.rs": "9c745f0928f3cc9fe3ead80800639c4af690f39704ba07172d09af535307d5f3",
     "bindings/mcp/src/core/input_shapes.rs": "497b8dcc01d09deeb95431934acd612e897ede9c82c4266957f15a516ef6a22c",
@@ -48,9 +48,9 @@
     "bindings/mcp/src/core/time_validation.rs": "8c8841dd3f1cb54191bea70ef9e9e6364e57d38e4ea537e99ca278eaa81852ce",
     "bindings/mcp/src/core/usability.rs": "43263f0a337599d2c92727d00be922258052d7a9fdad74e7b78af38d86a83924",
     "bindings/mcp/src/discovery.rs": "57899689ce5d53530464d3c349b8ae8325ee74ebd5a3f58aa999e23654a85840",
-    "bindings/mcp/src/execution_policy.rs": "077f047303f4134c5328b320a4f2eefe30a37801ca3b4717234959155c93ae26",
+    "bindings/mcp/src/execution_policy.rs": "f1dd18c68810a11222e807ef739ed7f665f407cd907c6d256eceedb6be21f9b8",
     "bindings/mcp/src/export.rs": "7b741cfb80669c32b11145650cbf23575f37d8e068e70b53474998a9e6b77c68",
-    "bindings/mcp/src/fitting.rs": "cbfce5608a7dd24652f7033321732cec76a96cc15759ffd660d648eeb4d4b7b9",
+    "bindings/mcp/src/fitting.rs": "21b561535b9862378a8cdccfec307d8737a8ad16ca3e3c6935ef0162be5b36fb",
     "bindings/mcp/src/initialization.rs": "bce5578bb1648f4fbea596c3abdf8a3693c0b5d9a48f6bb03e97fce4ae3a6f1d",
     "bindings/mcp/src/inspection.rs": "152b1e9a75f67a57da69089f6ce6d4c4d37cce3030f7be70945f989139a27c40",
     "bindings/mcp/src/interpretations.rs": "15228f2454d0decb86787ead18e243ba3cc53960392534637d1a57e8d55f4c8f",
@@ -68,32 +68,32 @@
     "bindings/mcp/src/precision.rs": "dca889a91ba1e7286e21750e6fcec7053b1fe2943bd24ddf0bcf30521d4b5f74",
     "bindings/mcp/src/response_format.rs": "f66af9ee9680b543e258c50654c95107b127e3a05172eebd6b510d1dc67499b2",
     "bindings/mcp/src/scientific.rs": "44e135c246ea668bbd93d45965f21ae4828c05a1351248bc0d9f8eacfadd2906",
-    "bindings/mcp/src/server.rs": "8dc169c535dc603849aa42a0141938672f701c8edea04c44c205afb97ddff441",
+    "bindings/mcp/src/server.rs": "e8faabfcf9b3330eb68eeceaf48c4d9ee69b4e281aba2f63edef558b44f2bd2e",
     "bindings/mcp/src/server/execution.rs": "3690057eb29d1fcc05e0c169fbc90487772a648a68de58e0764e9f38cd6b79e8",
     "bindings/mcp/src/server/local_jobs.rs": "da220964cac1d101da9a8c51a4e785b9a4176aa2e06580ddebc444bdbae3a74b",
     "bindings/mcp/src/server/managed.rs": "843eea426555537afa0d5089a94a54cf5a054de9fe0d7087f955d5ef7f06c7f9",
     "bindings/mcp/src/table.rs": "b1e613bdca4a993cd9ebc817cc964ec55c1554f332fa3ad215c5a9371c94c758",
-    "bindings/python/python/qspquest/__init__.py": "6848b2953561b540264cb17e9a51374e2b5f191f3005ebaa0a34fe9389bb06d7",
+    "bindings/python/python/qspquest/__init__.py": "be1078747c8944c722dc5da3f09fdb2cbd9ac6a2da239ea03fdf31c9c118572a",
     "bindings/python/python/qspquest/control.py": "62dd5d60c4693e7a9c7773c7f1a35d5f3abdcc1d1ff663e7e4fb4e3c436f9d94",
     "bindings/python/python/qspquest/derivatives.py": "66934b42a97abe9e056862493f9e1601331c95caf9334a1324d5ddcf8d6e5936",
     "bindings/python/python/qspquest/diagnostics.py": "1bfa6628c895923f144feed054e3a1fc6ab411a3c1af72523b05e22306b9c924",
-    "bindings/python/python/qspquest/estimation.py": "272e344cb928f384afdd77e5037bb61fde67fdca8c2ceb1dfd7a7e85853fb7ca",
+    "bindings/python/python/qspquest/estimation.py": "d1580c912f1d0bdb353e4d6abc3c8d10dd03cd97deb9aa88acacfe5c46064056",
     "bindings/python/python/qspquest/exposure.py": "62829d7ea4c688d505d6f72fc28ae8300432e54750794e4ea5679de7a61a406c",
     "bindings/python/python/qspquest/individual.py": "0abbbee768ef7963ce50e2d5642edca810d338f16e2b237f7bd10ff2780f15b9",
     "bindings/python/python/qspquest/interchange.py": "5ac4895c9a5a7c460cc8fa7789b53e75fafc69a89c514374435a5243912e53a2",
     "bindings/python/python/qspquest/population.py": "006e23aa4830a9498a9e5996b831b623f3b842e6b07a78c94154880f835a999d",
-    "bindings/python/python/qspquest/uncertainty.py": "9e6861d987cef988c9f5844246104cee71401b50ed2df87af40a89300a24fae4",
-    "bindings/python/src/lib.rs": "aba9df8457e71ebf9d1bce7b2849d6999e800a0b5f0efe54f9fe4674628eb17c",
-    "bindings/r/NAMESPACE": "3cec2a0f4429a871f73237bb174716cbae0c2238952809bac57d21a1ac6cf197",
-    "bindings/r/R/qspquest.R": "84c1d5d23823ee810e978b5b93d29e3d9173a05e27053b8c1f0ac898b3a631c0",
-    "bindings/r/src/rust/src/lib.rs": "d8be1eed7567065507a02c01e8bab8f926df06d9ade896f530bb6599fd4479fd",
+    "bindings/python/python/qspquest/uncertainty.py": "31e0d3d76f5722761196e3cc31a75084be203297907a558da9a36e945cd6ca2c",
+    "bindings/python/src/lib.rs": "49135ed91d45ba12fbeb1cd0e1aff3db8a7c5dcf3d4d8391eb211dac504b8a59",
+    "bindings/r/NAMESPACE": "0983343cd518d0f9fb502ca332bc673e3db2d2e4aebd94f0ab41b7470d473f39",
+    "bindings/r/R/qspquest.R": "ce9c3ab0f93123cd0561b27a07dc2d4054a72c9c6e989a3b09b8534b3d034969",
+    "bindings/r/src/rust/src/lib.rs": "4522a5b5c654e87fa1d92ccdcd7d96bdff4dd28044d90c48dc8a8e9297fbb083",
     "bindings/wasm/Cargo.toml": "ff17b7ae4b8e65fe893b0e9dc810ddd6a50b4958c5ff90731770f4eb9859ffc5",
     "bindings/wasm/js/client.d.mts": "ef04db2c55ced9e407a5cb622a953fcc6dd2140ab99948823b3ebc213ae089b9",
     "bindings/wasm/js/engine-worker.mjs": "ebdb881635c5fbee6d9a1a70187aa8351cd21f890734ccc5cd7298fe7fb9748f",
     "bindings/wasm/src/browser.rs": "b0b8f4b4535d63d60622c58101930df6a3d9d3e1f9dd51645b95067981e0e224",
     "bindings/wasm/src/lib.rs": "0272b2ffe2b7575391542f4a1e84a3603cd8dec30497badebb629383848e1ec0",
     "bindings/wasm/src/sandbox.rs": "d3212c3d462848974c600793cd84167e3ea9556866b08d75a3780117abd1f433",
-    "crates/qspquest-core/src/fit.rs": "84e66b38afc9bed94bd3ac13bd52c460e051e506e171176c1d1a3a1a2e39dd0a",
+    "crates/qspquest-core/src/fit.rs": "f10f06a80435cffcf817c7b77ac61cfdfec326fc4d3f7450776123becc12571d",
     "crates/qspquest-core/src/initial_values.rs": "c5ae57ba3ecde7abb84585f82dcda7622fdc6604aa63e50941424251abca5fc4",
     "crates/qspquest-core/src/planning.rs": "0e4a26b86e55c49b6588ab3308526def9464b1615e0901730ca2e02bcb32898b",
     "crates/qspquest-core/src/run.rs": "24f35dfc57a1ccba27df0d4279f229d31bddc8520de5456b243aa0c2c19c3bfd",
@@ -104,19 +104,23 @@
     "crates/qspquest-modeling/src/document/planning.rs": "0ecd9a3a4aa382ed0c5d8698abc661e51285bf51faec190f5f42f766e35f9126",
     "crates/qspquest-modeling/src/document/scalar_fit.rs": "9242e3f2100f4aaa4960e58424d9a72ce6f1558510233d3a987d0b2f327a1037",
     "crates/qspquest-modeling/src/document/scan.rs": "a19fa2a1420167f33288b7a311da70df7d00c2f0d4ff2ae79e65fee801784ecf",
-    "crates/qspquest-modeling/src/document/sensitivity/fit.rs": "29645e51f3b3bf26b95896fccc1511665e1accd79007b4dbe6236d324380af01",
-    "crates/qspquest-modeling/src/document/sensitivity/fit_planning.rs": "7567dd8681a634426568d90f60162b5912048df7374dec18d2ba3e04c106aae1",
-    "crates/qspquest-modeling/src/document/sensitivity/objective.rs": "1c0719d5b122a97cfd6dad762027fa1f0573dd73eaa4ab1e48bee60a716f1ee8",
+    "crates/qspquest-modeling/src/document/sensitivity/fit.rs": "8e131ed961162cc67750bc6834e40b98c470ae7cf238a7bb41969816b61663a1",
+    "crates/qspquest-modeling/src/document/sensitivity/fit_planning.rs": "fbb5f898e139aa50c5fc33f68316a2280665941eec39f841e5ddb537bae8cefb",
+    "crates/qspquest-modeling/src/document/sensitivity/objective.rs": "9302306bc5d9b5db0afe0c4245803688a2a619559c5ea739f2258d7a7b09d757",
     "crates/qspquest-modeling/src/document/sensitivity/planning.rs": "59fd1eea7af52b8f5f133b1472043ffda9f6927dfd1b2b6b39c3f5c90a4e08e5",
-    "crates/qspquest-modeling/src/document/sensitivity/population_focei.rs": "3d3e7f669452a507f38960f1cd9f6a33c7a2b26ddb5ebffb9ac85982e4d84913",
-    "crates/qspquest-modeling/src/document/sensitivity/population_focei_2d.rs": "2f91ae7374509088476f8325a8bd17d827516a8f629c0aa839b8880ff67b0104",
-    "crates/qspquest-modeling/src/document/sensitivity/population_laplace.rs": "5ce74c995800863f063c83af694117620e35f37886699028b1d21abeb0526f6c",
-    "crates/qspquest-modeling/src/document/sensitivity/population_saem.rs": "595be6c755c2d5bf35634bf141db4604ba6325f0bf015eb1dfb69586603ffafc",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei.rs": "0d6466c33dad714eef15b1583c10104558acc82d98d4a43b236b541e9b3b4fe4",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei_2d.rs": "978ba5af4fffc24dc83fc4135fd93d0941b7e898139af7e8d2ad2bb1b392fa86",
+    "crates/qspquest-modeling/src/document/sensitivity/population_laplace.rs": "f056536c8896145fa97f2941041e3083f0dd4b0a6e31176a1cfc7f293e9132ae",
+    "crates/qspquest-modeling/src/document/sensitivity/population_saem.rs": "0bdc5b5682c43116fb91d3f244ed819f7b2b0b12d9b4d0abb24b610537bb938d",
     "crates/qspquest-modeling/src/document/sensitivity/run.rs": "2cb900c9ccc725b158b2ef87a525f581242d69678cc50825a81706a048765771",
     "crates/qspquest-modeling/src/document/steady_state.rs": "e934ec68f345d46eac126f29b82d94818f5b72964b1c809e247147ffce22a1d1",
     "crates/qspquest-modeling/src/document/switches.rs": "ebee84c58ab0756515313d6706d0aee431bb0c7cde1fea4783049ba353993e8b",
     "scripts/build-mcp.sh": "b6018ec1cdca5b3a3a064edb22b527f28190a681a03d9142a52d2399eb9395e2",
-    "scripts/verify_release_provenance.py": "4d10779455268137e574f6d9ef1743ff29d0b658da7c01e3a263342359871732"
+    "scripts/verify_release_provenance.py": "4d10779455268137e574f6d9ef1743ff29d0b658da7c01e3a263342359871732",
+    "crates/qspquest-modeling/src/discrete_fit.rs": "c0d587496a6a58d37f7ef0eb90c87dff38cf8c375a929a46092d49c6f6999bce",
+    "crates/qspquest-modeling/src/probit_normal.rs": "6e4f22e0b0446e09a746965255b17ab8ce63693a4415b5b0be4d07730cacc549",
+    "crates/qspquest-core/src/expression.rs": "4a960721e3b183704370041c1ccc17fcb87e116f9f5e450ff6ddcc4f5c8172ae",
+    "crates/qspquest-core/src/population_intervals.rs": "beb56e6dbb872873bac51a528106cb91b966616bbf2ba9c95561c079e518f379"
   },
   "examples": [
     {
@@ -201,6 +205,48 @@
         "bindings/python/tests/test_individual_dataset.py"
       ],
       "purpose": "Own synthetic paired-endpoint individual likelihood, independent reference/gradient comparisons and bounded native-fit OMEX exchange; current artifact/statistical/clinical qualification unassessed."
+    },
+    {
+      "id": "gamma-poisson-counts",
+      "paths": [
+        "docs/examples/gamma-poisson-fit.json",
+        "docs/tutorials/gamma-poisson-counts.md"
+      ],
+      "purpose": "Fit independent count/exposure rows."
+    },
+    {
+      "id": "probit-normal-binomial",
+      "paths": [
+        "docs/examples/probit-normal-binomial-fit.json",
+        "docs/tutorials/probit-normal-binomial.md"
+      ],
+      "purpose": "Fit grouped binomial observations with normal probit effects."
+    },
+    {
+      "id": "profiled-proportional",
+      "paths": [
+        "docs/examples/profiled-proportional.qsp",
+        "docs/examples/profiled-proportional-fit.json",
+        "docs/tutorials/profiled-proportional-errors.md"
+      ],
+      "purpose": "Fit parameters with output-specific profiled proportional residual scales."
+    },
+    {
+      "id": "inverse-gaussian-input",
+      "paths": [
+        "docs/examples/inverse-gaussian.qsp",
+        "docs/examples/inverse-gaussian-fit.json",
+        "docs/tutorials/inverse-gaussian-input.md"
+      ],
+      "purpose": "Simulate and fit a bounded inverse-Gaussian input model."
+    },
+    {
+      "id": "population-log-wald",
+      "paths": [
+        "docs/examples/population_log_wald.py",
+        "docs/tutorials/population-log-wald.md"
+      ],
+      "purpose": "Inspect optional positive fixed-effect intervals and their diagnostic scope."
     }
   ],
   "entries": [
@@ -625,7 +671,8 @@
       "exposed": true,
       "estimators": [
         "individual",
-        "pooled"
+        "pooled",
+        "profiled_proportional"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -641,14 +688,16 @@
         "process"
       ],
       "required_features": [],
-      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. The profiled_proportional kind profiles one normal proportional scale per output; rows are uncensored with additive_sd=0 and proportional_sd=1.",
       "limits": {
         "request_bytes": 1000000,
         "model_json_bytes": 4000000,
         "model_text_bytes": 1000000,
         "scope": "CLI admission plus native scientific operation contracts."
       },
-      "example_ids": [],
+      "example_ids": [
+        "profiled-proportional"
+      ],
       "source": "bindings/cli/src/main.rs",
       "symbol": "\"fit\" =>",
       "evidence_status": "untested",
@@ -662,7 +711,7 @@
       "exposed": true,
       "estimators": [
         "individual",
-        "pooled"
+        "profiled_proportional"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -680,13 +729,15 @@
         "managed_http"
       ],
       "required_features": [],
-      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities. The profiled_proportional kind profiles one normal proportional scale per output; rows are uncensored with additive_sd=0 and proportional_sd=1.",
       "limits": {
         "input_bytes": 1000000,
         "encoded_response_bytes": 256000,
         "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
       },
-      "example_ids": [],
+      "example_ids": [
+        "profiled-proportional"
+      ],
       "source": "bindings/mcp/src/server.rs",
       "symbol": "async fn fit_individual(",
       "evidence_status": "untested",
@@ -700,7 +751,8 @@
       "exposed": true,
       "estimators": [
         "individual",
-        "pooled"
+        "pooled",
+        "profiled_proportional"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -716,13 +768,14 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Explicit individual endpoint-specific residual quantities; plan_fit admission and objective/gradient evaluation; paired record mapping preserves exact ordered result indices.",
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. Explicit individual endpoint-specific residual quantities; plan_fit admission and objective/gradient evaluation; paired record mapping preserves exact ordered result indices. The profiled_proportional kind profiles one normal proportional scale per output; rows are uncensored with additive_sd=0 and proportional_sd=1.",
       "limits": {
         "request_bytes": 1000000,
         "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
       },
       "example_ids": [
-        "paired-endpoint-fitting"
+        "paired-endpoint-fitting",
+        "profiled-proportional"
       ],
       "source": "bindings/python/python/qspquest/__init__.py",
       "symbol": "    def fit(",
@@ -737,7 +790,8 @@
       "exposed": true,
       "estimators": [
         "individual",
-        "pooled"
+        "pooled",
+        "profiled_proportional"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -753,11 +807,13 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. The profiled_proportional kind profiles one normal proportional scale per output; rows are uncensored with additive_sd=0 and proportional_sd=1.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
-      "example_ids": [],
+      "example_ids": [
+        "profiled-proportional"
+      ],
       "source": "bindings/r/R/qspquest.R",
       "symbol": "fit_model <- function",
       "evidence_status": "untested",
@@ -771,7 +827,8 @@
       "exposed": true,
       "estimators": [
         "individual",
-        "pooled"
+        "pooled",
+        "profiled_proportional"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -787,11 +844,13 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply.",
+      "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. The profiled_proportional kind profiles one normal proportional scale per output; rows are uncensored with additive_sd=0 and proportional_sd=1.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
-      "example_ids": [],
+      "example_ids": [
+        "profiled-proportional"
+      ],
       "source": "crates/qspquest-modeling/src/document/sensitivity/fit.rs",
       "symbol": "pub fn execute_fit(",
       "evidence_status": "untested",
@@ -889,14 +948,16 @@
         "process"
       ],
       "required_features": [],
-      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. A converged SAEM fit with valid requested observed covariance can include positive fixed-effect log-Wald intervals; interval failure retains the fit with a diagnostic.",
       "limits": {
         "request_bytes": 1000000,
         "model_json_bytes": 4000000,
         "model_text_bytes": 1000000,
         "scope": "CLI admission plus native scientific operation contracts."
       },
-      "example_ids": [],
+      "example_ids": [
+        "population-log-wald"
+      ],
       "source": "bindings/cli/src/main.rs",
       "symbol": "\"fit\" =>",
       "evidence_status": "untested",
@@ -911,7 +972,8 @@
       "estimators": [
         "focei",
         "laplace",
-        "saem_native"
+        "saem_native",
+        "pooled"
       ],
       "solvers": [
         "diffsol_bdf",
@@ -929,13 +991,14 @@
         "managed_http"
       ],
       "required_features": [],
-      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities. Explicit records use a complete native population template and closed endpoint/compartment mappings; row and subject ceilings are checked before request expansion, with located refusals and unchanged row provenance.",
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities. Explicit records use a complete native population template and closed endpoint/compartment mappings; row and subject ceilings are checked before request expansion, with located refusals and unchanged row provenance. A converged SAEM fit with valid requested observed covariance can include positive fixed-effect log-Wald intervals; interval failure retains the fit with a diagnostic.",
       "limits": {
         "input_bytes": 1000000,
         "encoded_response_bytes": 256000,
         "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
       },
       "example_ids": [
+        "population-log-wald",
         "population-record-mapping"
       ],
       "source": "bindings/mcp/src/server.rs",
@@ -968,12 +1031,14 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. A converged SAEM fit with valid requested observed covariance can include positive fixed-effect log-Wald intervals; interval failure retains the fit with a diagnostic.",
       "limits": {
         "request_bytes": 1000000,
         "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
       },
-      "example_ids": [],
+      "example_ids": [
+        "population-log-wald"
+      ],
       "source": "bindings/python/python/qspquest/__init__.py",
       "symbol": "    def fit(",
       "evidence_status": "untested",
@@ -1004,11 +1069,13 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. A converged SAEM fit with valid requested observed covariance can include positive fixed-effect log-Wald intervals; interval failure retains the fit with a diagnostic.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
-      "example_ids": [],
+      "example_ids": [
+        "population-log-wald"
+      ],
       "source": "bindings/r/R/qspquest.R",
       "symbol": "fit_model <- function",
       "evidence_status": "untested",
@@ -1039,11 +1106,13 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability.",
+      "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. A converged SAEM fit with valid requested observed covariance can include positive fixed-effect log-Wald intervals; interval failure retains the fit with a diagnostic.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
-      "example_ids": [],
+      "example_ids": [
+        "population-log-wald"
+      ],
       "source": "crates/qspquest-modeling/src/document/sensitivity/fit.rs",
       "symbol": "pub fn execute_fit(",
       "evidence_status": "untested",
@@ -2606,7 +2675,7 @@
         "process"
       ],
       "required_features": [],
-      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. InverseGaussianDensity is available for model-authored forcing under the declared native model/domain contract.",
       "limits": {
         "request_bytes": 1000000,
         "model_json_bytes": 4000000,
@@ -2614,6 +2683,7 @@
         "scope": "CLI admission plus native scientific operation contracts."
       },
       "example_ids": [
+        "inverse-gaussian-input",
         "synthetic-one-compartment-run"
       ],
       "source": "bindings/cli/src/main.rs",
@@ -2650,13 +2720,14 @@
         "managed_http"
       ],
       "required_features": [],
-      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities.",
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. Hosted user-source execution additionally requires a configured sandbox. Effective limits are available from qspquest://capabilities. InverseGaussianDensity is available for model-authored forcing under the declared native model/domain contract.",
       "limits": {
         "input_bytes": 1000000,
         "encoded_response_bytes": 256000,
         "scope": "Active deployment limits and bounded inline work are reported by qspquest://capabilities."
       },
       "example_ids": [
+        "inverse-gaussian-input",
         "mcp-offline-documentation"
       ],
       "source": "bindings/mcp/src/server.rs",
@@ -2692,12 +2763,13 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. InverseGaussianDensity is available for model-authored forcing under the declared native model/domain contract.",
       "limits": {
         "request_bytes": 1000000,
         "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
       },
       "example_ids": [
+        "inverse-gaussian-input",
         "python-typed-run"
       ],
       "source": "bindings/python/python/qspquest/__init__.py",
@@ -2733,11 +2805,12 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. InverseGaussianDensity is available for model-authored forcing under the declared native model/domain contract.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
       "example_ids": [
+        "inverse-gaussian-input",
         "r-quickstart"
       ],
       "source": "bindings/r/R/qspquest.R",
@@ -2773,11 +2846,12 @@
         "in_process"
       ],
       "required_features": [],
-      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts.",
+      "requirements": "No run-level stochastic seed. analytic_linear_pk requires a compatible linear_pk declaration. Each solver retains its own accuracy and invariant contracts. InverseGaussianDensity is available for model-authored forcing under the declared native model/domain contract.",
       "limits": {
         "scope": "Model, request and operation admission contracts apply."
       },
       "example_ids": [
+        "inverse-gaussian-input",
         "synthetic-one-compartment-run"
       ],
       "source": "crates/qspquest-modeling/src/document.rs",
@@ -4403,6 +4477,286 @@
       "symbol": "async fn resume_local_job(",
       "evidence_status": "untested",
       "evidence_ids": []
+    },
+    {
+      "operation": "fit_gamma_poisson",
+      "interface": "rust",
+      "api": "fit_gamma_poisson",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "gamma_poisson"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Independent nonnegative counts with compatible positive exposure quantities and positive bounded Gamma shape/rate.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "gamma-poisson-counts"
+      ],
+      "source": "crates/qspquest-modeling/src/discrete_fit.rs",
+      "symbol": "pub fn fit_gamma_poisson(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_gamma_poisson",
+      "interface": "python",
+      "api": "fit_gamma_poisson",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "gamma_poisson"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Independent nonnegative counts with compatible positive exposure quantities and positive bounded Gamma shape/rate.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [
+        "gamma-poisson-counts"
+      ],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "def fit_gamma_poisson(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_gamma_poisson",
+      "interface": "r",
+      "api": "fit_gamma_poisson",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "gamma_poisson"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Independent nonnegative counts with compatible positive exposure quantities and positive bounded Gamma shape/rate.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "gamma-poisson-counts"
+      ],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "fit_gamma_poisson <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_gamma_poisson",
+      "interface": "cli",
+      "api": "qspquest fit-data",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "gamma_poisson"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Independent nonnegative counts with compatible positive exposure quantities and positive bounded Gamma shape/rate.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [
+        "gamma-poisson-counts"
+      ],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "action == \"fit-data\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_probit_normal_binomial",
+      "interface": "rust",
+      "api": "fit_probit_normal_binomial",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "probit_normal_binomial"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Two groups of independent binomial observations; bounded dimensionless means and SDs; unbounded normal-mixture quadrature.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "probit-normal-binomial"
+      ],
+      "source": "crates/qspquest-modeling/src/probit_normal.rs",
+      "symbol": "pub fn fit_probit_normal_binomial(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_probit_normal_binomial",
+      "interface": "python",
+      "api": "fit_probit_normal_binomial",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "probit_normal_binomial"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Two groups of independent binomial observations; bounded dimensionless means and SDs; unbounded normal-mixture quadrature.",
+      "limits": {
+        "request_bytes": 1000000,
+        "scope": "Native JSON methods enforce the request byte limit; scientific operation limits also apply."
+      },
+      "example_ids": [
+        "probit-normal-binomial"
+      ],
+      "source": "bindings/python/python/qspquest/__init__.py",
+      "symbol": "def fit_probit_normal_binomial(",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_probit_normal_binomial",
+      "interface": "r",
+      "api": "fit_probit_normal_binomial",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "probit_normal_binomial"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "in_process"
+      ],
+      "required_features": [],
+      "requirements": "Two groups of independent binomial observations; bounded dimensionless means and SDs; unbounded normal-mixture quadrature.",
+      "limits": {
+        "scope": "Model, request and operation admission contracts apply."
+      },
+      "example_ids": [
+        "probit-normal-binomial"
+      ],
+      "source": "bindings/r/R/qspquest.R",
+      "symbol": "fit_probit_normal_binomial <- function",
+      "evidence_status": "untested",
+      "evidence_ids": []
+    },
+    {
+      "operation": "fit_probit_normal_binomial",
+      "interface": "cli",
+      "api": "qspquest fit-data",
+      "implemented": true,
+      "exposed": true,
+      "estimators": [
+        "probit_normal_binomial"
+      ],
+      "solvers": [
+        "none"
+      ],
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
+      ],
+      "modes": [
+        "process"
+      ],
+      "required_features": [],
+      "requirements": "Two groups of independent binomial observations; bounded dimensionless means and SDs; unbounded normal-mixture quadrature.",
+      "limits": {
+        "request_bytes": 1000000,
+        "model_json_bytes": 4000000,
+        "model_text_bytes": 1000000,
+        "scope": "CLI admission plus native scientific operation contracts."
+      },
+      "example_ids": [
+        "probit-normal-binomial"
+      ],
+      "source": "bindings/cli/src/main.rs",
+      "symbol": "action == \"fit-data\"",
+      "evidence_status": "untested",
+      "evidence_ids": []
     }
   ],
   "operation_labels": {
@@ -4459,8 +4813,10 @@
     "submit_local_job": "Submit offline local job",
     "get_local_job": "Inspect offline local job",
     "cancel_local_job": "Cancel offline local job",
-    "resume_local_job": "Resume offline local job"
+    "resume_local_job": "Resume offline local job",
+    "fit_gamma_poisson": "Gamma\u2013Poisson count fitting",
+    "fit_probit_normal_binomial": "Probit-normal binomial fitting"
   },
-  "compiler_source_sha256": "sha256:34354d12c5c962cca95fab09ceb5c1084100f2b87e41f89269868ad5942b97ec",
-  "vendor_source_sha256": "57608fe049e137061e6ba7c2d9bce15ba3d36b8d69d6e1d6494dff437a68fff1"
+  "compiler_source_sha256": "sha256:6896afe45da27cf101e0e68d10019dc387ae8877219d49e61c68b069a561e6b3",
+  "vendor_source_sha256": "36eb02e7fab3d73ba5d9bd123c99341cec9fa1aa4b15b6310e5fe9cfbdedac67"
 }

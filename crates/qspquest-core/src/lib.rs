@@ -1,12 +1,17 @@
 //! Solver-independent scientific request and result types.
+pub mod discrete_fit;
 pub mod dose_history;
 pub mod expression;
 pub mod fit;
+pub mod frames;
+pub mod hmm;
 pub mod identity;
 pub mod initial_values;
 pub mod model;
 pub mod morris;
 pub mod planning;
+pub mod population_intervals;
+pub mod probit_fit;
 pub mod regimen;
 pub mod run;
 pub mod scan;

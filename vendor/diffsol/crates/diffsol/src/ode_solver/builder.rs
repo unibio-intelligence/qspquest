@@ -1768,6 +1768,9 @@ where
             max_nonlinear_solver_failures: ode_options.max_nonlinear_solver_failures,
             nonlinear_solver_tolerance: T::from_f64(ode_options.nonlinear_solver_tolerance)
                 .unwrap(),
+            derivative_solve_tolerance: T::from_f64(ode_options.derivative_solve_tolerance)
+                .unwrap(),
+            derivative_solve_max_iter: ode_options.derivative_solve_max_iter,
             pi_control_proportional: T::from_f64(ode_options.pi_control_proportional).unwrap(),
             pi_control_integral: T::from_f64(ode_options.pi_control_integral).unwrap(),
         }
@@ -2009,6 +2012,26 @@ where
     }
 }
 
+impl<M, F, G, Init, Mass, Root, Out, Reset>
+    OdeBuilder<M, Closure<M, F, G>, Init, Mass, Root, Out, Reset>
+where
+    M: Matrix,
+    F: Fn(&[M::T], &[M::T], M::T, &mut [M::T]),
+    G: Fn(&[M::T], &[M::T], M::T, &[M::T], &mut [M::T]),
+{
+    /// Use a conservative, complete structural pattern instead of probing initial values.
+    /// Indices are checked by build; omitted mathematical dependencies are the caller's responsibility.
+    pub fn rhs_sparsity(mut self, pattern: Option<Vec<(usize, usize)>>) -> Self {
+        if let Some(pattern) = pattern {
+            if let Some(rhs) = self.rhs.as_mut() {
+                rhs.set_structural_sparsity(pattern);
+            }
+            self.use_coloring = true;
+        }
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::OdeBuilder;
@@ -2197,25 +2220,5 @@ mod tests {
     #[test]
     fn build_from_diffsl_sparse_problem_compiles_for_llvm() {
         build_from_diffsl_sparse_problem_compiles::<crate::LlvmModule>();
-    }
-}
-
-impl<M, F, G, Init, Mass, Root, Out, Reset>
-    OdeBuilder<M, Closure<M, F, G>, Init, Mass, Root, Out, Reset>
-where
-    M: Matrix,
-    F: Fn(&[M::T], &[M::T], M::T, &mut [M::T]),
-    G: Fn(&[M::T], &[M::T], M::T, &[M::T], &mut [M::T]),
-{
-    /// Use a conservative, complete structural pattern instead of probing initial values.
-    /// Indices are checked by build; omitted mathematical dependencies are the caller's responsibility.
-    pub fn rhs_sparsity(mut self, pattern: Option<Vec<(usize, usize)>>) -> Self {
-        if let Some(pattern) = pattern {
-            if let Some(rhs) = self.rhs.as_mut() {
-                rhs.set_structural_sparsity(pattern);
-            }
-            self.use_coloring = true;
-        }
-        self
     }
 }

@@ -108,6 +108,7 @@ exclude = [
   {path = "/bindings/wasm/js/client.test.mjs", format = "sdist"},
   {path = "/bindings/wasm/js/index.d.mts", format = "sdist"},
   {path = "/bindings/wasm/js/index.mjs", format = "sdist"},
+  {path = "/bindings/wasm/quickstart/**", format = "sdist"},
   {path = "/conformance/FIXTURE-LICENSE.md", format = "sdist"},
   {path = "/conformance/models/**", format = "sdist"},
   {path = "/conformance/requests/**", format = "sdist"},

@@ -629,7 +629,14 @@ impl<T: NalgebraScalar> Vector for NalgebraVec<T> {
         copy_from_body!(self, o, "copy_from");
     }
     fn fill(&mut self, v: T) {
-        self.data.fill(v)
+        // the batches are one contiguous slice: `slice::fill` vectorises where nalgebra's
+        // element-wise `fill` does not (`lin_alg_ops fill_batched`). A short one keeps the
+        // element-wise fill, as in `fill_mat`: see `SHORT_FILL_LEN`
+        if self.data.len() < crate::vector::SHORT_FILL_LEN {
+            self.data.fill(v)
+        } else {
+            self.data.as_mut_slice().fill(v)
+        }
     }
     fn copy_from_view(&mut self, o: &Self::View<'_>) {
         copy_from_body!(self, o, "copy_from_view");
@@ -916,9 +923,16 @@ mod tests {
     }
 
     super::super::generate_vector_tests_nonbatched!(nalgebra, NalgebraVec<f64>);
+    super::super::generate_vector_tests_nonbatched!(nalgebra_f32, NalgebraVec<f32>);
     super::super::generate_vector_tests_batched!(
         nalgebra,
         NalgebraVec<f64>,
+        NalgebraContext::with_nbatch(2),
+        NalgebraContext::with_nbatch(3)
+    );
+    super::super::generate_vector_tests_batched!(
+        nalgebra_f32,
+        NalgebraVec<f32>,
         NalgebraContext::with_nbatch(2),
         NalgebraContext::with_nbatch(3)
     );

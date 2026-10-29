@@ -1,0 +1,19 @@
+{
+  "schema": "qspquest.probit-normal-binomial-fit/v0.1",
+  "observations": [
+    {"successes": 0, "total": 2, "group": 0},
+    {"successes": 1, "total": 2, "group": 0},
+    {"successes": 2, "total": 2, "group": 0},
+    {"successes": 0, "total": 2, "group": 1},
+    {"successes": 1, "total": 2, "group": 1},
+    {"successes": 2, "total": 2, "group": 1}
+  ],
+  "initial_means": [0, 0],
+  "mean_bounds": [[-4, 4], [-4, 4]],
+  "initial_sds": [0, 0],
+  "sd_bounds": [[0, 3], [0, 3]],
+  "max_evaluations": 1000,
+  "max_iterations": 200,
+  "gradient_tolerance": 1e-8,
+  "max_quadrature_evaluations": 2000000
+}

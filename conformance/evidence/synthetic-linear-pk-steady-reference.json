@@ -1,0 +1,1005 @@
+{
+  "scope": "Owned synthetic periodic PK; independent SciPy augmented affine maps",
+  "scipy": "1.16.2",
+  "cases": [
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        2.8396838324955263
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        2.1698861538648933
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.890365551082908
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932299,
+        3.272496378906029
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        2.5068800045202537
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0
+      ],
+      "exchange": [],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        1.227359401738268
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        4.6483518452490715,
+        24.47247880125085
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        3.527439332017285,
+        17.9983162054871
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        2.0034866551798967,
+        10.44449061220081
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932299,
+        4.9002583660696,
+        25.203307140696626
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        3.5665004216555007,
+        17.499792643715594
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0
+      ],
+      "exchange": [
+        0.5
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        2.042547744818113,
+        9.945967050429301
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        6.295373392988679,
+        24.862469518343055,
+        39.39614727116149
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        4.856420343152387,
+        19.01613242339085,
+        30.143261230309037
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": null,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 0,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 0,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 0,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 0,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        3.0352219890342873,
+        11.8249142630054,
+        18.82632779331174
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932294,
+        6.460902786987226,
+        25.38923467140204,
+        40.15283058539706
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "continue"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        4.71682424673118,
+        18.303200093992398,
+        28.937899020311278
+      ]
+    },
+    {
+      "clearance": 1.0,
+      "volumes": [
+        3.0,
+        7.0,
+        11.0
+      ],
+      "exchange": [
+        0.5,
+        0.7
+      ],
+      "absorption": 0.6,
+      "protocol": {
+        "start": 0.0,
+        "end": 12.0,
+        "samples": [],
+        "events": [
+          {
+            "kind": "bolus",
+            "time": 0.0,
+            "target": 0,
+            "amount": 20.0
+          },
+          {
+            "kind": "infusion",
+            "time": 1.0,
+            "target": 1,
+            "amount": 15.0,
+            "duration": 6.0
+          },
+          {
+            "kind": "infusion",
+            "time": 2.0,
+            "target": 1,
+            "amount": 8.0,
+            "duration": 2.0
+          },
+          {
+            "kind": "bolus",
+            "time": 8.0,
+            "target": 1,
+            "amount": 3.0
+          },
+          {
+            "kind": "reset",
+            "time": 3.0,
+            "target": 1,
+            "value": 2.0,
+            "order": 0,
+            "active_inputs": "stop_target"
+          }
+        ],
+        "rtol": 1e-10,
+        "atol": 1e-12
+      },
+      "expected": [
+        0.014942872303932295,
+        2.89562589261308,
+        11.111981933606947,
+        17.62096558331397
+      ]
+    }
+  ]
+}

@@ -74,4 +74,22 @@ fn qspquest_execute(
     .map_err(invalid)?;
     serde_json::to_string(&value).map_err(invalid)
 }
-extendr_module! {mod qspquest; fn qspquest_compile; fn qspquest_execute;}
+#[extendr]
+fn qspquest_fit_gamma_poisson(request: &str) -> NativeResult<String> {
+    bounded(request)?;
+    let request: qspquest_core::discrete_fit::GammaPoissonFitRequest =
+        serde_json::from_str(request).map_err(invalid)?;
+    let result =
+        qspquest_modeling::discrete_fit::fit_gamma_poisson(&request).map_err(scientific)?;
+    serde_json::to_string(&result).map_err(invalid)
+}
+#[extendr]
+fn qspquest_fit_probit_normal_binomial(request: &str) -> NativeResult<String> {
+    bounded(request)?;
+    let request: qspquest_core::probit_fit::ProbitNormalBinomialFitRequest =
+        serde_json::from_str(request).map_err(invalid)?;
+    let result = qspquest_modeling::probit_normal::fit_probit_normal_binomial(&request)
+        .map_err(scientific)?;
+    serde_json::to_string(&result).map_err(invalid)
+}
+extendr_module! {mod qspquest; fn qspquest_compile; fn qspquest_execute; fn qspquest_fit_gamma_poisson; fn qspquest_fit_probit_normal_binomial;}

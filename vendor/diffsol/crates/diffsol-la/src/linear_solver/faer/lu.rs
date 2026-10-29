@@ -49,21 +49,36 @@ impl<T: FaerScalar> PackedLu<T> {
         }
     }
 
-    fn solve_in_place(&self, rhs: faer::MatMut<'_, T>, par: Par) {
+    fn solve_in_place(&self, rhs: faer::MatMut<'_, T>, par: Par, transpose: bool) {
         let n = self.lu.nrows();
         let k = rhs.ncols();
-        solve::solve_in_place_with_conj(
-            self.lu.rb(),
-            self.lu.rb(),
-            self.row.rb(),
-            self.col.rb(),
-            Conj::No,
-            rhs,
-            par,
-            MemStack::new(&mut MemBuffer::new(
-                solve::solve_in_place_scratch::<usize, T>(n, k, par),
-            )),
-        );
+        if transpose {
+            solve::solve_transpose_in_place_with_conj(
+                self.lu.rb(),
+                self.lu.rb(),
+                self.row.rb(),
+                self.col.rb(),
+                Conj::No,
+                rhs,
+                par,
+                MemStack::new(&mut MemBuffer::new(
+                    solve::solve_transpose_in_place_scratch::<usize, T>(n, k, par),
+                )),
+            );
+        } else {
+            solve::solve_in_place_with_conj(
+                self.lu.rb(),
+                self.lu.rb(),
+                self.row.rb(),
+                self.col.rb(),
+                Conj::No,
+                rhs,
+                par,
+                MemStack::new(&mut MemBuffer::new(
+                    solve::solve_in_place_scratch::<usize, T>(n, k, par),
+                )),
+            );
+        }
     }
 }
 
@@ -107,19 +122,11 @@ impl<T: FaerScalar> LinearSolver<FaerMat<T>> for LU<T> {
     }
 
     fn solve_in_place(&self, x: &mut FaerVec<T>) -> Result<(), LaError> {
-        if self.lu.is_empty() {
-            return Err(linear_solver_error!(LuNotInitialized));
-        }
-        x.context
-            .assert_broadcastable_into(self.lu.len(), "lu_solve");
-        let par = x.context.par;
-        let nlu = self.lu.len();
-        let nb = x.data.ncols();
-        for batch in 0..nb {
-            self.lu[broadcast_batch(batch, nlu, nb)]
-                .solve_in_place(x.data.rb_mut().col_mut(batch).as_mat_mut(), par);
-        }
-        Ok(())
+        self.solve_in_place_impl(x, false)
+    }
+
+    fn solve_transpose_in_place(&self, x: &mut FaerVec<T>) -> Result<(), LaError> {
+        self.solve_in_place_impl(x, true)
     }
 
     fn set_sparsity<C: LinearOp<T = T, V = FaerVec<T>, M = FaerMat<T>, C = FaerContext>>(
@@ -133,36 +140,41 @@ impl<T: FaerScalar> LinearSolver<FaerMat<T>> for LU<T> {
     }
 }
 
+impl<T: FaerScalar> LU<T> {
+    fn solve_in_place_impl(&self, x: &mut FaerVec<T>, transpose: bool) -> Result<(), LaError> {
+        if self.lu.is_empty() {
+            return Err(linear_solver_error!(LuNotInitialized));
+        }
+        x.context
+            .assert_broadcastable_into(self.lu.len(), "lu_solve");
+        let par = x.context.par;
+        let nlu = self.lu.len();
+        let nb = x.data.ncols();
+        for batch in 0..nb {
+            self.lu[broadcast_batch(batch, nlu, nb)].solve_in_place(
+                x.data.rb_mut().col_mut(batch).as_mat_mut(),
+                par,
+                transpose,
+            );
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        linear_solver::tests::{diagonal_op, test_grouped_lu_solve, test_narrow_state_lu_solve},
-        Vector,
-    };
 
-    #[test]
-    fn test_lu() {
-        let mut s = LU::<f64>::default();
-        let op = diagonal_op::<FaerMat<f64>>(2.0);
-        s.set_sparsity(&op);
-        s.set_linearisation(&op);
-        let b = FaerVec::from_vec(vec![2.0, 4.0], Default::default());
-        let x = s.solve(&b).unwrap();
-        x.assert_eq_st(
-            &FaerVec::from_vec(vec![1.0, 2.0], Default::default()),
-            1e-10,
-        );
-    }
-
-    #[test]
-    fn test_grouped_lu() {
-        test_grouped_lu_solve::<FaerMat<f64>, LU<f64>>(FaerContext::with_nbatch(2));
-    }
-
-    #[test]
-    #[should_panic(expected = "incompatible nbatch")]
-    fn test_narrow_state_lu() {
-        test_narrow_state_lu_solve::<FaerMat<f64>, LU<f64>>(FaerContext::with_nbatch(2));
-    }
+    crate::linear_solver::generate_lu_tests!(
+        f64,
+        FaerMat<f64>,
+        LU<f64>,
+        FaerContext::with_nbatch(2)
+    );
+    crate::linear_solver::generate_lu_tests!(
+        f32,
+        FaerMat<f32>,
+        LU<f32>,
+        FaerContext::with_nbatch(2)
+    );
 }

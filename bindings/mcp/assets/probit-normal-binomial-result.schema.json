@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "FitStatus": {
+      "enum": [
+        "converged",
+        "evaluation_limit",
+        "iteration_limit",
+        "line_search_failed"
+      ],
+      "type": "string"
+    },
+    "ProbitNormalResultSchema": {
+      "enum": [
+        "qspquest.probit-normal-binomial-result/v0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "active_bounds": {
+      "items": {
+        "format": "uint",
+        "minimum": 0.0,
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "algorithm": {
+      "type": "string"
+    },
+    "compiler_source_sha256": {
+      "type": "string"
+    },
+    "evaluations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "fit_request_hash": {
+      "type": "string"
+    },
+    "iterations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "means": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "negative_log_likelihood": {
+      "format": "double",
+      "type": "number"
+    },
+    "observations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "projected_gradient_norm": {
+      "format": "double",
+      "type": "number"
+    },
+    "quadrature_evaluations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "schema": {
+      "$ref": "#/definitions/ProbitNormalResultSchema"
+    },
+    "sds": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/definitions/FitStatus"
+    }
+  },
+  "required": [
+    "active_bounds",
+    "algorithm",
+    "compiler_source_sha256",
+    "evaluations",
+    "fit_request_hash",
+    "iterations",
+    "means",
+    "negative_log_likelihood",
+    "observations",
+    "projected_gradient_norm",
+    "quadrature_evaluations",
+    "schema",
+    "sds",
+    "status"
+  ],
+  "title": "ProbitNormalBinomialFitResult",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

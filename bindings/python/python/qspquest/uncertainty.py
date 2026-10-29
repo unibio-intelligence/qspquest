@@ -55,13 +55,32 @@ def profile_likelihood(
     if values[0] < specs[parameter]["lower"] or values[-1] > specs[parameter]["upper"]:
         fail("profile grid exceeds fitted parameter bounds")
     budget = Budget(max_simulations)
+    integer(max_iterations, "max_iterations", 1, 10000)
+    fit_parameters, fit_error = deepcopy(parameters), deepcopy(error)
+    initial = None
+    if max_iterations > 1:
+        initial = fit_data(
+            model,
+            run,
+            observations_data,
+            parameters,
+            error,
+            max_iterations=min(50, max_iterations // 2),
+            _budget=budget,
+        )
+        for name, item in fit_parameters.items():
+            item["initial"] = initial["parameters"][name]["value"]
+        for key in ("additive", "proportional"):
+            if isinstance(fit_error.get(key), dict):
+                fit_error[key]["initial"] = initial["error"][key]
     optimum = fit_data(
         model,
         run,
         observations_data,
-        parameters,
-        error,
-        max_iterations=max_iterations,
+        fit_parameters,
+        fit_error,
+        max_iterations=max_iterations - (initial["iterations"] if initial else 0),
+        method="Powell",
         _budget=budget,
     )
     if optimum["status"] != "converged":
@@ -87,6 +106,7 @@ def profile_likelihood(
                     remaining,
                     starting_error,
                     max_iterations=max_iterations,
+                    method="Powell",
                     _budget=budget,
                 )
                 objective, status = fitted["objective"], fitted["status"]
@@ -183,6 +203,7 @@ def profile_likelihood(
             else "incomplete"
         ),
         "profile": records,
+        "initial_fit": initial,
         "unrestricted_fit": optimum,
         "simulations": budget.used,
         "identity": identity(

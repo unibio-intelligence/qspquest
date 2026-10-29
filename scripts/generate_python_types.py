@@ -12,6 +12,8 @@ SCHEMAS = (
     'morris-request', 'morris-result', 'scan-request', 'scan-result',
     'steady-state-request', 'steady-state-result',
     'cycle-iteration-request', 'cycle-iteration-result',
+    'gamma-poisson-fit', 'discrete-fit-result',
+    'probit-normal-binomial-fit', 'probit-normal-binomial-result',
 )
 PRIMITIVES = {'string': 'str', 'number': 'float', 'integer': 'int',
               'boolean': 'bool', 'null': 'None'}

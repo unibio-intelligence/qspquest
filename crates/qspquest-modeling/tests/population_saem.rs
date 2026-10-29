@@ -1,3 +1,4 @@
+mod fixture_support;
 use qspquest_core::{
     expression::{Binary, Expr, Function},
     fit::*,
@@ -1117,7 +1118,8 @@ fn saem_recovers_lognormal_population_on_synthetic_pk() {
     assert!(diagnostics.accepted_proposals <= diagnostics.evaluated_proposals);
     assert!(diagnostics.evaluated_proposals <= result.evaluations - 4 * request.subjects.len());
     if result.iterations > 0 {
-        let last = result.iterations - 1;
+        assert!(diagnostics.marginal_refinement_iterations < result.iterations);
+        let last = result.iterations - diagnostics.marginal_refinement_iterations - 1;
         let expected_gain = if last < diagnostics.burn_in_iterations {
             1.0
         } else {
@@ -1721,4 +1723,195 @@ fn rodas5p_population_dispatch_preserves_objective_and_solver_identity() {
         bdf.objective,
         rodas.objective
     );
+}
+
+#[test]
+fn saem_one_effect_reports_only_its_actual_mixing_axis() {
+    let (compiled, request) = fixture();
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged, "{result:?}");
+    let d = result.saem_diagnostics.unwrap();
+    let acceptance = d.post_burn_acceptance_by_axis.unwrap();
+    let minimum = d.post_burn_min_subject_acceptance_by_axis.unwrap();
+    let lag = d.post_burn_max_lag_one_correlation_by_axis.unwrap();
+    assert_eq!((acceptance.len(), minimum.len(), lag.len()), (1, 1, 1));
+    assert!((0.05..=0.95).contains(&acceptance[0]));
+    assert!(minimum[0] > 0. && minimum[0] <= acceptance[0]);
+    assert!(lag[0].is_finite() && (0.0..=0.9).contains(&lag[0]));
+    assert!(d.post_burn_max_subject_stall_iterations.unwrap() <= 100);
+    assert!(result.evaluations <= request.max_evaluations);
+}
+
+#[test]
+fn saem_one_effect_does_not_invent_pre_burn_mixing_evidence() {
+    let (compiled, mut request) = fixture();
+    request.max_evaluations = 4 * request.subjects.len();
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::EvaluationLimit);
+    let d = result.saem_diagnostics.unwrap();
+    assert!(d.post_burn_acceptance_by_axis.is_none());
+    assert!(d.post_burn_min_subject_acceptance_by_axis.is_none());
+    assert!(d.post_burn_max_subject_stall_iterations.is_none());
+    assert!(d.post_burn_max_lag_one_correlation_by_axis.is_none());
+}
+
+#[test]
+fn two_effect_late_sampling_retains_observed_covariance_budget() {
+    let (compiled, _) = fresh_joint_gaussian(false, false, 0);
+    let request: PopulationFitRequest = serde_json::from_str(&fixture_support::text(
+        include_bytes!("fixtures/gaussian_two_effect_budget_921073.json.gz"),
+    ))
+    .unwrap();
+    assert_eq!(request.max_evaluations, 200_000);
+    assert_eq!(request.max_iterations, 1200);
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged);
+    assert!(result.evaluations <= request.max_evaluations);
+    assert!(result.iterations <= request.max_iterations);
+    let uncertainty = result.uncertainty.as_ref().unwrap();
+    assert_eq!(uncertainty.parameters.len(), 5);
+    assert_eq!(uncertainty.covariance.len(), 5);
+    assert!(uncertainty
+        .standard_errors
+        .iter()
+        .all(|s| s.is_finite() && *s > 0.));
+    let diagnostics = result.saem_diagnostics.as_ref().unwrap();
+    assert!(diagnostics
+        .post_burn_acceptance_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| (0.05..=0.95).contains(v)));
+    assert!(diagnostics
+        .post_burn_min_subject_acceptance_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| *v > 0.));
+    assert!(diagnostics.post_burn_max_subject_stall_iterations.unwrap() <= 100);
+    assert!(diagnostics
+        .post_burn_max_lag_one_correlation_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| *v <= 0.9));
+}
+
+#[test]
+fn fixed_residual_boundary_mixing_tracks_the_changed_population_prior() {
+    let (compiled, _) = fresh_joint_gaussian(false, false, 0);
+    let cases: Vec<serde_json::Value> = serde_json::from_str(&fixture_support::text(
+        include_bytes!("fixtures/near_boundary_prior_updates.json.gz"),
+    ))
+    .unwrap();
+    for case in cases {
+        let request: PopulationFitRequest =
+            serde_json::from_value(case["request"].clone()).unwrap();
+        assert_eq!(request.max_evaluations, 200_000);
+        assert_eq!(request.max_iterations, 1200);
+        let result = compiled.fit_population_saem(&request).unwrap();
+        assert_eq!(
+            result.status,
+            FitStatus::Converged,
+            "case {}: {:?}",
+            case["index"],
+            result
+        );
+        assert!(result.evaluations <= request.max_evaluations);
+        let diagnostics = result.saem_diagnostics.unwrap();
+        assert!(diagnostics
+            .post_burn_acceptance_by_axis
+            .unwrap()
+            .iter()
+            .all(|v| (0.05..=0.95).contains(v)));
+        assert!(diagnostics
+            .post_burn_min_subject_acceptance_by_axis
+            .unwrap()
+            .iter()
+            .all(|v| *v > 0.));
+        assert!(diagnostics.post_burn_max_subject_stall_iterations.unwrap() <= 100);
+        assert!(diagnostics
+            .post_burn_max_lag_one_correlation_by_axis
+            .unwrap()
+            .iter()
+            .all(|v| *v <= 0.9));
+    }
+}
+
+#[test]
+fn dense_correlated_gaussian_covariance_respects_work_budget() {
+    let fixture: serde_json::Value = serde_json::from_str(&fixture_support::text(include_bytes!(
+        "fixtures/gaussian_two_effect_covariance_dense_931039.json.gz"
+    )))
+    .unwrap();
+    let model = qspquest_modeling::language::parse(fixture["model_source"].as_str().unwrap())
+        .unwrap()
+        .document;
+    let mut request: PopulationFitRequest =
+        serde_json::from_value(fixture["request_template"].clone()).unwrap();
+    let names = request
+        .fixed_effects
+        .iter()
+        .map(|p| p.parameter.clone())
+        .collect::<Vec<_>>();
+    let compiled = CompiledSensitivityDocument::compile(&model, &names).unwrap();
+    let template = request.subjects[0].clone();
+    request.subjects = fixture["observations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            let values = row.as_array().unwrap();
+            let mut subject = template.clone();
+            assert_eq!(values.len(), subject.observations.len());
+            for (observation, value) in subject.observations.iter_mut().zip(values) {
+                observation.value.value = value.as_f64().unwrap();
+            }
+            subject
+        })
+        .collect();
+    assert_eq!(request.subjects.len(), 64);
+    assert!(request.subjects.iter().all(|s| s.observations.len() == 8));
+    assert_eq!(request.max_evaluations, 200_000);
+    assert_eq!(request.max_iterations, 1200);
+    assert_eq!(request.seed, 932016);
+    assert!(request.uncertainty);
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged);
+    assert!(result.evaluations <= request.max_evaluations);
+    assert!(result.iterations <= request.max_iterations);
+    let uncertainty = result.uncertainty.as_ref().unwrap();
+    assert_eq!(uncertainty.parameters.len(), 5);
+    assert_eq!(uncertainty.covariance.len(), 5);
+    assert!(uncertainty
+        .covariance
+        .iter()
+        .flatten()
+        .all(|x| x.is_finite()));
+    assert!(uncertainty
+        .standard_errors
+        .iter()
+        .all(|x| x.is_finite() && *x > 0.));
+    let reference = fixture["independent_mle_normalized_ofv"].as_f64().unwrap();
+    assert!((result.objective - reference).abs() <= 0.001);
+    let diagnostics = result.saem_diagnostics.as_ref().unwrap();
+    assert!(diagnostics
+        .post_burn_acceptance_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| (0.05..=0.95).contains(v)));
+    assert!(diagnostics
+        .post_burn_min_subject_acceptance_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| *v > 0.));
+    assert!(diagnostics.post_burn_max_subject_stall_iterations.unwrap() <= 100);
+    assert!(diagnostics
+        .post_burn_max_lag_one_correlation_by_axis
+        .as_ref()
+        .unwrap()
+        .iter()
+        .all(|v| *v <= 0.9));
 }

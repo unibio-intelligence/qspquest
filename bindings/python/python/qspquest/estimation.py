@@ -111,7 +111,7 @@ def fit_data(
             options={
                 "maxiter": max_iterations,
                 "ftol": tolerance,
-                **({"gtol": tolerance} if method == "L-BFGS-B" else {}),
+                **({"gtol": tolerance} if method == "L-BFGS-B" else {"xtol": tolerance}),
             },
         )
         status = "converged" if fitted.success else "iteration_limit"

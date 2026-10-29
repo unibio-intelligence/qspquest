@@ -1,5 +1,7 @@
+use super::step_ad::check_step_vjp_inputs;
 use crate::error::DiffsolError;
 use crate::error::OdeSolverError;
+use crate::ode_solver::sdirk_state::RkStepRecord;
 use crate::op::sdirk::SdirkCallable;
 use crate::scale;
 use crate::AugmentedOdeEquationsImplicit;
@@ -9,9 +11,10 @@ use crate::RkState;
 use crate::RootFinder;
 use crate::Tableau;
 use crate::{
-    ode_solver_error, AugmentedOdeEquations, Convergence, DefaultDenseMatrix, DenseMatrix,
-    LinearOp, LinearSolver, NonLinearOp, NonLinearSolver, OdeEquations, OdeSolverProblem,
-    OdeSolverState, Op, Scalar, Vector, VectorViewMut,
+    ode_solver_error, AugmentedOdeEquations, Context, Convergence, DefaultDenseMatrix, DenseMatrix,
+    LinearOp, LinearSolver, NonLinearOp, NonLinearOpAdjoint, NonLinearOpSensAdjoint,
+    NonLinearSolver, OdeEquations, OdeEquationsImplicitAdjoint, OdeSolverProblem, OdeSolverState,
+    Op, Scalar, Vector, VectorViewMut,
 };
 use crate::{TableauMat, TableauVec};
 use log::info;
@@ -19,9 +22,10 @@ use log::trace;
 use num_traits::{abs, FromPrimitive, One, ToPrimitive, Zero};
 
 use super::jacobian_update::SolverState;
-use super::method::{check_interpolate_shape, check_interpolate_time};
+use super::method::{check_interpolate_bounds, check_interpolate_shape, check_interpolate_time};
 use super::pi_controller::pi_controller_raw;
 use super::OdeSolverStatistics;
+use std::collections::HashMap;
 use std::ops::{MulAssign, SubAssign};
 
 // Five evaluations combine Gauss-3 and Gauss-2; their difference has local order five.
@@ -34,6 +38,19 @@ struct RosenbrockOutput<T: Scalar> {
     weights: TableauVec<T>,
     error_weights: TableauVec<T>,
     beta: TableauMat<T>,
+}
+
+/// Work vectors for pulling a cotangent back through a step (see [Rk::vjp_start]), for
+/// cotangents of one lane count. The cotangent's own `dy` is free while the stages are pulled
+/// back, and serves as a third: a scratch vector for the stage solve, then `-J^T w`.
+#[derive(Clone)]
+struct RkVjpWork<V> {
+    /// The value of the current stage, with the lanes of the state.
+    y_i: V,
+    /// The solution `w` of the current stage's transposed solve.
+    w: V,
+    /// `-f_p^T w` at the current stage.
+    fpt_w: V,
 }
 
 /// A Runge-Kutta method.
@@ -52,16 +69,19 @@ where
 {
     problem: &'a OdeSolverProblem<Eqn>,
     tableau: Tableau<Eqn::T>,
-    state: Box<RkState<Eqn::V>>,
+    /// The state, whose `diff` holds the stage increments of the step that ended there, which
+    /// interpolation reads.
+    state: Box<RkState<Eqn::V, M>>,
     statistics: OdeSolverStatistics,
     root_finder: Option<RootFinder<Eqn::V>>,
     tstop: Option<Eqn::T>,
-    diff: M,
     sdiff: M,
     sgdiff: M,
     gdiff: M,
     rosenbrock_output: Option<Box<RosenbrockOutput<Eqn::T>>>,
-    old_state: Box<RkState<Eqn::V>>,
+    /// The state at the start of the last step, and the scratch state the next step attempt is
+    /// built in, stage increments included, until it is accepted and swapped with `state`.
+    old_state: Box<RkState<Eqn::V, M>>,
     is_state_mutated: bool,
 
     error: Option<Eqn::V>,
@@ -70,6 +90,15 @@ where
     sens_out_error: Option<Eqn::V>,
 
     prev_error_norm: Option<Eqn::T>,
+
+    /// Work vectors for pulling a cotangent back through a step, keyed by the lane count of the
+    /// cotangents.
+    vjp_work: HashMap<usize, RkVjpWork<Eqn::V>>,
+    /// The lane count of the cotangent being pulled back, set by [Self::vjp_start].
+    vjp_lanes: usize,
+    /// Column `i` holds the coefficients of stage `i`'s value relative to the end of the step,
+    /// for [Self::vjp_stage_value]: see [Self::stage_coeffs_from_end].
+    vjp_stage_value_coeffs: TableauMat<Eqn::T>,
 }
 
 impl<'a, Eqn, M> Drop for Rk<'a, Eqn, M>
@@ -99,7 +128,6 @@ where
             root_finder: self.root_finder.clone(),
             tstop: self.tstop,
             is_state_mutated: self.is_state_mutated,
-            diff: self.diff.clone(),
             sdiff: self.sdiff.clone(),
             sgdiff: self.sgdiff.clone(),
             gdiff: self.gdiff.clone(),
@@ -109,6 +137,9 @@ where
             sens_error: self.sens_error.clone(),
             sens_out_error: self.sens_out_error.clone(),
             prev_error_norm: self.prev_error_norm,
+            vjp_work: HashMap::new(),
+            vjp_lanes: 0,
+            vjp_stage_value_coeffs: self.vjp_stage_value_coeffs,
         }
     }
 }
@@ -121,7 +152,7 @@ where
 {
     pub(crate) fn new(
         problem: &'a OdeSolverProblem<Eqn>,
-        state: RkState<Eqn::V>,
+        state: RkState<Eqn::V, M>,
         tableau: Tableau<Eqn::T>,
     ) -> Result<Self, DiffsolError> {
         Self::_new(problem, state, tableau, true)
@@ -129,7 +160,7 @@ where
 
     fn _new(
         problem: &'a OdeSolverProblem<Eqn>,
-        mut state: RkState<Eqn::V>,
+        mut state: RkState<Eqn::V, M>,
         tableau: Tableau<Eqn::T>,
         integrate_main_eqn: bool,
     ) -> Result<Self, DiffsolError> {
@@ -144,6 +175,13 @@ where
         let ctx = problem.context();
 
         state.set_problem(problem)?;
+        // Hermite interpolation needs two endpoint derivative columns.
+        let diff_cols = if tableau.rosenbrock().is_some() && tableau.beta_t().is_none() {
+            order.max(2)
+        } else {
+            order
+        };
+        state.set_nstages(diff_cols);
         let root_finder = if integrate_main_eqn {
             problem.eqn.root().map(|root_fn| {
                 let root_finder =
@@ -155,13 +193,6 @@ where
             None
         };
 
-        // Hermite interpolation needs two endpoint derivative columns, even for a one-stage method.
-        let diff_cols = if tableau.rosenbrock().is_some() && tableau.beta_t().is_none() {
-            order.max(2)
-        } else {
-            order
-        };
-        let diff = M::zeros(nstates, diff_cols, ctx.clone());
         let gdiff_rows = if problem.integrate_out {
             problem.eqn.out().unwrap().nout()
         } else {
@@ -199,7 +230,6 @@ where
             root_finder,
             tstop: None,
             is_state_mutated: false,
-            diff,
             gdiff,
             rosenbrock_output: (tableau.rosenbrock().is_some() && problem.integrate_out).then(
                 || {
@@ -218,12 +248,15 @@ where
             sens_error: None,
             sens_out_error: None,
             prev_error_norm: None,
+            vjp_work: HashMap::new(),
+            vjp_lanes: 0,
+            vjp_stage_value_coeffs: Self::stage_coeffs_from_end(&tableau),
         })
     }
 
     pub(crate) fn new_augmented<AugmentedEqn: AugmentedOdeEquations<Eqn>>(
         problem: &'a OdeSolverProblem<Eqn>,
-        state: RkState<Eqn::V>,
+        state: RkState<Eqn::V, M>,
         tableau: Tableau<Eqn::T>,
         augmented_eqn: &AugmentedEqn,
     ) -> Result<Self, DiffsolError> {
@@ -376,6 +409,26 @@ where
         Ok(())
     }
 
+    /// The coefficients of the stages relative to the end of a step, a stiffly accurate one's
+    /// `y`: column `i` holds `c_ij` such that `y + sum_j c_ij K_j` is stage `i`'s value `Y_i`.
+    /// With `y0 = y - sum_j b_j K_j`, `c_ij = a_ij - b_j` for `j <= i`, and `-b_j` otherwise.
+    fn stage_coeffs_from_end(tableau: &Tableau<Eqn::T>) -> TableauMat<Eqn::T> {
+        let s = tableau.s();
+        let b = tableau.b();
+        let mut coeffs = TableauMat::zeros(s, s);
+        for i in 0..s {
+            for (j, c) in coeffs.as_col_slice_mut(i).iter_mut().enumerate() {
+                let a_ij = if j <= i {
+                    tableau.a(i, j)
+                } else {
+                    Eqn::T::zero()
+                };
+                *c = a_ij - b[j];
+            }
+        }
+        coeffs
+    }
+
     pub(crate) fn tableau(&self) -> &Tableau<Eqn::T> {
         &self.tableau
     }
@@ -388,17 +441,23 @@ where
         &mut self.statistics
     }
 
-    pub(crate) fn set_state(&mut self, state: RkState<Eqn::V>) {
+    pub(crate) fn set_state(&mut self, state: RkState<Eqn::V, M>) {
         self.is_state_mutated = true;
         *self.state = state;
+        let nstages = if self.tableau.rosenbrock().is_some() && self.tableau.beta_t().is_none() {
+            self.tableau.s().max(2)
+        } else {
+            self.tableau.s()
+        };
+        self.state.set_nstages(nstages);
     }
 
-    pub(crate) fn into_state(mut self) -> RkState<Eqn::V> {
+    pub(crate) fn into_state(mut self) -> RkState<Eqn::V, M> {
         let ctx = self.problem().eqn.context().clone();
         *std::mem::replace(&mut self.state, Box::new(RkState::new_empty(ctx)))
     }
 
-    pub(crate) fn checkpoint(&mut self) -> RkState<Eqn::V> {
+    pub(crate) fn checkpoint(&mut self) -> RkState<Eqn::V, M> {
         (*self.state).clone()
     }
 
@@ -410,11 +469,11 @@ where
         self.problem
     }
 
-    pub(crate) fn state(&self) -> &RkState<Eqn::V> {
+    pub(crate) fn state(&self) -> &RkState<Eqn::V, M> {
         &self.state
     }
 
-    pub(crate) fn state_mut(&mut self) -> &mut RkState<Eqn::V> {
+    pub(crate) fn state_mut(&mut self) -> &mut RkState<Eqn::V, M> {
         self.is_state_mutated = true;
         &mut self.state
     }
@@ -446,6 +505,8 @@ where
             None
         };
         let state = self.state_mut();
+        // the state is no longer the end of the recorded step
+        state.last_step = None;
         state.y.copy_from(&y);
         state.dy.copy_from(&dy);
         state.t = t;
@@ -543,7 +604,8 @@ where
         // from the last stage of the previous step
         if self.skip_first_stage() {
             trace!("Skipping first stage, setting to h * dy from previous step");
-            self.diff
+            self.old_state
+                .diff
                 .column_mut(0)
                 .axpy(h, &self.state.dy, Eqn::T::zero());
 
@@ -580,24 +642,20 @@ where
             .map(|eqn| eqn.integrate_main_eqn())
             .unwrap_or(true);
         if integrate_main_eqn {
-            self.old_state.y.copy_from(&self.state.y);
-            self.diff.gemv_cols(
+            let new = &mut *self.old_state;
+            new.y.copy_from(&self.state.y);
+            new.diff.gemv_cols(
                 0,
                 i,
                 Eqn::T::one(),
                 self.tableau.stage_coeffs(i),
                 Eqn::T::one(),
-                &mut self.old_state.y,
+                &mut new.y,
             );
 
             // update diff with solved dy
-            self.problem
-                .eqn
-                .rhs()
-                .call_inplace(&self.old_state.y, t, &mut self.old_state.dy);
-            self.diff
-                .column_mut(i)
-                .axpy(h, &self.old_state.dy, Eqn::T::zero());
+            self.problem.eqn.rhs().call_inplace(&new.y, t, &mut new.dy);
+            new.diff.column_mut(i).axpy(h, &new.dy, Eqn::T::zero());
 
             // calculate dg and store in gdiff
             if self.problem.integrate_out {
@@ -688,7 +746,7 @@ where
             self.state.t + self.tableau.c()[i] * h
         };
         self.old_state.y.copy_from(&self.state.y);
-        self.diff.gemv_cols(
+        self.old_state.diff.gemv_cols(
             0,
             i,
             Eqn::T::one(),
@@ -704,7 +762,7 @@ where
         for (j, w) in weights.as_mut_slice().iter_mut().enumerate() {
             *w = row.coupling[(i, j)] / h;
         }
-        self.diff.gemv_cols(
+        self.old_state.diff.gemv_cols(
             0,
             i,
             Eqn::T::one(),
@@ -726,7 +784,10 @@ where
         }
         linear_solver.solve_in_place(&mut self.old_state.dy)?;
         self.old_state.dy *= scale(row.gamma * h);
-        self.diff.column_mut(i).copy_from(&self.old_state.dy);
+        self.old_state
+            .diff
+            .column_mut(i)
+            .copy_from(&self.old_state.dy);
         Ok(())
     }
 
@@ -748,7 +809,7 @@ where
         Eqn: OdeEquationsImplicit,
     {
         self.old_state.y.copy_from(&self.state.y);
-        self.diff.gemv_cols(
+        self.old_state.diff.gemv_cols(
             0,
             self.tableau.s(),
             Eqn::T::one(),
@@ -778,7 +839,7 @@ where
             // DAEs retain the derivative of the qualified continuous extension.
             let weights =
                 Self::interpolate_beta_weights_deriv(Eqn::T::one(), beta, Eqn::T::one() / h);
-            self.diff.gemv_cols(
+            self.old_state.diff.gemv_cols(
                 0,
                 weights.len(),
                 Eqn::T::one(),
@@ -812,18 +873,20 @@ where
             && finite_vector(&self.old_state.dy)
             && finite_vector(&self.old_state.g)
             && finite_vector(&self.old_state.dg)
-            && finite_matrix(&self.diff)
+            && finite_matrix(&self.old_state.diff)
             && finite_matrix(&self.gdiff)
     }
 
     pub(crate) fn store_rosenbrock_hermite_derivatives(&mut self, h: Eqn::T) {
         if self.tableau.beta_t().is_none() {
             // Existing Hermite interpolation expects endpoint derivatives scaled by h.
-            self.diff
+            self.old_state
+                .diff
                 .column_mut(0)
                 .axpy(h, &self.state.dy, Eqn::T::zero());
-            self.diff
-                .column_mut(self.diff.ncols() - 1)
+            self.old_state
+                .diff
+                .column_mut(self.old_state.diff.ncols() - 1)
                 .axpy(h, &self.old_state.dy, Eqn::T::zero());
         }
     }
@@ -846,7 +909,12 @@ where
                 self.tableau.beta_t().unwrap(),
                 Eqn::T::one(),
             );
-            Self::interpolate_from_diff(&self.state.y, weights.as_slice(), &self.diff, scratch);
+            Self::interpolate_from_diff(
+                &self.state.y,
+                weights.as_slice(),
+                &self.old_state.diff,
+                scratch,
+            );
             out.call_inplace(scratch, self.state.t + theta * h, &mut self.old_state.dg);
             self.gdiff
                 .column_mut(i)
@@ -895,38 +963,33 @@ where
         beta
     }
 
-    pub(crate) fn do_stage_sdirk<AugEqn>(
+    /// Solve stage `i` of the main equations, if `op` is given.
+    pub(crate) fn do_stage_sdirk(
         &mut self,
         i: usize,
         h: Eqn::T,
         op: Option<&SdirkCallable<&Eqn>>,
-        mut s_op: Option<&mut SdirkCallable<AugEqn>>,
         nonlinear_solver: &mut impl NonLinearSolver<Eqn::M>,
         convergence: &mut Convergence<'a, Eqn::V>,
     ) -> Result<(), DiffsolError>
     where
         Eqn: OdeEquationsImplicit,
-        AugEqn: AugmentedOdeEquationsImplicit<Eqn>,
     {
         let t = self.state.t + self.tableau.c()[i] * h;
         // main equation
         if let Some(op) = op {
+            let new = &mut *self.old_state;
             op.set_phi(
                 Eqn::T::one(),
-                &self.diff,
+                &new.diff,
                 i,
                 &self.state.y,
                 self.tableau.stage_coeffs(i),
             );
-            Self::predict_stage_sdirk(
-                i,
-                h,
-                &self.state.dy,
-                &self.diff,
-                &mut self.old_state.dy,
-                &self.tableau,
-            );
+            Self::predict_stage_sdirk(i, h, &self.state.dy, &new.diff, &mut new.dy, &self.tableau);
             if !nonlinear_solver.is_jacobian_set() {
+                // at the state at the start of the step, as a Jacobian update would
+                op.refresh_rhs_jacobian(&self.state.y, self.state.t);
                 nonlinear_solver.reset_jacobian(op, &self.state.y, t);
                 self.statistics
                     .record_linear_solver_setup(SolverState::Checkpoint);
@@ -936,7 +999,7 @@ where
                 &mut self.old_state.dy,
                 t,
                 &self.state.y,
-                //&self.diff.column(0).into_owned(),
+                //&self.old_state.diff.column(0).into_owned(),
                 convergence,
             );
             self.statistics.number_of_nonlinear_solver_iterations += convergence.niter();
@@ -944,7 +1007,8 @@ where
             op.get_f_eval(&self.old_state.dy, &mut self.old_state.y);
 
             // update diff with solved dy
-            self.diff.column_mut(i).copy_from(&self.old_state.dy);
+            let new = &mut *self.old_state;
+            new.diff.column_mut(i).copy_from(&new.dy);
 
             // calculate dg and store in gdiff
             if self.problem.integrate_out {
@@ -956,58 +1020,73 @@ where
             }
         }
 
-        // calculate sensitivities
-        if let Some(ref mut op) = s_op {
-            // update for new state
-            op.eqn_mut()
-                .update_rhs_out_state(&self.old_state.y, &self.old_state.dy, t);
+        Ok(())
+    }
 
-            // solve for the sensitivity equations discretised using the sdirk equation, every
-            // channel at once
-            op.set_phi(
-                Eqn::T::one(),
-                &self.sdiff,
-                i,
-                &self.state.s,
-                self.tableau.stage_coeffs(i),
-            );
-            Self::predict_stage_sdirk(
-                i,
-                h,
-                &self.state.ds,
-                &self.sdiff,
-                &mut self.old_state.ds,
-                &self.tableau,
-            );
+    /// Solve stage `i` of the augmented equations, after the main equations' stage `i` (if any)
+    /// has been solved by [Self::do_stage_sdirk].
+    pub(crate) fn do_stage_sdirk_sens<AugEqn>(
+        &mut self,
+        i: usize,
+        h: Eqn::T,
+        op: &mut SdirkCallable<AugEqn>,
+        nonlinear_solver: &mut impl NonLinearSolver<Eqn::M>,
+        convergence: &mut Convergence<'a, Eqn::V>,
+    ) -> Result<(), DiffsolError>
+    where
+        Eqn: OdeEquationsImplicit,
+        AugEqn: AugmentedOdeEquationsImplicit<Eqn>,
+    {
+        let t = self.state.t + self.tableau.c()[i] * h;
+        // update for new state
+        op.eqn_mut()
+            .update_rhs_out_state(&self.old_state.y, &self.old_state.dy, t);
 
-            if !nonlinear_solver.is_jacobian_set() {
-                nonlinear_solver.reset_jacobian::<SdirkCallable<AugEqn>>(op, &self.old_state.s, t);
-                self.statistics
-                    .record_linear_solver_setup(SolverState::Checkpoint);
-            }
+        // solve for the sensitivity equations discretised using the sdirk equation, every
+        // channel at once
+        op.set_phi(
+            Eqn::T::one(),
+            &self.sdiff,
+            i,
+            &self.state.s,
+            self.tableau.stage_coeffs(i),
+        );
+        Self::predict_stage_sdirk(
+            i,
+            h,
+            &self.state.ds,
+            &self.sdiff,
+            &mut self.old_state.ds,
+            &self.tableau,
+        );
 
-            // solve every channel at once against the already-factorised Jacobian, which is
-            // shared by all channels
-            let solver_result = nonlinear_solver.solve_in_place(
-                *op,
-                &mut self.old_state.ds,
-                t,
-                &self.state.s,
-                convergence,
-            );
-            self.statistics.number_of_nonlinear_solver_iterations += convergence.niter();
-            solver_result?;
+        if !nonlinear_solver.is_jacobian_set() {
+            nonlinear_solver.reset_jacobian::<SdirkCallable<AugEqn>>(op, &self.old_state.s, t);
+            self.statistics
+                .record_linear_solver_setup(SolverState::Checkpoint);
+        }
 
-            op.get_f_eval(&self.old_state.ds, &mut self.old_state.s);
-            self.sdiff.column_mut(i).copy_from(&self.old_state.ds);
+        // solve every channel at once against the already-factorised Jacobian, which is
+        // shared by all channels
+        let solver_result = nonlinear_solver.solve_in_place(
+            op,
+            &mut self.old_state.ds,
+            t,
+            &self.state.s,
+            convergence,
+        );
+        self.statistics.number_of_nonlinear_solver_iterations += convergence.niter();
+        solver_result?;
 
-            // calculate sdg and store in sgdiff
-            if let Some(out) = op.eqn().out() {
-                out.call_inplace(&self.old_state.s, t, &mut self.old_state.dsg);
-                self.sgdiff
-                    .column_mut(i)
-                    .axpy(h, &self.old_state.dsg, Eqn::T::zero());
-            }
+        op.get_f_eval(&self.old_state.ds, &mut self.old_state.s);
+        self.sdiff.column_mut(i).copy_from(&self.old_state.ds);
+
+        // calculate sdg and store in sgdiff
+        if let Some(out) = op.eqn().out() {
+            out.call_inplace(&self.old_state.s, t, &mut self.old_state.dsg);
+            self.sgdiff
+                .column_mut(i)
+                .axpy(h, &self.old_state.dsg, Eqn::T::zero());
         }
         Ok(())
     }
@@ -1052,7 +1131,7 @@ where
         let s = self.tableau.s();
         let mut error_norm = Eqn::T::zero();
         if let Some(error) = self.error.as_mut() {
-            self.diff.gemv_cols(
+            self.old_state.diff.gemv_cols(
                 0,
                 s,
                 Eqn::T::one(),
@@ -1155,16 +1234,17 @@ where
     pub(crate) fn solve_fail(
         &mut self,
         h: Eqn::T,
+        nonlinear_failures: usize,
         min_timestep: Eqn::T,
         max_nonlinear_solver_fails: usize,
     ) -> Result<(), DiffsolError> {
         self.statistics.number_of_nonlinear_solver_fails += 1;
         // if too many nonlinear solver failures, then fail
-        if self.statistics.number_of_nonlinear_solver_fails > max_nonlinear_solver_fails {
+        if nonlinear_failures > max_nonlinear_solver_fails {
             return Err(DiffsolError::from(
                 OdeSolverError::TooManyNonlinearSolverFailures {
                     time: self.state.t.to_f64().unwrap(),
-                    num_failures: max_nonlinear_solver_fails,
+                    num_failures: nonlinear_failures,
                 },
             ));
         }
@@ -1224,6 +1304,10 @@ where
         }
 
         // take the step
+        self.old_state.last_step = Some(RkStepRecord {
+            t0: self.state.t,
+            h,
+        });
         self.old_state.t = end;
         self.old_state.h = new_h;
         if rescale_dy {
@@ -1260,6 +1344,17 @@ where
 
         // just a normal step, no roots or tstop reached
         Ok(OdeSolverStopReason::InternalTimestep)
+    }
+
+    /// The fraction of the way through the step from `t0` to `t1` that `t` lies, at which the
+    /// interpolant is evaluated: one for a step of zero length.
+    fn interpolate_theta(t: M::T, t0: M::T, t1: M::T) -> M::T {
+        let dt = t1 - t0;
+        if dt == M::T::zero() {
+            M::T::one()
+        } else {
+            (t - t0) / dt
+        }
     }
 
     fn interpolate_from_diff(y0: &M::V, beta_f: &[M::T], diff: &M, ret: &mut M::V) {
@@ -1405,23 +1500,23 @@ where
             return Ok(());
         }
 
-        let dt = self.state.t - self.old_state.t;
-        let theta = if dt == M::T::zero() {
-            M::T::one()
-        } else {
-            (t - self.old_state.t) / dt
-        };
+        let theta = Self::interpolate_theta(t, self.old_state.t, self.state.t);
         let scale_diff = Eqn::T::one();
         if let Some(beta_t) = self.tableau.beta_t() {
             let beta_f = Self::interpolate_beta_weights(theta, beta_t, scale_diff);
-            Self::interpolate_from_diff(&self.old_state.y, beta_f.as_slice(), &self.diff, ret);
+            Self::interpolate_from_diff(
+                &self.old_state.y,
+                beta_f.as_slice(),
+                &self.state.diff,
+                ret,
+            );
         } else {
             Self::interpolate_hermite(
                 scale_diff,
                 theta,
                 &self.old_state.y,
                 &self.state.y,
-                &self.diff,
+                &self.state.diff,
                 ret,
             );
         }
@@ -1451,13 +1546,14 @@ where
             dy.copy_from(&self.state.dy);
             return Ok(());
         }
+        // dt is non-zero here, so this is Self::interpolate_theta without its zero check
         let theta = (t - self.old_state.t) / dt;
         let scale_diff = Eqn::T::one();
         if let Some(beta_t) = self.tableau.beta_t() {
             // dy/dt = (scale_diff / dt) * diff * d_beta_f, with the scalar folded into the
             // weights so no extra pass is needed
             let d_beta_f = Self::interpolate_beta_weights_deriv(theta, beta_t, scale_diff / dt);
-            self.diff.gemv_cols(
+            self.state.diff.gemv_cols(
                 0,
                 d_beta_f.len(),
                 M::T::one(),
@@ -1472,7 +1568,7 @@ where
                 dt,
                 &self.old_state.y,
                 &self.state.y,
-                &self.diff,
+                &self.state.diff,
                 dy,
             );
         }
@@ -1497,12 +1593,7 @@ where
             return Ok(());
         }
 
-        let dt = self.state.t - self.old_state.t;
-        let theta = if dt == M::T::zero() {
-            M::T::one()
-        } else {
-            (t - self.old_state.t) / dt
-        };
+        let theta = Self::interpolate_theta(t, self.old_state.t, self.state.t);
         let scale_diff = Eqn::T::one();
         if let Some(beta_t) = self
             .rosenbrock_output
@@ -1547,12 +1638,7 @@ where
             return Ok(());
         }
 
-        let dt = self.state.t - self.old_state.t;
-        let theta = if dt == M::T::zero() {
-            M::T::one()
-        } else {
-            (t - self.old_state.t) / dt
-        };
+        let theta = Self::interpolate_theta(t, self.old_state.t, self.state.t);
         let scale_diff = Eqn::T::one();
         if let Some(beta_t) = self.tableau.beta_t() {
             let beta_f = Self::interpolate_beta_weights(theta, beta_t, scale_diff);
@@ -1568,6 +1654,238 @@ where
             );
         }
         Ok(())
+    }
+}
+
+impl<'a, Eqn, M> Rk<'a, Eqn, M>
+where
+    Eqn: OdeEquationsImplicitAdjoint,
+    M: DenseMatrix<V = Eqn::V, T = Eqn::T, C = Eqn::C>,
+    Eqn::V: DefaultDenseMatrix<T = Eqn::T, C = Eqn::C>,
+{
+    /// Check the inputs of [crate::StepVjp::step_vjp], and return the record of the step that
+    /// ended at `end`: `end` is the end of a step, the cotangent has the sizes of `end` and
+    /// `p_bar` has `nparams` elements, the cotangent's lanes are a whole number of directions for
+    /// each lane of `end`, and `p_bar` has exactly as many.
+    pub(crate) fn vjp_check_inputs(
+        &self,
+        end: &RkState<Eqn::V, M>,
+        cotangent: &RkState<Eqn::V, M>,
+        p_bar: &Eqn::V,
+    ) -> Result<RkStepRecord<Eqn::T>, DiffsolError> {
+        let step = end
+            .last_step
+            .ok_or(ode_solver_error!(NoStepToDifferentiate))?;
+        check_step_vjp_inputs(
+            (&end.y, &end.dy, &end.diff),
+            self.tableau.s(),
+            (&cotangent.y, &cotangent.dy, &cotangent.diff),
+            (
+                "the parameter cotangent",
+                p_bar,
+                self.problem.eqn.rhs().nparams(),
+            ),
+        )?;
+        Ok(step)
+    }
+
+    // VJP methods
+    // ===========
+    //
+    // Pulling a cotangent back through a step, the reverse of [Self::start_step_attempt],
+    // [Self::do_stage] / [Self::do_stage_sdirk] and [Self::step_accepted]. As in the forward
+    // step, the solver owns the loop over the stages:
+    //
+    // - [Self::vjp_start] folds in the cotangent of the step's outputs,
+    // - then for each stage from the last down to the first computed one (not a first stage
+    //   taken from `dy`), [Self::vjp_stage_rhs] gives the right-hand side `k_bar` of the stage's
+    //   transposed solve `(M - a_ii h J_i)^T w = k_bar` in `w`, which the solver solves in
+    //   place (an explicit stage has `w = k_bar`), and [Self::vjp_stage_inputs] pulls `w` back
+    //   to the earlier stages, the start of the step and the parameters,
+    // - and [Self::vjp_finish] reads out the cotangent at the start of the step.
+    //
+    // The stages solve `M K_i = h f(Y_i, t_i)` for their increments `K_i = diff[:, i]`, with
+    // `Y_i = y0 + sum_{j <= i} a_ij K_j` and `t_i = t0 + c_i h`, and the step's outputs are
+    // `y = y0 + sum_j b_j K_j` and `dy = K_{s-1} / h`. A method whose first stage is explicit
+    // takes `K_0 = h dy0` from the start of the step instead.
+
+    /// The weights `w_j - b_j` of the stage increments `K_j` in the value at `theta` of the
+    /// interpolant of a step, relative to the end of the step: `y(theta) = y + sum_j (w_j - b_j) K_j`,
+    /// where `y(theta) = y0 + sum_j w_j K_j` and `y = y0 + sum_j b_j K_j`, so that y0 is never
+    /// formed.
+    fn interpolate_weights_from_end(&self, theta: Eqn::T) -> TableauVec<Eqn::T> {
+        let one = Eqn::T::one();
+        let s = self.tableau.s();
+        let b = self.tableau.b().as_slice();
+        let mut w = match self.tableau.beta_t() {
+            Some(beta_t) => Self::interpolate_beta_weights(theta, beta_t, one),
+            None => {
+                // [Self::interpolate_hermite] is c_u0 y0 + c_u1 y + c_f0 K_0 + c_f1 K_{s-1},
+                // with c_u0 + c_u1 = 1, so its weight on the increments through y is c_u1 b_j
+                let two = Eqn::T::from_f64(2.0).unwrap();
+                let bubble = theta * (theta - one);
+                let c_u1 = theta + bubble * (one - two * theta);
+                let mut w = TableauVec::zeros(s);
+                for (w_j, b_j) in w.as_mut_slice().iter_mut().zip(b) {
+                    *w_j = c_u1 * *b_j;
+                }
+                w.as_mut_slice()[0] += bubble * (theta - one);
+                w.as_mut_slice()[s - 1] += bubble * theta;
+                w
+            }
+        };
+        for (w_j, b_j) in w.as_mut_slice().iter_mut().zip(b) {
+            *w_j -= *b_j;
+        }
+        w
+    }
+
+    /// [crate::StepVjp::interpolate_vjp] for the Runge-Kutta solvers. The interpolant is taken
+    /// relative to the end of the step (see [Self::interpolate_weights_from_end]), so the
+    /// cotangent is added to `c.y` and to `c.diff`, the cotangent of the stage increments.
+    pub(crate) fn interpolate_vjp(
+        &self,
+        end: &RkState<Eqn::V, M>,
+        t: Eqn::T,
+        y_bar: &Eqn::V,
+        c: &mut RkState<Eqn::V, M>,
+    ) -> Result<(), DiffsolError> {
+        let step = end
+            .last_step
+            .ok_or(ode_solver_error!(NoStepToDifferentiate))?;
+        check_step_vjp_inputs(
+            (&end.y, &end.dy, &end.diff),
+            self.tableau.s(),
+            (&c.y, &c.dy, &c.diff),
+            (
+                "the cotangent of the interpolated value",
+                y_bar,
+                end.y.len(),
+            ),
+        )?;
+        // the bounds and theta of the forward interpolation straight after the step
+        check_interpolate_bounds(t, end.t, step.h, Some(step.t0))?;
+        let theta = Self::interpolate_theta(t, step.t0, end.t);
+        let w = self.interpolate_weights_from_end(theta);
+        let one = Eqn::T::one();
+        c.y.axpy(one, y_bar, one);
+        c.diff
+            .ger_cols(0, self.tableau.s(), one, w.as_slice(), y_bar);
+        Ok(())
+    }
+
+    /// Start pulling the cotangent `c` at `end` back through the step `step` that ended there:
+    /// fold the cotangents of the step's outputs into those of the stage increments, `c.diff`
+    /// (added to what it holds, the cotangent of the increments themselves, as from
+    /// [Self::interpolate_vjp]), with `c.y` left as the cotangent of the start of the step.
+    pub(crate) fn vjp_start(
+        &mut self,
+        step: RkStepRecord<Eqn::T>,
+        end: &RkState<Eqn::V, M>,
+        c: &mut RkState<Eqn::V, M>,
+        p_bar: &Eqn::V,
+    ) {
+        let one = Eqn::T::one();
+        let s = self.tableau.s();
+        let b = self.tableau.b();
+
+        self.vjp_lanes = c.y.context().nbatch();
+        self.vjp_work.entry(self.vjp_lanes).or_insert_with(|| {
+            let state = |v: &Eqn::V| Eqn::V::zeros(v.len(), v.context().clone());
+            RkVjpWork {
+                y_i: state(&end.y),
+                w: state(&c.y),
+                fpt_w: state(p_bar),
+            }
+        });
+
+        // y_bar stays as the cotangent of y0, and the increments get b_j y_bar, and dy_bar / h
+        // for the last one, added to any cotangent they already carry
+        c.diff.ger_cols(0, s, one, b.as_slice(), &c.y);
+        c.diff.column_mut(s - 1).axpy(one / step.h, &c.dy, one);
+    }
+
+    /// The time of stage `i` of the step `step`, as the forward step computed it.
+    pub(crate) fn vjp_stage_time(&self, i: usize, step: RkStepRecord<Eqn::T>) -> Eqn::T {
+        step.t0 + self.tableau.c()[i] * step.h
+    }
+
+    /// The right-hand side `k_bar` of stage `i`'s transposed solve, written into `w`, the first
+    /// vector returned, for the solver to solve for in place. The second is a free vector of the
+    /// same shape (the cotangent's `dy`, which [Self::vjp_start] has folded in), for a solve that
+    /// needs `k_bar` alongside its iterate.
+    pub(crate) fn vjp_stage_rhs<'s>(
+        &'s mut self,
+        i: usize,
+        c: &'s mut RkState<Eqn::V, M>,
+    ) -> (&'s mut Eqn::V, &'s mut Eqn::V) {
+        let work = self.vjp_work.get_mut(&self.vjp_lanes).unwrap();
+        work.w.copy_from_view(&c.diff.column(i));
+        (&mut work.w, &mut c.dy)
+    }
+
+    /// The value `Y_i` of stage `i` of the step that ended at `end`, which the forward step
+    /// evaluated f at, for [Self::vjp_stage_inputs]. It is taken relative to the end of the step
+    /// so that y0 is never formed.
+    pub(crate) fn vjp_stage_value(&mut self, i: usize, end: &RkState<Eqn::V, M>) -> &Eqn::V {
+        let work = self.vjp_work.get_mut(&self.vjp_lanes).unwrap();
+        work.y_i.copy_from(&end.y);
+        end.diff.gemv_cols(
+            0,
+            self.tableau.s(),
+            Eqn::T::one(),
+            self.vjp_stage_value_coeffs.as_col_slice(i),
+            Eqn::T::one(),
+            &mut work.y_i,
+        );
+        &work.y_i
+    }
+
+    /// Pull the solution `w` of stage `i`'s transposed solve back through `h f(Y_i, t_i; p)`,
+    /// with `Y_i` as [Self::vjp_stage_value] last computed it: to the earlier stages'
+    /// increments and the start of the step through `Y_i`, and to the parameters, added to
+    /// `p_bar`.
+    pub(crate) fn vjp_stage_inputs(
+        &mut self,
+        i: usize,
+        step: RkStepRecord<Eqn::T>,
+        c: &mut RkState<Eqn::V, M>,
+        p_bar: &mut Eqn::V,
+    ) {
+        let one = Eqn::T::one();
+        let h = step.h;
+        let t_i = self.vjp_stage_time(i, step);
+        let rhs = self.problem.eqn.rhs();
+        let work = self.vjp_work.get_mut(&self.vjp_lanes).unwrap();
+
+        // Y_i depends on y0 and the earlier increments with cotangent h J_i^T w, and p with
+        // cotangent h f_p^T w. The ops give the negated transposes; c.dy holds -J_i^T w
+        rhs.jac_transpose_mul_inplace(&work.y_i, t_i, &work.w, &mut c.dy);
+        c.y.axpy(-h, &c.dy, one);
+        c.diff
+            .ger_cols(0, i, -h, self.tableau.stage_coeffs(i), &c.dy);
+        rhs.sens_transpose_mul_inplace(&work.y_i, t_i, &work.w, &mut work.fpt_w);
+        p_bar.axpy(-h, &work.fpt_w, one);
+    }
+
+    /// Finish pulling the cotangent back: on return it is carried by `y` and `dy` (`diff` is
+    /// zero), as the cotangents of the state and, for a first stage taken from it, its
+    /// derivative at the start of the step.
+    pub(crate) fn vjp_finish(&self, step: RkStepRecord<Eqn::T>, c: &mut RkState<Eqn::V, M>) {
+        let zero = Eqn::T::zero();
+        // a first stage taken from the start of the step, K_0 = h dy0
+        if self.skip_first_stage() {
+            c.dy.copy_from_view(&c.diff.column(0));
+            c.dy.mul_assign(scale(step.h));
+        } else {
+            c.dy.fill(zero);
+        }
+        c.diff.fill(zero);
+
+        // the cotangent now sits at the start of the step
+        c.t = step.t0;
+        c.h = step.h;
+        c.last_step = None;
     }
 }
 

@@ -11,10 +11,18 @@ pub mod faer_serial;
 pub mod nalgebra_serial;
 
 #[cfg(feature = "cuda")]
+#[allow(deprecated)]
 pub mod cuda;
 
 #[cfg(feature = "cuda-oxide")]
 pub mod cuda_oxide;
+
+/// Below this many contiguous elements the host backends' `fill`s write element by element
+/// rather than as one slice `fill`: LLVM turns a contiguous fill into a `memset_pattern16`
+/// call on macOS, which costs more than a few stores (`lin_alg_ops fill/<backend>/2` and
+/// `fill_batched/<backend>/3`).
+#[cfg(any(feature = "faer", feature = "nalgebra"))]
+pub(crate) const SHORT_FILL_LEN: usize = 8;
 
 /// A trait for types that represent a collection of indices into a vector.
 ///
@@ -502,6 +510,37 @@ pub trait Vector:
         Self::reduce_elem_host(dest, args, init, map, combine);
     }
 
+    /// The dot product with `other`, summed over every element of every batch lane. `other`
+    /// broadcasts into this vector's lanes, as in [`Self::reduce_elem`]. The per-lane sums are
+    /// added on the host, which on a device backend means a copy back to the host each call:
+    /// meant for tests and checks rather than inner loops.
+    fn dot(&self, other: &Self) -> Self::T {
+        let mut lanes = Self::zeros(1, self.context().clone());
+        Self::reduce_elem(
+            &mut lanes,
+            [self, other],
+            Self::T::zero(),
+            |[a, b], _lane, i| a[i] * b[i],
+            |a, b| a + b,
+        );
+        lanes
+            .clone_as_vec()
+            .into_iter()
+            .fold(Self::T::zero(), |acc, x| acc + x)
+    }
+
+    /// A deterministic pseudo-random vector of length `nstates` with the lanes of `ctx`, for
+    /// tests: element `i` of lane `b` is `sin((b * nstates + i + 1) * seed)`. The values are
+    /// irregular, so a dot test can't pass by symmetry, and different seeds give different
+    /// vectors.
+    fn rand(nstates: usize, seed: f64, ctx: Self::C) -> Self {
+        let n = nstates * ctx.nbatch();
+        let values = (0..n)
+            .map(|k| num_traits::FromPrimitive::from_f64(((k + 1) as f64 * seed).sin()).unwrap())
+            .collect();
+        Self::from_vec(values, ctx)
+    }
+
     /// Copy all values from `other` into this vector.
     fn copy_from(&mut self, other: &Self);
 
@@ -562,6 +601,14 @@ pub trait Vector:
     fn assert_eq_st(&self, other: &Self, tol: Self::T) {
         let tol = vec![tol; self.total_len()];
         Self::assert_eq_vec(self.clone_as_vec(), other.clone_as_vec(), tol);
+    }
+
+    /// Assert that this vector equals `other` within `factor` machine epsilons of `Self::T`.
+    fn assert_eq_eps(&self, other: &Self, factor: f64) {
+        self.assert_eq_st(
+            other,
+            Self::T::EPSILON * num_traits::FromPrimitive::from_f64(factor).unwrap(),
+        );
     }
 
     /// Assert that this vector equals `other` using a weighted norm (same as used by ODE solvers).
@@ -706,6 +753,14 @@ macro_rules! generate_vector_tests_nonbatched {
                 $crate::vector::tests::test_reduce_unbatched::<$V>();
             }
             #[test]
+            fn [<test_dot_ $suffix>]() {
+                $crate::vector::tests::test_dot::<$V>();
+            }
+            #[test]
+            fn [<test_rand_ $suffix>]() {
+                $crate::vector::tests::test_rand::<$V>();
+            }
+            #[test]
             fn [<test_set_index_ $suffix>]() {
                 $crate::vector::tests::test_set_index::<$V>();
             }
@@ -846,6 +901,14 @@ macro_rules! generate_vector_tests_batched {
             #[test]
             fn [<test_batched_from_element_ $suffix>]() {
                 $crate::vector::tests::test_batched_from_element::<$V>($ctx3);
+            }
+            #[test]
+            fn [<test_batched_dot_ $suffix>]() {
+                $crate::vector::tests::test_batched_dot::<$V>($ctx2);
+            }
+            #[test]
+            fn [<test_batched_rand_ $suffix>]() {
+                $crate::vector::tests::test_batched_rand::<$V>($ctx2);
             }
             #[test]
             fn [<test_batched_axpy_ $suffix>]() {
@@ -1315,6 +1378,11 @@ pub(crate) mod tests {
         xs.iter().map(|&x| f::<V>(x)).collect()
     }
 
+    /// `factor` machine epsilons of `V::T`.
+    fn eps<V: Vector>(factor: f64) -> V::T {
+        V::T::EPSILON * f::<V>(factor)
+    }
+
     /// `Index`/`IndexMut` operator syntax: only the host backends offer it, so this isn't wired
     /// into the shared (CUDA-inclusive) macro suite.
     pub fn test_host_only<V>()
@@ -1379,6 +1447,28 @@ pub(crate) mod tests {
         assert_eq!(y.clone_as_vec(), fv::<V>(&[8.0, 10.0, 12.0]));
     }
 
+    pub fn test_dot<V: Vector>() {
+        let a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0]), Default::default());
+        let b = V::from_vec(fv::<V>(&[4.0, -5.0, 6.0]), Default::default());
+        assert_eq!(a.dot(&b), f::<V>(12.0));
+        assert_eq!(
+            V::zeros(0, Default::default()).dot(&V::zeros(0, Default::default())),
+            f::<V>(0.0)
+        );
+    }
+
+    pub fn test_rand<V: Vector>() {
+        let v = V::rand(3, 0.5, Default::default());
+        assert_eq!(
+            v.clone_as_vec(),
+            fv::<V>(&[0.5f64.sin(), 1.0f64.sin(), 1.5f64.sin()])
+        );
+        assert_ne!(
+            v.clone_as_vec(),
+            V::rand(3, 0.7, Default::default()).clone_as_vec()
+        );
+    }
+
     pub fn test_copy_from_indices<V: Vector>() {
         let mut v1 = V::zeros(5, Default::default());
         let v2 = V::from_vec(fv::<V>(&[10.0, 20.0, 30.0, 40.0, 50.0]), Default::default());
@@ -1426,14 +1516,14 @@ pub(crate) mod tests {
         let v = V::from_vec(fv::<V>(&[3.0, 4.0]), Default::default());
         let norm = v.norm(2);
         let diff = norm - f::<V>(5.0);
-        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+        assert!(num_traits::abs(diff) < eps::<V>(100.0));
     }
 
     pub fn test_norm_l1<V: Vector>() {
         let v = V::from_vec(fv::<V>(&[3.0, -4.0]), Default::default());
         let norm = v.norm(1);
         let diff = norm - f::<V>(7.0);
-        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+        assert!(num_traits::abs(diff) < eps::<V>(100.0));
     }
 
     pub fn test_squared_norm<V: Vector>() {
@@ -1446,7 +1536,7 @@ pub(crate) mod tests {
         let err0 = f::<V>(1.0) / denom;
         let err1 = f::<V>(2.0) / denom;
         let expected = (err0 * err0 + err1 * err1) / f::<V>(2.0);
-        assert!(num_traits::abs(norm - expected) < f::<V>(1e-12));
+        assert!(num_traits::abs(norm - expected) < eps::<V>(100.0));
     }
 
     pub fn test_fill<V: Vector>() {
@@ -1599,7 +1689,7 @@ pub(crate) mod tests {
         let err0 = f::<V>(1.0) / denom;
         let err1 = f::<V>(2.0) / denom;
         let expected = (err0 * err0 + err1 * err1) / f::<V>(2.0);
-        assert!(num_traits::abs(norm - expected) < f::<V>(1e-12));
+        assert!(num_traits::abs(norm - expected) < eps::<V>(100.0));
     }
 
     pub fn test_view_into_owned<V: Vector>() {
@@ -1673,6 +1763,27 @@ pub(crate) mod tests {
         assert_eq!(v.clone_as_vec(), fv::<V>(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
     }
 
+    /// Over every lane, with a single-lane `other` broadcast into them.
+    pub fn test_batched_dot<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let a = V::from_vec(fv::<V>(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), ctx.clone());
+        let b = V::from_vec(fv::<V>(&[1.0, 0.0, -1.0, 2.0, 1.0, 0.5]), ctx);
+        assert_eq!(a.dot(&b), f::<V>(1.0 - 3.0 + 8.0 + 5.0 + 3.0));
+        let c = V::from_vec(fv::<V>(&[1.0, 1.0, 1.0]), Default::default());
+        assert_eq!(a.dot(&c), f::<V>(21.0));
+    }
+
+    /// Each lane continues the sequence of the one before.
+    pub fn test_batched_rand<V: Vector>(ctx: V::C) {
+        assert_eq!(ctx.nbatch(), 2);
+        let v = V::rand(3, 0.5, ctx);
+        assert_eq!(v.len(), 3);
+        assert_eq!(
+            v.clone_as_vec(),
+            V::rand(6, 0.5, Default::default()).clone_as_vec()
+        );
+    }
+
     #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
     pub fn test_batched_from_vec_bad_length<V: Vector>(ctx: V::C) {
         assert_eq!(ctx.nbatch(), 2);
@@ -1712,7 +1823,7 @@ pub(crate) mod tests {
         let v = V::from_vec(fv::<V>(&[1.0, 0.0, 0.0, 3.0]), ctx);
         let norm = v.norm(2);
         let diff = norm - f::<V>(3.0);
-        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+        assert!(num_traits::abs(diff) < eps::<V>(100.0));
     }
 
     #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
@@ -1722,7 +1833,7 @@ pub(crate) mod tests {
         let norm = v.norm(1);
         // batch0: |1|+|-2| = 3, batch1: |3|+|0| = 3, max = 3
         let diff = norm - f::<V>(3.0);
-        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+        assert!(num_traits::abs(diff) < eps::<V>(100.0));
     }
 
     #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
@@ -1738,7 +1849,7 @@ pub(crate) mod tests {
         let err4 = f::<V>(4.0) / denom;
         let batch1 = (err3 * err3 + err4 * err4) / f::<V>(2.0);
         let diff = norm - batch1;
-        assert!(num_traits::abs(diff) < f::<V>(1e-12));
+        assert!(num_traits::abs(diff) < eps::<V>(100.0));
     }
 
     #[cfg_attr(not(feature = "cuda"), allow(dead_code))]
@@ -2018,7 +2129,7 @@ pub(crate) mod tests {
         let mut sums_host = V::zeros(1, ctx);
         V::reduce_elem(&mut sums, [&x], f::<V>(0.0), pick, sum);
         V::reduce_elem_host(&mut sums_host, [&x], f::<V>(0.0), pick, sum);
-        sums.assert_eq_st(&sums_host, f::<V>(1e-9));
+        sums.assert_eq_eps(&sums_host, 100.0);
     }
 
     /// The host reductions take `FnMut`, so a closure may carry state across calls.

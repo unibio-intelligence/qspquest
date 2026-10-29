@@ -772,6 +772,8 @@ fn fit_free_additive(
     };
     let (theta, omega, sigma) = decode(x);
     Ok(PopulationFitResult {
+        fixed_effect_intervals: None,
+        fixed_effect_interval_error: None,
         status,
         fixed_effects: BTreeMap::from([(
             setup.parameter.clone(),
@@ -1047,6 +1049,8 @@ impl CompiledSensitivityDocument {
             None
         };
         Ok(PopulationFitResult {
+            fixed_effect_intervals: None,
+            fixed_effect_interval_error: None,
             status,
             fixed_effects: BTreeMap::from([(
                 setup.parameter.clone(),

@@ -50,6 +50,7 @@ operators!(Function {
     Floor,
     Ceil,
     Hill,
+    InverseGaussianDensity,
     Ifelse
 });
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

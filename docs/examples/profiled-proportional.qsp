@@ -1,0 +1,13 @@
+model profiled_normal
+time_unit = h
+parameters
+ theta = 1.8 [mg/L] estimated
+ decay = 1 [1/h] fixed
+states
+ unused = 1 [1]
+dynamics
+ d/dt(unused) = -decay * unused
+outputs
+ y1 = theta [mg/L]
+ y2 = 2 * theta [mg/L]
+end

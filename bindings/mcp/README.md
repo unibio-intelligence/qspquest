@@ -186,7 +186,7 @@ names such as `max_iterations` do not make a quantity into a workload option.
 | Serialized request | 1000000 UTF-8 bytes | 1000000 UTF-8 bytes |
 | Run solver callbacks / events / output values | 1000000 / 10000 / 25000000 | 1000000 / 10000 / 25000000 |
 | Aggregate solver callbacks / events / output values | 25000000 / 250000 / 625000000 | 25000000 / 250000 / 625000000 |
-| Optimizer evaluations / iterations | 100000 / 10000 | 2000 / 300 |
+| Optimizer evaluations / iterations | 100000 / 10000; native two-effect SAEM permits an explicit 200000 evaluations | 2000 / 300 |
 | Population subjects / combined observations | 128 / 10000 | 16 / 256 |
 | Native population random effects | At most 2 | At most 2 |
 
@@ -597,3 +597,7 @@ requests in one response. It also batches advertised inspection resources for
 one model-content hash. Select 1 to 32 total items within the 40,000-byte budget
 and use `expected_inspection_hash` to refuse changed content. See the complete
 [selection example](../../docs/tutorials/mcp-result-resources.md#select-exact-outputs-scenarios-and-inspection-resources).
+
+Profiled proportional-error fitting accepts a complete native `fit_request`
+through `fit_individual`; `fit_population` also accepts this request for existing
+clients. See the [profiled-error tutorial](../../docs/tutorials/profiled-proportional-errors.md).

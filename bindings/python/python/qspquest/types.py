@@ -7,10 +7,13 @@ from typing import Literal, TypedDict, Union
 AccuracyControl = Literal['local', 'sampled']
 ActiveInputs = Literal['continue', 'stop_target']
 Delivery = Union['Delivery1', 'Delivery2']
-FitProblem = Union['FitProblem1', 'FitProblem2', 'FitProblem3', 'FitProblem4', 'FitProblem5']
+DiscreteFitResultSchema = Literal['qspquest.discrete-fit-result/v0.1']
+ErrorCode = Literal['invalid_input', 'unit', 'unknown_unit', 'type', 'unknown_symbol', 'expression_limit', 'unsupported', 'domain', 'invariant', 'solver', 'work_budget', 'output_budget']
+FitProblem = Union['FitProblem1', 'FitProblem2', 'FitProblem3', 'FitProblem4', 'FitProblem5', 'FitProblem6']
 FitResultSchema = Literal['qspquest.fit-result/v0.1']
 FitSchema = Literal['qspquest.fit/v0.1']
 FitStatus = Literal['converged', 'evaluation_limit', 'iteration_limit', 'line_search_failed']
+GammaPoissonFitSchema = Literal['qspquest.gamma-poisson-fit/v0.1']
 GaussianCensoring = Literal['left']
 GaussianErrorModel = Literal['normal', 'lognormal']
 InfusionSpan = Union['InfusionSpan1', 'InfusionSpan2']
@@ -21,6 +24,9 @@ ObservationSide = Literal['pre', 'post']
 PeriodicTimeBasis = Literal['cycle_phase']
 PopulationObjectiveKind = Union[Literal['laplace_negative_log_likelihood', 'saem_complete_data_surrogate'], Literal['focei_objective_function_value'], Literal['saem_marginal_objective_function_value']]
 PopulationUncertaintyMethod = Union[Literal['focei_observed_outer_hessian'], Literal['saem_marginal_observed_hessian']]
+PositiveFixedEffectIntervalMethod = Literal['positive_fixed_effect_log_wald_delta_v1']
+ProbitNormalFitSchema = Literal['qspquest.probit-normal-binomial-fit/v0.1']
+ProbitNormalResultSchema = Literal['qspquest.probit-normal-binomial-result/v0.1']
 ResultSchema = Literal['qspquest.result/v0.1']
 RunSchema = Literal['qspquest.run/v0.1']
 ScalarFitResultSchema = Literal['qspquest.scalar-fit-result/v0.1']
@@ -42,10 +48,19 @@ class Administration(_AdministrationRequired, total=False):
     lag: Union[Quantity, None]
     repeat: Union[Repeat, None]
 
+class BinomialLitter(TypedDict):
+    group: int
+    successes: int
+    total: int
+
 class Budgets(TypedDict):
     events: int
     output_values: int
     solver_callbacks: int
+
+class CountExposure(TypedDict):
+    count: int
+    exposure: Quantity
 
 class CovariateChange(TypedDict):
     name: str
@@ -89,6 +104,21 @@ class Delivery2(TypedDict):
     kind: Literal['infusion']
     span: InfusionSpan
 
+class DiscreteFitResult(TypedDict):
+    active_bounds: list[str]
+    algorithm: str
+    compiler_source_sha256: str
+    evaluations: int
+    fit_request_hash: str
+    iterations: int
+    likelihood: str
+    negative_log_likelihood: float
+    observations: int
+    parameters: dict[str, Quantity]
+    projected_gradient_norm: float
+    schema: DiscreteFitResultSchema
+    status: FitStatus
+
 class ElementaryEffects(TypedDict):
     effects: list[float]
     mu: float
@@ -96,6 +126,14 @@ class ElementaryEffects(TypedDict):
     parameter: str
     sigma: float
     unit: str
+
+class _ErrorRequired(TypedDict):
+    code: ErrorCode
+    message: str
+
+class Error(_ErrorRequired, total=False):
+    expression: Union[str, None]
+    time: Union[float, None]
 
 class ExecutionIdentity(TypedDict):
     algorithm: str
@@ -122,18 +160,22 @@ class FitProblem1(TypedDict):
     request: GaussianFitRequest
 
 class FitProblem2(TypedDict):
+    kind: Literal['profiled_proportional']
+    request: GaussianFitRequest
+
+class FitProblem3(TypedDict):
     kind: Literal['pooled']
     request: PooledGaussianFitRequest
 
-class FitProblem3(TypedDict):
+class FitProblem4(TypedDict):
     kind: Literal['laplace']
     request: PopulationFitRequest
 
-class FitProblem4(TypedDict):
+class FitProblem5(TypedDict):
     kind: Literal['focei']
     request: PopulationFitRequest
 
-class FitProblem5(TypedDict):
+class FitProblem6(TypedDict):
     kind: Literal['saem']
     request: PopulationFitRequest
 
@@ -166,6 +208,18 @@ class _FitResultRequired(TypedDict):
 class FitResult(_FitResultRequired, total=False):
     fit: Union[GaussianFitResult, None]
     population: Union[PopulationFitResult, None]
+    residual_scales: Union[dict[str, float], None]
+
+class GammaPoissonFitRequest(TypedDict):
+    gradient_tolerance: float
+    initial_rate: Quantity
+    initial_shape: float
+    max_evaluations: int
+    max_iterations: int
+    observations: list[CountExposure]
+    rate_bounds: list[Quantity]
+    schema: GammaPoissonFitSchema
+    shape_bounds: list[float]
 
 class _GaussianErrorRequired(TypedDict):
     additive_sd: Quantity
@@ -386,6 +440,8 @@ class PopulationFitResult(_PopulationFitResultRequired, total=False):
     covariate_effect: Union[PopulationCovariateEffectEstimate, None]
     estimated_residual_error: Union[PopulationResidualErrorEstimate, None]
     fitted_observations: Union[list[PopulationFittedObservation], None]
+    fixed_effect_interval_error: Union[Error, None]
+    fixed_effect_intervals: Union[PositiveFixedEffectIntervals, None]
     saem_diagnostics: Union[PopulationSaemDiagnostics, None]
     uncertainty: Union[PopulationFitUncertainty, None]
 
@@ -423,6 +479,7 @@ class _PopulationSaemDiagnosticsRequired(TypedDict):
 class PopulationSaemDiagnostics(_PopulationSaemDiagnosticsRequired, total=False):
     final_relative_change: Union[float, None]
     final_step_size: Union[float, None]
+    marginal_refinement_iterations: int
     post_burn_acceptance_by_axis: Union[list[float], None]
     post_burn_max_lag_one_correlation_by_axis: Union[list[float], None]
     post_burn_max_subject_stall_iterations: Union[int, None]
@@ -436,6 +493,49 @@ class PopulationSubjectEstimate(TypedDict):
 class PopulationUncertaintyParameter(TypedDict):
     name: str
     unit: str
+
+class PositiveFixedEffectInterval(TypedDict):
+    estimate: float
+    log_coordinate_standard_error: float
+    lower: float
+    name: str
+    source_standard_error: float
+    unit: str
+    upper: float
+
+class PositiveFixedEffectIntervals(TypedDict):
+    confidence_level: float
+    critical_value: float
+    intervals: list[PositiveFixedEffectInterval]
+    method: PositiveFixedEffectIntervalMethod
+
+class ProbitNormalBinomialFitRequest(TypedDict):
+    gradient_tolerance: float
+    initial_means: list[float]
+    initial_sds: list[float]
+    max_evaluations: int
+    max_iterations: int
+    max_quadrature_evaluations: int
+    mean_bounds: list[list[float]]
+    observations: list[BinomialLitter]
+    schema: ProbitNormalFitSchema
+    sd_bounds: list[list[float]]
+
+class ProbitNormalBinomialFitResult(TypedDict):
+    active_bounds: list[int]
+    algorithm: str
+    compiler_source_sha256: str
+    evaluations: int
+    fit_request_hash: str
+    iterations: int
+    means: list[float]
+    negative_log_likelihood: float
+    observations: int
+    projected_gradient_norm: float
+    quadrature_evaluations: int
+    schema: ProbitNormalResultSchema
+    sds: list[float]
+    status: FitStatus
 
 class Quantity(TypedDict):
     unit: str

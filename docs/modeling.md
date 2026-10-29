@@ -25,6 +25,12 @@ dosing
 end
 ```
 
+Use `quantity(value, "unit")` for a physical constant in an expression, such as
+`quantity(0, "mg/h")` for a zero mass rate or `quantity(500, "mL")` in a volume
+expression. These constants retain their unit conversions in smooth forward
+sensitivities and fitting. Plain numeric literals are dimensionless, including
+zero; they cannot replace a rate with physical dimensions.
+
 Parameters, states, outputs, and doses carry explicit units. The dosing
 declaration makes `central` a valid target; `input_central` is the associated
 input in the dynamics. The full [text model](../conformance/models/synthetic-one-compartment.qsp)

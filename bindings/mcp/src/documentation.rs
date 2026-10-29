@@ -117,6 +117,18 @@ pub fn read(uri: &str) -> Option<Result<(String, String), String>> {
             )),
             "fit-request.schema.json" => Some(include_str!("../assets/fit-request.schema.json")),
             "fit-result.schema.json" => Some(include_str!("../assets/fit-result.schema.json")),
+            "discrete-fit-result.schema.json" => {
+                Some(include_str!("../assets/discrete-fit-result.schema.json"))
+            }
+            "gamma-poisson-fit.schema.json" => {
+                Some(include_str!("../assets/gamma-poisson-fit.schema.json"))
+            }
+            "probit-normal-binomial-fit.schema.json" => Some(include_str!(
+                "../assets/probit-normal-binomial-fit.schema.json"
+            )),
+            "probit-normal-binomial-result.schema.json" => Some(include_str!(
+                "../assets/probit-normal-binomial-result.schema.json"
+            )),
             "scalar-fit-request.schema.json" => {
                 Some(include_str!("../assets/scalar-fit-request.schema.json"))
             }

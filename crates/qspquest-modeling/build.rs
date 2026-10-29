@@ -47,6 +47,14 @@ fn relative_source_name(root: &Path, path: &Path) -> String {
 }
 fn main() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../..");
+    let vendor_manifest = fs::read_to_string(root.join("vendor/diffsol/crates/diffsol/Cargo.toml"))
+        .expect("vendored solver manifest");
+    let vendor_version = vendor_manifest
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("version = "))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("vendored solver package version");
+    println!("cargo:rustc-env=QSPQUEST_DIFFSOL_VERSION={vendor_version}");
     let mut files = Vec::new();
     for directory in [
         "crates/qspquest-core/src",

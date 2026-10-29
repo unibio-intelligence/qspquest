@@ -366,6 +366,49 @@ def test_general_saem_three_effects_joint_covariate_error_and_repeatability():
     assert limited["status"] == "evaluation_limit" and limited["simulations"] == 10
 
 
+@pytest.mark.parametrize("incomplete", [False, True])
+def test_vpc_report_explains_conditional_replicate_bands(tmp_path, incomplete):
+    vpc = {
+        "status": "complete",
+        "successful_replicates": 20,
+        "failed_replicates": 0,
+        "replicate_records": [],
+        "lloq_coverage": 0,
+        "total_observations": 3,
+        "time_unit": "h",
+        "unit": "mg/L",
+        "bins": [
+            {
+                "stratum": "[]",
+                "start": 0,
+                "end": 1,
+                "quantiles": [
+                    {
+                        "percentile": 0.5,
+                        "observed": 1.1,
+                        "simulated": 1.0,
+                        "confidence_interval": [0.8, 1.2],
+                    }
+                ],
+            }
+        ],
+    }
+    if incomplete:
+        vpc.update(status="incomplete", successful_replicates=18, failed_replicates=2)
+        vpc["bins"][0]["quantiles"][0]["confidence_interval"] = None
+    original = deepcopy(vpc)
+    report = tmp_path / "vpc.html"
+    write_analysis_report(report, vpc=vpc)
+    html = report.read_text()
+    assert "conditional on the supplied population parameters" in html
+    assert "do not propagate parameter-estimation uncertainty" in html
+    assert "lower replicate band p=0.5" in html
+    assert "upper replicate band p=0.5" in html
+    assert "lower CI" not in html and "upper CI" not in html
+    assert ("Replicate bands are suppressed" in html) == incomplete
+    assert vpc == original
+
+
 def test_vpc_censoring_reproducibility_and_report(tmp_path):
     m, subjects = cohort(6)
     for s in subjects:

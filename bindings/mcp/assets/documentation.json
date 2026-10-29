@@ -27,8 +27,8 @@
       "mime_type": "application/json",
       "asset": "guides/spec/capabilities.json",
       "source": "spec/capabilities.json",
-      "source_sha256": "678397402f9e9bce6445c00cf85487d9607143b4b663b11f73408d0ca8ff892d",
-      "content_sha256": "678397402f9e9bce6445c00cf85487d9607143b4b663b11f73408d0ca8ff892d",
+      "source_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
+      "content_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
       "anchors": []
     },
     {
@@ -97,6 +97,26 @@
         "python-and-browser-bindings",
         "run-the-synthetic-clearance-scan"
       ]
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/inverse-gaussian-fit.json",
+      "title": "inverse-gaussian-fit.json",
+      "mime_type": "application/json",
+      "asset": "guides/docs/examples/inverse-gaussian-fit.json",
+      "source": "docs/examples/inverse-gaussian-fit.json",
+      "source_sha256": "9866c4ebbd4af801ce6ef148c01c78edc79944284074adaff3f7799b106781ee",
+      "content_sha256": "9866c4ebbd4af801ce6ef148c01c78edc79944284074adaff3f7799b106781ee",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://documentation/files/docs/examples/inverse-gaussian.qsp",
+      "title": "inverse-gaussian.qsp",
+      "mime_type": "text/plain",
+      "asset": "guides/docs/examples/inverse-gaussian.qsp",
+      "source": "docs/examples/inverse-gaussian.qsp",
+      "source_sha256": "d009ed3b922f9b1c31f95877601728f5d123ac6e44999d8d968b88ab72907b3e",
+      "content_sha256": "d009ed3b922f9b1c31f95877601728f5d123ac6e44999d8d968b88ab72907b3e",
+      "anchors": []
     },
     {
       "uri": "qspquest://documentation/files/docs/examples/managed_artifact_download.py",
@@ -189,6 +209,18 @@
       "anchors": []
     },
     {
+      "uri": "qspquest://documentation/files/docs/tutorials/inverse-gaussian-input.md",
+      "title": "Fit a fraction with a delayed input",
+      "mime_type": "text/markdown",
+      "asset": "guides/docs/tutorials/inverse-gaussian-input.md",
+      "source": "docs/tutorials/inverse-gaussian-input.md",
+      "source_sha256": "cb9ba8ec460771b5ef6514085fb4ee7aeb1ab03090bf3b74a59efa15dd74703b",
+      "content_sha256": "80f3eef295029cb9fafbf3cab9f74ed1ac9931c68731103eb7e78bd9568634cb",
+      "anchors": [
+        "fit-a-fraction-with-a-delayed-input"
+      ]
+    },
+    {
       "uri": "qspquest://documentation/files/spec/schema/README.md",
       "title": "Generated structural schemas",
       "mime_type": "text/markdown",
@@ -226,8 +258,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/expressions.md",
       "source": "spec/expressions.md",
-      "source_sha256": "01d5964aa32ef5a23bb99ba4b4080c62ade3fa176d3e9998a00d9cb4fec80751",
-      "content_sha256": "fcdbb82d2461cc0dfa55a11fc19629f0422cf99a28d2b8c83694d7596ccb730b",
+      "source_sha256": "bf243a4909be7cb820efbf8d513c45661afe1d4b5a559a6121cf39c64d12562f",
+      "content_sha256": "9ce7c9f9d5723b6c4686555f1040c6e0df8df2980c8cfb4434edfa9357ae5887",
       "anchors": [
         "closed-expression-nodes",
         "evaluation",
@@ -369,8 +401,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/parallel-predictive-checks.md",
       "source": "docs/tutorials/parallel-predictive-checks.md",
-      "source_sha256": "5c6bed2bee389035f3ebeb7e60cb8a3f6307d0e843d9d7cfd21cd185712e9f12",
-      "content_sha256": "dbb92b6727f042a115ed6e99c5e47a474a8a824bcd364a0a3b69b9711caf779b",
+      "source_sha256": "091c1b2dbba742ef5778126e7c7ba2767b7bf9a31544da470447ce75f4482c73",
+      "content_sha256": "313866b7acd73db4a83fe20f7625e0f5a6d323876ecf4a09b93a5e67f983e400",
       "anchors": [
         "failures-cancellation-and-restart",
         "inspect-and-compare-results",
@@ -424,8 +456,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/run-results.md",
       "source": "spec/run-results.md",
-      "source_sha256": "34245d0950c787a78f855a06e96b7c02db93105a1f785a11e62ac5e3a5caa31d",
-      "content_sha256": "55188211da808096092498785efccdeaf565d673853a2e8486ef4d2f79e95c2e",
+      "source_sha256": "186466298cc33cffc71ddbfb5ce2d34a23ba9a3d90d1f1ee2008e2e701739a3e",
+      "content_sha256": "d3a5bdf7d6e40746684f66b6fd7f78c9085b12ff771fc17940c6e3e0dd47845c",
       "anchors": [
         "absolute-simulation-start",
         "canonical-hashes",
@@ -521,8 +553,8 @@
       "mime_type": "application/json",
       "asset": "capability-catalog.schema.json",
       "source": "spec/schema/capability-catalog.schema.json",
-      "source_sha256": "faea40c971338449dde605e78f2413bacf1d076ee10bdf02c887aaa026e77c2f",
-      "content_sha256": "faea40c971338449dde605e78f2413bacf1d076ee10bdf02c887aaa026e77c2f",
+      "source_sha256": "22f320f55bd434b1a7dfd883eeab0dd298010e74e0eff86950d44007a15c8062",
+      "content_sha256": "22f320f55bd434b1a7dfd883eeab0dd298010e74e0eff86950d44007a15c8062",
       "anchors": []
     },
     {
@@ -546,13 +578,23 @@
       "anchors": []
     },
     {
+      "uri": "qspquest://schema/discrete-fit-result",
+      "title": "discrete-fit-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "discrete-fit-result.schema.json",
+      "source": "spec/schema/discrete-fit-result.schema.json",
+      "source_sha256": "0f1f89afde1a18c37d8e5312ebfc09525276dc609045038e79348bfc506f566c",
+      "content_sha256": "0f1f89afde1a18c37d8e5312ebfc09525276dc609045038e79348bfc506f566c",
+      "anchors": []
+    },
+    {
       "uri": "qspquest://schema/expression",
       "title": "expression.schema.json",
       "mime_type": "application/json",
       "asset": "expression.schema.json",
       "source": "spec/schema/expression.schema.json",
-      "source_sha256": "953ff40e65d6dddd2133a4b61979e10fbe0a257144f69e352235dca26babd2a7",
-      "content_sha256": "953ff40e65d6dddd2133a4b61979e10fbe0a257144f69e352235dca26babd2a7",
+      "source_sha256": "e56975e3e7f1a4318758d10fccd5b104958580d65a2f571a0769dfe9687e6ba7",
+      "content_sha256": "e56975e3e7f1a4318758d10fccd5b104958580d65a2f571a0769dfe9687e6ba7",
       "anchors": []
     },
     {
@@ -561,8 +603,8 @@
       "mime_type": "application/json",
       "asset": "fit-request.schema.json",
       "source": "spec/schema/fit-request.schema.json",
-      "source_sha256": "3a63d949b7cbd86a0b3a6b05cec7ae33939263cfe52621773a77ba0e1f22aafe",
-      "content_sha256": "3a63d949b7cbd86a0b3a6b05cec7ae33939263cfe52621773a77ba0e1f22aafe",
+      "source_sha256": "025d5aae080b505cb2385c559b7ff04d926207cbe00fc833585506b248f803a1",
+      "content_sha256": "025d5aae080b505cb2385c559b7ff04d926207cbe00fc833585506b248f803a1",
       "anchors": []
     },
     {
@@ -571,8 +613,8 @@
       "mime_type": "application/json",
       "asset": "fit-plan.schema.json",
       "source": "spec/schema/fit-plan.schema.json",
-      "source_sha256": "cfee4cb218e26bbf13f956e8ff20c6f02d925b8b9000faed5b60480d949805a1",
-      "content_sha256": "cfee4cb218e26bbf13f956e8ff20c6f02d925b8b9000faed5b60480d949805a1",
+      "source_sha256": "dab45abfb017b63730b7113b6259494a6761a32e48714dd0f6e7d442ee524284",
+      "content_sha256": "dab45abfb017b63730b7113b6259494a6761a32e48714dd0f6e7d442ee524284",
       "anchors": []
     },
     {
@@ -581,8 +623,18 @@
       "mime_type": "application/json",
       "asset": "fit-result.schema.json",
       "source": "spec/schema/fit-result.schema.json",
-      "source_sha256": "09d0bed2db56bdb04b6d6299c10d881b2e4e4ddf05cb94cf3d461fade753ff39",
-      "content_sha256": "09d0bed2db56bdb04b6d6299c10d881b2e4e4ddf05cb94cf3d461fade753ff39",
+      "source_sha256": "c121c54e3758ea735c7c26e61003f38ca34fef4f198f3eccd2637c1b6fb930ee",
+      "content_sha256": "c121c54e3758ea735c7c26e61003f38ca34fef4f198f3eccd2637c1b6fb930ee",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/gamma-poisson-fit",
+      "title": "gamma-poisson-fit.schema.json",
+      "mime_type": "application/json",
+      "asset": "gamma-poisson-fit.schema.json",
+      "source": "spec/schema/gamma-poisson-fit.schema.json",
+      "source_sha256": "f7fbba84d35e55d41fcc4a5f39ffb4e6bbdf1feffe27f9f412f067594a39744e",
+      "content_sha256": "f7fbba84d35e55d41fcc4a5f39ffb4e6bbdf1feffe27f9f412f067594a39744e",
       "anchors": []
     },
     {
@@ -631,8 +683,8 @@
       "mime_type": "application/json",
       "asset": "model.schema.json",
       "source": "spec/schema/model.schema.json",
-      "source_sha256": "ab6322b352bf77bfa32ac665931fdf53180dd8b8ba74da1614dc5a6bf2befbdb",
-      "content_sha256": "ab6322b352bf77bfa32ac665931fdf53180dd8b8ba74da1614dc5a6bf2befbdb",
+      "source_sha256": "b9357038800822f1653a5f19ee530e022e420eeebcd794b280663a38a4ea3d4f",
+      "content_sha256": "b9357038800822f1653a5f19ee530e022e420eeebcd794b280663a38a4ea3d4f",
       "anchors": []
     },
     {
@@ -673,6 +725,26 @@
       "source": "spec/schema/periodic-plan.schema.json",
       "source_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
       "content_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/probit-normal-binomial-fit",
+      "title": "probit-normal-binomial-fit.schema.json",
+      "mime_type": "application/json",
+      "asset": "probit-normal-binomial-fit.schema.json",
+      "source": "spec/schema/probit-normal-binomial-fit.schema.json",
+      "source_sha256": "780f842d7b5cb0e5fb4d767e804a841b460314eb695fa5ce871fc056501a9f53",
+      "content_sha256": "780f842d7b5cb0e5fb4d767e804a841b460314eb695fa5ce871fc056501a9f53",
+      "anchors": []
+    },
+    {
+      "uri": "qspquest://schema/probit-normal-binomial-result",
+      "title": "probit-normal-binomial-result.schema.json",
+      "mime_type": "application/json",
+      "asset": "probit-normal-binomial-result.schema.json",
+      "source": "spec/schema/probit-normal-binomial-result.schema.json",
+      "source_sha256": "bd3ed37db31bc849ecd33c028dd3cfe0d3622d720841ac143451e06f835f59e0",
+      "content_sha256": "bd3ed37db31bc849ecd33c028dd3cfe0d3622d720841ac143451e06f835f59e0",
       "anchors": []
     },
     {

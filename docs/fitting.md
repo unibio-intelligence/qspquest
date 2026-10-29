@@ -1,11 +1,22 @@
 # Parameter fitting
 
+For count observations with measured exposure, use the native
+[Gamma–Poisson fitting workflow](tutorials/gamma-poisson-counts.md).
+
+For correlated binary outcomes within independent litters or clusters, use
+[probit-normal binomial fitting](tutorials/probit-normal-binomial.md).
+
+The [proportional-normal fitting workflow](tutorials/profiled-proportional-errors.md)
+jointly estimates structural parameters and one proportional residual scale per
+output through the CLI, Python, R or Rust interfaces.
+
 QSPQuest 0.1.0 includes the following bounded fitting contracts. They use
 unit-bearing observations and explicit simulation settings.
 
 | Request kind | Supported scope |
 | --- | --- |
 | `individual` | Gaussian observation likelihood and optional independent normal priors; fitted parameters have finite bounds. |
+| `profiled_proportional` | Uncensored normal observations with one estimated proportional SD per output, zero additive SD, and at least two observations per observed output. |
 | `pooled` | Shared fitted parameters across subjects with separate regimens and observations. |
 | Scalar fit | Derivative-free search for one bounded parameter with normal, uncensored observations and positive additive SD through `CompiledModel.fit_scalar()` or its scalar request. |
 | `laplace` | Population fit with one lognormal random effect and a Laplace approximation. |
@@ -292,3 +303,6 @@ measurement belongs to each prediction. An iteration or evaluation limit does
 not establish convergence: increase the appropriate budget and inspect the
 result. Keep the declared observation errors and parameter bounds fixed when
 checking stability under tighter ODE and search tolerances.
+
+For a delayed input with an exact zero-time limit, follow the complete
+[inverse-Gaussian input and fraction fit](tutorials/inverse-gaussian-input.md).

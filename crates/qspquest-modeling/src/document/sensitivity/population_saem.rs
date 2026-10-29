@@ -16,6 +16,206 @@ mod curvature_refinement_tests {
     use super::*;
 
     #[test]
+    fn active_normal_scores_do_not_corrupt_the_free_quasi_newton_update() {
+        let mut point = [0.; 6];
+        point[0] = -0.4;
+        point[1] = 0.6;
+        let mut lower = [0.; 6];
+        lower[0] = -1.;
+        lower[1] = -1.;
+        let mut upper = [0.; 6];
+        upper[0] = 1.;
+        upper[1] = 1.;
+        upper[2] = 1.;
+        let objective = |p: [f64; 6]| {
+            100. * (p[0] + p[1] - 0.3).powi(2)
+                + (p[0] - 0.1).powi(2)
+                + p[2] * (165. + 30. * p[0] - 20. * p[1])
+                + 100. * p[2] * p[2]
+        };
+        let result = refine_marginal_box(
+            point,
+            lower,
+            upper,
+            [1.; 6],
+            objective(point),
+            Vec::new(),
+            1e-5,
+            16,
+            |p, _| Ok(Some((objective(p), Vec::new()))),
+        )
+        .unwrap();
+        assert!(
+            result.certified,
+            "iterations={} point={:?} objective={}",
+            result.iterations, result.point, result.value
+        );
+        assert!(result.value < 1e-9);
+        assert!((result.point[0] - 0.1).abs() < 1e-5);
+        assert!((result.point[1] - 0.2).abs() < 1e-5);
+        assert_eq!(result.point[2], 0.);
+    }
+
+    #[test]
+    fn symmetric_fallback_preserves_the_original_work_ceiling() {
+        let mut evaluations = 0;
+        let covariance = certified_covariance(2, 0., 0.01, |x| {
+            evaluations += 1;
+            if evaluations > 28 {
+                return Err(Error::new(ErrorCode::WorkBudget, "fixed curvature budget"));
+            }
+            Ok(x[0].powi(2) + x[1].powi(2) + 10000. * x[0].powi(2) * x[1].powi(2))
+        })
+        .unwrap();
+        assert_eq!(evaluations, 16);
+        assert!((covariance[0][0] - 1.).abs() < 1e-10);
+        assert!((covariance[1][1] - 1.).abs() < 1e-10);
+        assert!(covariance[0][1].abs() < 1e-10);
+    }
+
+    #[test]
+    fn mixed_quartic_curvature_uses_a_certified_symmetric_fallback() {
+        let covariance = certified_covariance(2, 0., 0.01, |x| {
+            Ok(x[0].powi(2) + x[1].powi(2) + 10000. * x[0].powi(2) * x[1].powi(2))
+        })
+        .unwrap();
+        assert!((covariance[0][0] - 1.).abs() < 1e-10);
+        assert!((covariance[1][1] - 1.).abs() < 1e-10);
+        assert!(covariance[0][1].abs() < 1e-10);
+    }
+
+    #[test]
+    fn joint_marginal_refinement_resolves_coupled_coordinates() {
+        for unit in [1e-6, 1., 1e6] {
+            let objective =
+                |p: [f64; 6]| 100. * (p[0] + p[1] / unit - 0.8).powi(2) + (p[0] - 0.2).powi(2);
+            let mut start = [0.; 6];
+            start[0] = -0.5;
+            start[1] = -0.5 * unit;
+            let mut lower = [0.; 6];
+            lower[0] = -1.;
+            lower[1] = -unit;
+            let mut upper = [0.; 6];
+            upper[0] = 1.;
+            upper[1] = unit;
+            let mut scales = [1.; 6];
+            scales[1] = unit;
+            let result = refine_marginal_box(
+                start,
+                lower,
+                upper,
+                scales,
+                objective(start),
+                Vec::new(),
+                1e-5,
+                64,
+                |p, _| Ok(Some((objective(p), Vec::new()))),
+            )
+            .unwrap();
+            assert!(
+                result.certified,
+                "iterations={}, f={}",
+                result.iterations, result.value
+            );
+            assert!(result.value < 1e-9);
+            assert!((result.point[0] - 0.2).abs() < 1e-5);
+            assert!((result.point[1] / unit - 0.6).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn joint_marginal_refinement_does_not_certify_missing_work() {
+        let result = refine_marginal_box(
+            [0.5; 6],
+            [-1.; 6],
+            [1.; 6],
+            [1.; 6],
+            1.5,
+            Vec::new(),
+            1e-5,
+            64,
+            |_, _| Ok(None),
+        )
+        .unwrap();
+        assert!(!result.certified);
+        assert_eq!(result.point, [0.5; 6]);
+    }
+
+    #[test]
+    fn projected_marginal_score_resolves_roundoff_at_a_correlation_cap() {
+        let mut point = [0.; 6];
+        point[4] = -0.95 + f64::EPSILON;
+        let mut lower = [0.; 6];
+        lower[4] = -0.95;
+        let mut upper = [0.; 6];
+        upper[4] = 0.95;
+        let objective = |p: [f64; 6]| 700. + p[4] - if p[4] == -0.95 { 1e-10 } else { 0. };
+        let result = refine_marginal_box(
+            point,
+            lower,
+            upper,
+            [1.; 6],
+            objective(point),
+            Vec::new(),
+            0.001,
+            64,
+            |p, _| Ok(Some((objective(p), Vec::new()))),
+        )
+        .unwrap();
+        assert!(result.certified);
+        assert_eq!(result.point[4], -0.95);
+        assert_eq!(result.iterations, 0);
+    }
+
+    #[test]
+    fn finite_probe_changes_cannot_mask_a_resolved_marginal_slope() {
+        let mut point = [0.; 6];
+        point[4] = 0.25;
+        assert!(!certify_no_marginal_descent(
+            point,
+            [-1.; 6],
+            [1.; 6],
+            [0.025; 6],
+            0.4,
+            0.144,
+            |candidate| Ok(Some(6.4 * candidate[4].powi(2))),
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn marginal_score_certificate_is_invariant_to_coordinate_units() {
+        for scale in [1e-6, 1., 1e6] {
+            let mut point = [0.; 6];
+            point[4] = 0.25 * scale;
+            assert!(!certify_no_marginal_descent(
+                point,
+                [-scale; 6],
+                [scale; 6],
+                [0.025 * scale; 6],
+                0.4,
+                0.144,
+                |candidate| Ok(Some(6.4 * (candidate[4] / scale).powi(2))),
+            )
+            .unwrap());
+        }
+    }
+
+    #[test]
+    fn a_stationary_marginal_maximum_is_not_convergence() {
+        assert!(!certify_no_marginal_descent(
+            [0.; 6],
+            [-1.; 6],
+            [1.; 6],
+            [0.025; 6],
+            0.,
+            0.144,
+            |candidate| Ok(Some(-6.4 * candidate[4].powi(2))),
+        )
+        .unwrap());
+    }
+
+    #[test]
     fn small_update_drift_cannot_certify_a_descending_marginal_point() {
         let point = [0.5; 6];
         assert!(!certify_no_marginal_descent(
@@ -152,6 +352,69 @@ mod curvature_refinement_tests {
     }
 
     #[test]
+    fn symmetric_fallback_reuses_probes_without_changing_covariance_or_budget() {
+        // This mixed quartic contaminates the directional stencil but cancels
+        // in the symmetric stencil. The latter must still certify refinement.
+        let objective = |x: &[f64; 5]| {
+            x.iter().map(|a| a * a).sum::<f64>() + 100. * x[0].powi(2) * x[1].powi(2)
+        };
+        let mut uncached_calls = 0;
+        let mut uncached = |x: &[f64; 5]| -> Result<f64, Error> {
+            uncached_calls += 1;
+            Ok(objective(x))
+        };
+        assert_eq!(
+            refine_covariance_stencil(5, 0., 0.01, false, 1, &mut uncached)
+                .unwrap_err()
+                .code,
+            ErrorCode::Unsupported
+        );
+        let expected = refine_covariance_stencil(5, 0., 0.01, true, 4, &mut uncached).unwrap();
+        assert_eq!(uncached_calls, 160);
+
+        let mut control_calls = 0;
+        let mut bounded_control = |x: &[f64; 5]| -> Result<f64, Error> {
+            control_calls += 1;
+            if control_calls > 100 {
+                return Err(Error::new(ErrorCode::WorkBudget, "same probe budget"));
+            }
+            Ok(objective(x))
+        };
+        assert_eq!(
+            refine_covariance_stencil(5, 0., 0.01, false, 1, &mut bounded_control)
+                .unwrap_err()
+                .code,
+            ErrorCode::Unsupported
+        );
+        assert_eq!(
+            refine_covariance_stencil(5, 0., 0.01, true, 4, &mut bounded_control)
+                .unwrap_err()
+                .code,
+            ErrorCode::WorkBudget
+        );
+        assert_eq!(control_calls, 101);
+
+        let mut calls = 0;
+        let mut unique = std::collections::BTreeSet::new();
+        let actual = certified_covariance(5, 0., 0.01, |x| {
+            calls += 1;
+            assert!(unique.insert(x.map(|v| if v == 0. { 0 } else { v.to_bits() })));
+            if calls > 100 {
+                return Err(Error::new(ErrorCode::WorkBudget, "same probe budget"));
+            }
+            Ok(objective(x))
+        })
+        .unwrap();
+        assert_eq!(calls, 100);
+        assert_eq!(actual, expected);
+        for i in 0..5 {
+            for j in 0..5 {
+                assert!((actual[i][j] - if i == j { 1. } else { 0. }).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
     fn refinement_preserves_budget_errors() {
         let mut evaluations = 0;
         let error = certified_covariance(2, 0., 0.001, |x| {
@@ -164,6 +427,29 @@ mod curvature_refinement_tests {
         .unwrap_err();
         assert_eq!(error.code, ErrorCode::WorkBudget);
         assert_eq!(evaluations, 9);
+    }
+
+    #[test]
+    fn joint_covariance_reuses_axis_samples_within_its_work_budget() {
+        let mut evaluations = 0;
+        let covariance = covariance_at_step(5, 0., 0.001, &mut |x| {
+            evaluations += 1;
+            if evaluations > 30 {
+                return Err(Error::new(
+                    ErrorCode::WorkBudget,
+                    "independent quadratic budget",
+                ));
+            }
+            Ok(x.iter().map(|a| a * a).sum::<f64>() + 0.2 * x.iter().sum::<f64>().powi(2))
+        })
+        .unwrap();
+        assert_eq!(evaluations, 30);
+        for i in 0..5 {
+            for j in 0..5 {
+                let expected = if i == j { 0.9 } else { -0.1 };
+                assert!((covariance[i][j] - expected).abs() < 1e-10);
+            }
+        }
     }
 
     #[test]
@@ -223,33 +509,54 @@ fn observed_covariance_failure(evaluations: usize, budget: usize, reason: &str) 
 }
 
 // Hessian of the normalized marginal OFV; its inverse is twice the covariance.
+#[cfg(test)]
 fn covariance_at_step(
     dimensions: usize,
     center: f64,
     h: f64,
     evaluate: &mut impl FnMut(&[f64; 5]) -> Result<f64, Error>,
 ) -> Result<Vec<Vec<f64>>, Error> {
+    covariance_at_step_with_stencil(dimensions, center, h, false, evaluate)
+}
+
+fn covariance_at_step_with_stencil(
+    dimensions: usize,
+    center: f64,
+    h: f64,
+    full_symmetric: bool,
+    evaluate: &mut impl FnMut(&[f64; 5]) -> Result<f64, Error>,
+) -> Result<Vec<Vec<f64>>, Error> {
     let mut hessian = [[0.; 5]; 5];
+    let mut axial_sums = [0.; 5];
     for axis in 0..dimensions {
         let mut offsets = [0.; 5];
         offsets[axis] = h;
         let plus = evaluate(&offsets)?;
         offsets[axis] = -h;
         let minus = evaluate(&offsets)?;
+        axial_sums[axis] = plus + minus;
         hessian[axis][axis] = (plus - 2. * center + minus) / (h * h);
         for other in 0..axis {
             let mut offsets = [0.; 5];
             offsets[axis] = h;
             offsets[other] = h;
             let pp = evaluate(&offsets)?;
-            offsets[other] = -h;
-            let pm = evaluate(&offsets)?;
             offsets[axis] = -h;
-            offsets[other] = h;
-            let mp = evaluate(&offsets)?;
             offsets[other] = -h;
             let mm = evaluate(&offsets)?;
-            let cross = (pp - pm - mp + mm) / (4. * h * h);
+            // Central curvature along e_i+e_j minus the two axial
+            // curvatures gives 2*H_ij. Reusing the axial samples retains
+            // second-order accuracy with two mixed samples per pair.
+            let cross = if full_symmetric {
+                offsets[axis] = h;
+                let pm = evaluate(&offsets)?;
+                offsets[axis] = -h;
+                offsets[other] = h;
+                let mp = evaluate(&offsets)?;
+                (pp - pm - mp + mm) / (4. * h * h)
+            } else {
+                (pp + mm - axial_sums[axis] - axial_sums[other] + 2. * center) / (2. * h * h)
+            };
             hessian[axis][other] = cross;
             hessian[other][axis] = cross;
         }
@@ -306,7 +613,7 @@ fn covariance_at_step(
 fn certified_covariance(
     dimensions: usize,
     center: f64,
-    mut h: f64,
+    h: f64,
     mut evaluate: impl FnMut(&[f64; 5]) -> Result<f64, Error>,
 ) -> Result<Vec<Vec<f64>>, Error> {
     if !h.is_finite() || h <= 0. {
@@ -315,10 +622,48 @@ fn certified_covariance(
             "SAEM observed covariance requires an interior positive-definite estimate",
         ));
     }
-    let mut previous = covariance_at_step(dimensions, center, h, &mut evaluate)?;
-    for _ in 0..4 {
+    // Both stencils evaluate the same deterministic marginal objective at
+    // shared offsets. Retain successful finite values across refinement and
+    // fallback so duplicate probes do not consume the request work budget.
+    // The cache belongs only to this fixed center and objective invocation.
+    let mut samples = std::collections::BTreeMap::<[u64; 5], f64>::new();
+    let mut cached = |offsets: &[f64; 5]| -> Result<f64, Error> {
+        let key = offsets.map(|x| if x == 0. { 0 } else { x.to_bits() });
+        if let Some(value) = samples.get(&key) {
+            return Ok(*value);
+        }
+        let value = evaluate(offsets)?;
+        if value.is_finite() {
+            samples.insert(key, value);
+        }
+        Ok(value)
+    };
+    match refine_covariance_stencil(dimensions, center, h, false, 1, &mut cached) {
+        Ok(covariance) => Ok(covariance),
+        Err(error) if error.code == ErrorCode::Unsupported => {
+            // Nonlinear mixed fourth derivatives contaminate the inexpensive
+            // directional stencil. The symmetric stencil cancels those terms
+            // and must independently satisfy the same refinement certificate.
+            refine_covariance_stencil(dimensions, center, h, true, 4, &mut cached)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn refine_covariance_stencil(
+    dimensions: usize,
+    center: f64,
+    mut h: f64,
+    full_symmetric: bool,
+    refinements: usize,
+    evaluate: &mut impl FnMut(&[f64; 5]) -> Result<f64, Error>,
+) -> Result<Vec<Vec<f64>>, Error> {
+    let mut previous =
+        covariance_at_step_with_stencil(dimensions, center, h, full_symmetric, evaluate)?;
+    for _ in 0..refinements {
         h *= 0.5;
-        let refined = covariance_at_step(dimensions, center, h, &mut evaluate)?;
+        let refined =
+            covariance_at_step_with_stencil(dimensions, center, h, full_symmetric, evaluate)?;
         let mut error = 0_f64;
         for row in 0..dimensions {
             for col in 0..dimensions {
@@ -341,6 +686,7 @@ fn certified_covariance(
         "SAEM observed covariance could not certify finite-difference refinement; request uncertainty=false to inspect diagnostic point estimates"))
 }
 
+#[cfg(test)]
 fn certify_no_marginal_descent(
     point: [f64; 6],
     lower: [f64; 6],
@@ -354,18 +700,62 @@ fn certify_no_marginal_descent(
         if lower[axis] == upper[axis] {
             continue;
         }
+        let mut probes = Vec::with_capacity(2);
+        let probe_width = steps[axis].min(1e-4 * (upper[axis] - lower[axis]));
         for sign in [-1., 1.] {
             let mut trial = point;
-            trial[axis] = (point[axis] + sign * steps[axis]).clamp(lower[axis], upper[axis]);
+            trial[axis] = (point[axis] + sign * probe_width).clamp(lower[axis], upper[axis]);
             if trial[axis] == point[axis] {
                 continue;
             }
             let Some(value) = evaluate(trial)? else {
                 return Ok(false);
             };
-            if !value.is_finite() || value < center - tolerance {
+            if !value.is_finite() {
                 return Ok(false);
             }
+            probes.push((trial[axis] - point[axis], value));
+        }
+        // Probe changes shrink with their width even when the marginal score
+        // remains unresolved. At a bound only feasible descent matters.
+        let score = match probes.as_slice() {
+            [(delta, value)] => (center - value) / delta.abs(),
+            [(minus, left), (plus, right)] => {
+                let left_slope = (center - left) / -minus;
+                let right_slope = (right - center) / plus;
+                let gradient = (plus * left_slope - minus * right_slope) / (plus - minus);
+                let curvature = 2. * (right_slope - left_slope) / (plus - minus);
+                if gradient.abs() * (upper[axis] - lower[axis]) > tolerance
+                    && curvature.is_finite()
+                    && curvature > 0.
+                {
+                    // A checked coordinate-Newton trial uses the broad search
+                    // radius while the score uses a separate local stencil.
+                    let shift = (-gradient / curvature).clamp(-steps[axis], steps[axis]);
+                    let mut trial = point;
+                    trial[axis] = (point[axis] + shift).clamp(lower[axis], upper[axis]);
+                    if trial[axis] != point[axis] {
+                        let Some(value) = evaluate(trial)? else {
+                            return Ok(false);
+                        };
+                        if !value.is_finite() {
+                            return Ok(false);
+                        }
+                    }
+                }
+                gradient.abs()
+            }
+            _ => continue,
+        } * (upper[axis] - lower[axis]);
+        let rounding = 64. * f64::EPSILON * (1. + center.abs());
+        let negative_curvature =
+            probes.len() == 2 && probes.iter().all(|(_, value)| *value < center - rounding);
+        if !score.is_finite()
+            || score > tolerance
+            || negative_curvature
+            || probes.iter().any(|(_, value)| *value < center - tolerance)
+        {
+            return Ok(false);
         }
     }
     Ok(true)
@@ -378,6 +768,213 @@ struct RefinedSaemPoint {
     marginal: (f64, Vec<Vector>),
     certified: bool,
     iterations: usize,
+}
+
+struct MarginalBoxPoint {
+    point: [f64; 6],
+    value: f64,
+    modes: Vec<Vector>,
+    certified: bool,
+    iterations: usize,
+}
+
+/// Joint inverse-BFGS search with an independently evaluated central score.
+/// The search scales condition the direction; the certificate retains the
+/// projected score in the full original box and the caller's work ceiling.
+fn refine_marginal_box(
+    point: [f64; 6],
+    lower: [f64; 6],
+    upper: [f64; 6],
+    scales: [f64; 6],
+    center: f64,
+    modes: Vec<Vector>,
+    tolerance: f64,
+    max_iterations: usize,
+    mut evaluate: impl FnMut([f64; 6], &[Vector]) -> Result<Option<(f64, Vec<Vector>)>, Error>,
+) -> Result<MarginalBoxPoint, Error> {
+    let mut result = MarginalBoxPoint {
+        point,
+        value: center,
+        modes,
+        certified: false,
+        iterations: 0,
+    };
+    let mut inverse = [[0.; 6]; 6];
+    let mut previous: Option<([f64; 6], [f64; 6], [bool; 6])> = None;
+    for _ in 0..=max_iterations {
+        // Reconstruction and accepted steps can land a rounding unit inside
+        // a bound. Reevaluate exact projection before every score certificate.
+        let mut snapped = result.point;
+        for axis in 0..6 {
+            let lo_roundoff = 16. * f64::EPSILON * lower[axis].abs().max(scales[axis]);
+            let hi_roundoff = 16. * f64::EPSILON * upper[axis].abs().max(scales[axis]);
+            if (snapped[axis] - lower[axis]).abs() <= lo_roundoff {
+                snapped[axis] = lower[axis];
+            } else if (snapped[axis] - upper[axis]).abs() <= hi_roundoff {
+                snapped[axis] = upper[axis];
+            }
+        }
+        if snapped != result.point {
+            let Some((value, modes)) = evaluate(snapped, &result.modes)? else {
+                return Ok(result);
+            };
+            if !value.is_finite() {
+                return Ok(result);
+            }
+            result.point = snapped;
+            result.value = value;
+            result.modes = modes;
+        }
+        let mut gradient = [0.; 6];
+        let mut diagonal = [1.; 6];
+        let mut negative_curvature = false;
+        let mut fallback = None;
+        let rounding = 64. * f64::EPSILON * (1. + result.value.abs());
+        for axis in 0..6 {
+            if lower[axis] == upper[axis] {
+                continue;
+            }
+            let width = (1e-3 * scales[axis]).min(0.01 * (upper[axis] - lower[axis]));
+            let mut probes = Vec::with_capacity(2);
+            for sign in [-1., 1.] {
+                let mut trial = result.point;
+                trial[axis] = (trial[axis] + sign * width).clamp(lower[axis], upper[axis]);
+                let delta = (trial[axis] - result.point[axis]) / scales[axis];
+                if delta.abs()
+                    <= 16. * f64::EPSILON * result.point[axis].abs().max(scales[axis])
+                        / scales[axis]
+                {
+                    continue;
+                }
+                let Some((value, modes)) = evaluate(trial, &result.modes)? else {
+                    return Ok(result);
+                };
+                if !value.is_finite() {
+                    return Ok(result);
+                }
+                probes.push((delta, value));
+                if value < result.value - rounding
+                    && fallback.as_ref().is_none_or(|(_, best, _)| value < *best)
+                {
+                    fallback = Some((trial, value, modes));
+                }
+            }
+            match probes.as_slice() {
+                [(delta, value)] => gradient[axis] = (value - result.value) / delta,
+                [(minus, left), (plus, right)] => {
+                    let ls = (result.value - left) / -minus;
+                    let rs = (right - result.value) / plus;
+                    gradient[axis] = (plus * ls - minus * rs) / (plus - minus);
+                    let curvature = 2. * (rs - ls) / (plus - minus);
+                    if curvature > 0. && curvature.is_finite() {
+                        diagonal[axis] = (1. / curvature).clamp(1e-8, 1e6);
+                    }
+                    negative_curvature |=
+                        *left < result.value - rounding && *right < result.value - rounding;
+                }
+                _ => return Ok(result),
+            }
+        }
+        let mut projected = gradient;
+        let active: [bool; 6] = std::array::from_fn(|axis| {
+            lower[axis] == upper[axis]
+                || (result.point[axis] == lower[axis] && gradient[axis] > 0.)
+                || (result.point[axis] == upper[axis] && gradient[axis] < 0.)
+        });
+        for axis in 0..6 {
+            if active[axis] {
+                projected[axis] = 0.;
+            }
+        }
+        let norm = (0..6)
+            .map(|axis| projected[axis].abs() * (upper[axis] - lower[axis]) / scales[axis])
+            .fold(0_f64, f64::max);
+        if norm.is_finite() && norm <= tolerance && !negative_curvature {
+            result.certified = true;
+            return Ok(result);
+        }
+        if result.iterations == max_iterations {
+            return Ok(result);
+        }
+        // Curvature belongs to the free subspace. Normal scores at an active
+        // bound must not enter its secant update; reset when that space changes.
+        let mut reset = previous.is_none_or(|(_, _, old_active)| old_active != active);
+        if let Some((old_point, old_gradient, _)) =
+            previous.filter(|(_, _, old_active)| *old_active == active)
+        {
+            let step: [f64; 6] =
+                std::array::from_fn(|i| (result.point[i] - old_point[i]) / scales[i]);
+            let y: [f64; 6] = std::array::from_fn(|i| projected[i] - old_gradient[i]);
+            let sy: f64 = (0..6).map(|i| step[i] * y[i]).sum();
+            let ss: f64 = step.iter().map(|x| x * x).sum();
+            let yy: f64 = y.iter().map(|x| x * x).sum();
+            if sy.is_finite() && sy > 1e-12 * libm::sqrt(ss * yy) {
+                let hy: [f64; 6] =
+                    std::array::from_fn(|i| (0..6).map(|j| inverse[i][j] * y[j]).sum());
+                let yhy: f64 = (0..6).map(|i| y[i] * hy[i]).sum();
+                for i in 0..6 {
+                    for j in 0..6 {
+                        inverse[i][j] += (sy + yhy) / (sy * sy) * step[i] * step[j]
+                            - (hy[i] * step[j] + step[i] * hy[j]) / sy;
+                    }
+                }
+                reset |= inverse.iter().flatten().any(|x| !x.is_finite());
+            } else {
+                reset = true;
+            }
+        }
+        if reset {
+            inverse = [[0.; 6]; 6];
+            for axis in 0..6 {
+                inverse[axis][axis] = diagonal[axis];
+            }
+        }
+        let mut direction: [f64; 6] =
+            std::array::from_fn(|i| -(0..6).map(|j| inverse[i][j] * projected[j]).sum::<f64>());
+        for axis in 0..6 {
+            if lower[axis] == upper[axis]
+                || (result.point[axis] == lower[axis] && gradient[axis] > 0.)
+                || (result.point[axis] == upper[axis] && gradient[axis] < 0.)
+                || (result.point[axis] == lower[axis] && direction[axis] < 0.)
+                || (result.point[axis] == upper[axis] && direction[axis] > 0.)
+            {
+                direction[axis] = 0.;
+            }
+        }
+        let slope: f64 = (0..6).map(|i| direction[i] * gradient[i]).sum();
+        if !slope.is_finite() || slope >= 0. {
+            direction = std::array::from_fn(|i| -diagonal[i] * projected[i]);
+        }
+        let mut alpha = 1.;
+        let mut accepted = None;
+        for _ in 0..24 {
+            let trial: [f64; 6] = std::array::from_fn(|i| {
+                (result.point[i] + alpha * scales[i] * direction[i]).clamp(lower[i], upper[i])
+            });
+            let slope: f64 = (0..6)
+                .map(|i| gradient[i] * (trial[i] - result.point[i]) / scales[i])
+                .sum();
+            if slope < 0. && trial != result.point {
+                let Some((value, modes)) = evaluate(trial, &result.modes)? else {
+                    return Ok(result);
+                };
+                if value.is_finite() && value <= result.value + 1e-4 * slope {
+                    accepted = Some((trial, value, modes));
+                    break;
+                }
+            }
+            alpha *= 0.5;
+        }
+        let Some((point, value, modes)) = accepted.or(fallback) else {
+            return Ok(result);
+        };
+        previous = Some((result.point, projected, active));
+        result.point = point;
+        result.value = value;
+        result.modes = modes;
+        result.iterations += 1;
+    }
+    Ok(result)
 }
 
 enum PreparedSaem {
@@ -732,6 +1329,216 @@ fn burn_in_iterations(request: &PopulationFitRequest) -> Result<usize, Error> {
     Ok(burn_in)
 }
 
+fn covariance_mstep_cost(omega: Matrix, target: Matrix) -> Option<f64> {
+    let a = omega[0][0];
+    let b = omega[1][1];
+    let root = libm::sqrt(a) * libm::sqrt(b);
+    let rho = omega[0][1] / root;
+    let remaining = 1. - rho * rho;
+    if a <= 0. || b <= 0. || remaining <= 0. {
+        return None;
+    }
+    let value = libm::log(a)
+        + libm::log(b)
+        + libm::log1p(-rho * rho)
+        + (target[0][0] / a + target[1][1] / b - 2. * rho * target[0][1] / root) / remaining;
+    value.is_finite().then_some(value)
+}
+
+fn conditional_covariance_mstep(
+    mut target: Matrix,
+    lower: Vector,
+    upper: Vector,
+    limit: f64,
+) -> Option<Matrix> {
+    if target.iter().flatten().any(|x| !x.is_finite())
+        || !limit.is_finite()
+        || !(0.0..1.0).contains(&limit)
+        || (0..2).any(|a| {
+            !lower[a].is_finite() || !upper[a].is_finite() || lower[a] <= 0. || lower[a] > upper[a]
+        })
+    {
+        return None;
+    }
+    target[0][1] = 0.5 * (target[0][1] + target[1][0]);
+    target[1][0] = target[0][1];
+    let (s, t, u) = (target[0][0], target[1][1], target[0][1]);
+    let mut best: Option<(f64, Matrix)> = None;
+    let mut consider = |a: f64, b: f64, rho: f64| {
+        if !a.is_finite()
+            || !b.is_finite()
+            || !rho.is_finite()
+            || a < lower[0] - 1e-12 * lower[0].abs().max(1.)
+            || a > upper[0] + 1e-12 * upper[0].abs().max(1.)
+            || b < lower[1] - 1e-12 * lower[1].abs().max(1.)
+            || b > upper[1] + 1e-12 * upper[1].abs().max(1.)
+            || rho < -limit - 1e-12
+            || rho > limit + 1e-12
+        {
+            return;
+        }
+        let a = a.clamp(lower[0], upper[0]);
+        let b = b.clamp(lower[1], upper[1]);
+        let c = rho.clamp(-limit, limit) * libm::sqrt(a) * libm::sqrt(b);
+        let omega = [[a, c], [c, b]];
+        if let Some(value) = covariance_mstep_cost(omega, target) {
+            if best.as_ref().is_none_or(|(previous, _)| value < *previous) {
+                best = Some((value, omega));
+            }
+        }
+    };
+    // A constrained Gaussian covariance optimum lies at an interior stationary
+    // point, a face stationary point, an edge stationary point, or a corner.
+    if s > 0. && t > 0. {
+        consider(s, t, u / libm::sqrt(s) / libm::sqrt(t));
+    }
+    for a in [lower[0], upper[0]] {
+        if s > 0. {
+            let beta = u / s;
+            let b = t - u * beta + beta * beta * a;
+            if b > 0. {
+                consider(a, b, beta * libm::sqrt(a / b));
+            }
+        }
+    }
+    for b in [lower[1], upper[1]] {
+        if t > 0. {
+            let beta = u / t;
+            let a = s - u * beta + beta * beta * b;
+            if a > 0. {
+                consider(a, b, beta * libm::sqrt(b / a));
+            }
+        }
+    }
+    for rho in [-limit, limit] {
+        let remaining = 1. - rho * rho;
+        if s > 0. && t > 0. {
+            let scale = (1. - rho * u / libm::sqrt(s) / libm::sqrt(t)) / remaining;
+            consider(s * scale, t * scale, rho);
+        }
+        for a in [lower[0], upper[0]] {
+            let coefficient = rho * u / libm::sqrt(a);
+            let disc = coefficient * coefficient + 4. * remaining * t;
+            if disc >= 0. {
+                let root = (-coefficient + libm::sqrt(disc)) / (2. * remaining);
+                if root > 0. {
+                    consider(a, root * root, rho);
+                }
+            }
+        }
+        for b in [lower[1], upper[1]] {
+            let coefficient = rho * u / libm::sqrt(b);
+            let disc = coefficient * coefficient + 4. * remaining * s;
+            if disc >= 0. {
+                let root = (-coefficient + libm::sqrt(disc)) / (2. * remaining);
+                if root > 0. {
+                    consider(root * root, b, rho);
+                }
+            }
+        }
+    }
+    for a in [lower[0], upper[0]] {
+        for b in [lower[1], upper[1]] {
+            let aa = s / a + t / b;
+            let bb = u / libm::sqrt(a) / libm::sqrt(b);
+            let polynomial = |x: f64| ((x - bb) * x + aa - 1.) * x - bb;
+            let mut knots = vec![-limit, limit];
+            let disc = bb * bb - 3. * (aa - 1.);
+            if disc >= 0. && disc.is_finite() {
+                for x in [(bb - libm::sqrt(disc)) / 3., (bb + libm::sqrt(disc)) / 3.] {
+                    if x > -limit && x < limit {
+                        knots.push(x);
+                    }
+                }
+            }
+            knots.sort_by(f64::total_cmp);
+            for x in &knots {
+                consider(a, b, *x);
+            }
+            for interval in knots.windows(2) {
+                let (mut lo, mut hi) = (interval[0], interval[1]);
+                let mut flo = polynomial(lo);
+                let fhi = polynomial(hi);
+                if !flo.is_finite()
+                    || !fhi.is_finite()
+                    || flo.is_sign_positive() == fhi.is_sign_positive()
+                {
+                    continue;
+                }
+                for _ in 0..80 {
+                    let mid = lo + 0.5 * (hi - lo);
+                    let value = polynomial(mid);
+                    if value == 0. {
+                        lo = mid;
+                        hi = mid;
+                        break;
+                    }
+                    if value.is_sign_positive() == flo.is_sign_positive() {
+                        lo = mid;
+                        flo = value;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                consider(a, b, lo + 0.5 * (hi - lo));
+            }
+        }
+    }
+    best.map(|(_, omega)| omega)
+}
+
+#[cfg(test)]
+mod covariance_mstep_tests {
+    use super::*;
+
+    #[test]
+    fn constrained_covariance_matches_independent_boundary_references() {
+        let cases: serde_json::Value = serde_json::from_str(&crate::test_fixture::text(
+            include_bytes!("../../../tests/fixtures/covariance_mstep_constraints.json.gz"),
+        ))
+        .unwrap();
+        let mut old_clipping_counterexamples = 0;
+        for case in cases.as_array().unwrap() {
+            let target: Matrix = serde_json::from_value(case["target"].clone()).unwrap();
+            let lower: Vector = serde_json::from_value(case["lower"].clone()).unwrap();
+            let upper: Vector = serde_json::from_value(case["upper"].clone()).unwrap();
+            let limit = case["limit"].as_f64().unwrap();
+            let expected = case["expected_cost"].as_f64().unwrap();
+            let result = conditional_covariance_mstep(target, lower, upper, limit).unwrap();
+            let value = covariance_mstep_cost(result, target).unwrap();
+            assert!(
+                (value - expected).abs() <= 1e-10 * (1. + expected.abs()),
+                "{}: {:?} cost {} expected {}",
+                case["id"],
+                result,
+                value,
+                expected
+            );
+            assert!(precision(result, 2).is_some());
+            for a in 0..2 {
+                assert!((lower[a]..=upper[a]).contains(&result[a][a]));
+            }
+            assert!(result[0][1].abs() <= limit * libm::sqrt(result[0][0] * result[1][1]) + 1e-12);
+            let a = target[0][0].clamp(lower[0], upper[0]);
+            let b = target[1][1].clamp(lower[1], upper[1]);
+            let c = target[0][1].clamp(-limit * libm::sqrt(a * b), limit * libm::sqrt(a * b));
+            let old = covariance_mstep_cost([[a, c], [c, b]], target).unwrap();
+            if old > expected + 1e-8 {
+                old_clipping_counterexamples += 1;
+            }
+        }
+        assert_eq!(old_clipping_counterexamples, 41);
+    }
+
+    #[test]
+    fn constrained_covariance_rejects_invalid_constraints() {
+        let target = [[0.1, 0.], [0., 0.1]];
+        assert!(conditional_covariance_mstep(target, [0.2; 2], [0.1; 2], 0.95).is_none());
+        assert!(conditional_covariance_mstep(target, [0.; 2], [0.1; 2], 0.95).is_none());
+        assert!(conditional_covariance_mstep(target, [0.01; 2], [0.1; 2], 1.).is_none());
+    }
+}
+
 fn precision(omega: Matrix, dimensions: usize) -> Option<(Matrix, f64)> {
     if dimensions == 1 {
         let variance = omega[0][0];
@@ -777,6 +1584,75 @@ struct JointProposal {
 }
 
 impl JointProposal {
+    fn rebased_prior(
+        self,
+        anchor_mean: Vector,
+        anchor_precision: Matrix,
+        current_mean: Vector,
+        current_precision: Matrix,
+    ) -> Option<Self> {
+        self.reweighted_likelihood(
+            anchor_mean,
+            anchor_precision,
+            current_mean,
+            current_precision,
+            1.,
+        )
+    }
+
+    fn reweighted_likelihood(
+        self,
+        anchor_mean: Vector,
+        anchor_precision: Matrix,
+        current_mean: Vector,
+        current_precision: Matrix,
+        likelihood_scale: f64,
+    ) -> Option<Self> {
+        if !likelihood_scale.is_finite() || likelihood_scale <= 0. {
+            return None;
+        }
+        let updated: Matrix = std::array::from_fn(|a| {
+            std::array::from_fn(|b| {
+                if likelihood_scale == 1. {
+                    self.precision[a][b] + current_precision[a][b] - anchor_precision[a][b]
+                } else {
+                    likelihood_scale * (self.precision[a][b] - anchor_precision[a][b])
+                        + current_precision[a][b]
+                }
+            })
+        });
+        let (covariance, _) = precision(updated, 2)?;
+        let linear: Vector = std::array::from_fn(|a| {
+            (0..2)
+                .map(|b| {
+                    if likelihood_scale == 1. {
+                        self.precision[a][b] * self.mean[b]
+                            + current_precision[a][b] * current_mean[b]
+                            - anchor_precision[a][b] * anchor_mean[b]
+                    } else {
+                        likelihood_scale
+                            * (self.precision[a][b] * self.mean[b]
+                                - anchor_precision[a][b] * anchor_mean[b])
+                            + current_precision[a][b] * current_mean[b]
+                    }
+                })
+                .sum()
+        });
+        let mean: Vector =
+            std::array::from_fn(|a| (0..2).map(|b| covariance[a][b] * linear[b]).sum());
+        let l00 = libm::sqrt(covariance[0][0]);
+        let l10 = covariance[1][0] / l00;
+        let l11 = libm::sqrt(covariance[1][1] - l10 * l10);
+        if mean.iter().any(|v| !v.is_finite()) || !l11.is_finite() || l11 <= 0. {
+            return None;
+        }
+        Some(Self {
+            mean,
+            precision: updated,
+            lower: [[l00, 0.], [l10, l11]],
+        })
+    }
+
     fn draw(&self, stream: &mut Stream) -> Vector {
         let z = [stream.normal(), stream.normal()];
         [
@@ -789,6 +1665,240 @@ impl JointProposal {
         let d = [phi[0] - self.mean[0], phi[1] - self.mean[1]];
         -0.5 * (d[0] * (self.precision[0][0] * d[0] + self.precision[0][1] * d[1])
             + d[1] * (self.precision[1][0] * d[0] + self.precision[1][1] * d[1]))
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ConditionalModeCache {
+    approximation: JointProposal,
+    population_mean: Vector,
+    prior_precision: Matrix,
+    variance: f64,
+}
+
+fn common_additive_variance(subject: &GaussianObjectiveRequest) -> Option<f64> {
+    let first = subject.observations.first()?;
+    let sd = first.error.additive_sd.value;
+    if !sd.is_finite()
+        || sd <= 0.
+        || subject.observations.iter().any(|o| {
+            o.error.model != GaussianErrorModel::Normal
+                || o.error.proportional_sd != 0.
+                || o.error.additive_sd.value != sd
+                || o.error.additive_sd.unit != first.error.additive_sd.unit
+        })
+    {
+        return None;
+    }
+    let variance = sd * sd;
+    variance.is_finite().then_some(variance)
+}
+
+impl ConditionalModeCache {
+    fn from_mode(
+        theta: Vector,
+        omega: Matrix,
+        eta: Vector,
+        hessian: Matrix,
+        variance: f64,
+    ) -> Option<Self> {
+        if theta.iter().any(|v| !v.is_finite() || *v <= 0.)
+            || !variance.is_finite()
+            || variance <= 0.
+        {
+            return None;
+        }
+        let population_mean = theta.map(libm::log);
+        let mean = std::array::from_fn(|a| population_mean[a] + eta[a]);
+        let prior_precision = precision(omega, 2)?.0;
+        let covariance = precision(hessian, 2)?.0;
+        let l00 = libm::sqrt(covariance[0][0]);
+        let l10 = covariance[1][0] / l00;
+        let l11 = libm::sqrt(covariance[1][1] - l10 * l10);
+        if mean.iter().any(|v| !v.is_finite()) || !l11.is_finite() || l11 <= 0. {
+            return None;
+        }
+        Some(Self {
+            approximation: JointProposal {
+                mean,
+                precision: hessian,
+                lower: [[l00, 0.], [l10, l11]],
+            },
+            population_mean,
+            prior_precision,
+            variance,
+        })
+    }
+
+    fn predict(
+        self,
+        theta: Vector,
+        omega: Matrix,
+        variance: f64,
+        eta_bound: f64,
+    ) -> Option<Vector> {
+        if theta.iter().any(|v| !v.is_finite() || *v <= 0.)
+            || !variance.is_finite()
+            || variance <= 0.
+        {
+            return None;
+        }
+        let mean = theta.map(libm::log);
+        let updated = self.approximation.reweighted_likelihood(
+            self.population_mean,
+            self.prior_precision,
+            mean,
+            precision(omega, 2)?.0,
+            self.variance / variance,
+        )?;
+        let eta: Vector = std::array::from_fn(|a| updated.mean[a] - mean[a]);
+        eta.iter()
+            .all(|v| v.is_finite() && v.abs() + 0.005 < eta_bound)
+            .then_some(eta)
+    }
+}
+
+#[cfg(test)]
+mod conditional_mode_cache_tests {
+    use super::*;
+    #[test]
+    fn predicted_modes_match_independent_gaussian_conditionals() {
+        let fixtures: serde_json::Value = serde_json::from_str(&crate::test_fixture::text(
+            include_bytes!("../../../tests/fixtures/conditional_mode_warm_starts.json.gz"),
+        ))
+        .unwrap();
+        for case in fixtures["cases"].as_array().unwrap() {
+            let old_mean: Vector = serde_json::from_value(case["old_mean"].clone()).unwrap();
+            let new_mean: Vector = serde_json::from_value(case["new_mean"].clone()).unwrap();
+            let old_omega: Matrix = serde_json::from_value(case["old_omega"].clone()).unwrap();
+            let new_omega: Matrix = serde_json::from_value(case["new_omega"].clone()).unwrap();
+            let hessian: Matrix =
+                serde_json::from_value(case["proposal0_precision"].clone()).unwrap();
+            let old_mode: Vector = serde_json::from_value(case["proposal0_mean"].clone()).unwrap();
+            let expected: Vector = serde_json::from_value(case["expected_mean"].clone()).unwrap();
+            let cache = ConditionalModeCache::from_mode(
+                old_mean.map(libm::exp),
+                old_omega,
+                std::array::from_fn(|a| old_mode[a] - old_mean[a]),
+                hessian,
+                case["old_sigma"].as_f64().unwrap().powi(2),
+            )
+            .unwrap();
+            let mode = cache
+                .predict(
+                    new_mean.map(libm::exp),
+                    new_omega,
+                    case["new_sigma"].as_f64().unwrap().powi(2),
+                    5.,
+                )
+                .unwrap();
+            for a in 0..2 {
+                assert!((mode[a] + new_mean[a] - expected[a]).abs() <= 1e-10);
+            }
+            assert!(cache
+                .predict(new_mean.map(libm::exp), new_omega, 0.01, 0.004)
+                .is_none());
+        }
+    }
+    #[test]
+    fn censored_common_error_enables_only_checked_initialization() {
+        let fixtures: serde_json::Value = serde_json::from_str(&crate::test_fixture::text(
+            include_bytes!("../../../tests/fixtures/conditional_mode_warm_starts.json.gz"),
+        ))
+        .unwrap();
+        let subject: GaussianObjectiveRequest =
+            serde_json::from_value(fixtures["uncensored_subject"].clone()).unwrap();
+        let censored: GaussianObjectiveRequest =
+            serde_json::from_value(fixtures["censored_subject"].clone()).unwrap();
+        assert!(common_additive_variance(&subject).is_some());
+        assert!(common_additive_variance(&censored).is_some());
+        let mut changed = subject.clone();
+        changed.observations[0].error.proportional_sd = 0.1;
+        assert!(common_additive_variance(&changed).is_none());
+        changed = subject.clone();
+        changed.observations[0].error.additive_sd.value *= 2.;
+        assert!(common_additive_variance(&changed).is_none());
+        changed = subject;
+        changed.observations[0].error.additive_sd.value = 0.;
+        assert!(common_additive_variance(&changed).is_none());
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+struct RetainedMomentBatch {
+    count: usize,
+    first: Vector,
+    second: Matrix,
+    residual_square: f64,
+}
+impl RetainedMomentBatch {
+    fn record(&mut self, phi: Vector, residual_square: f64) {
+        self.count += 1;
+        for a in 0..2 {
+            self.first[a] += phi[a];
+            for b in 0..2 {
+                self.second[a][b] += phi[a] * phi[b];
+            }
+        }
+        self.residual_square += residual_square;
+    }
+    fn averages(self) -> (Vector, Matrix, f64) {
+        assert!(
+            self.count > 0,
+            "Retained SAEM batch must contain a complete transition"
+        );
+        let n = self.count as f64;
+        let mut first = self.first;
+        let mut second = self.second;
+        for a in 0..2 {
+            first[a] /= n;
+            for b in 0..2 {
+                second[a][b] /= n;
+            }
+        }
+        (first, second, self.residual_square / n)
+    }
+}
+#[cfg(test)]
+mod retained_moment_batch_tests {
+    use super::*;
+    #[test]
+    fn raw_moments_match_independent_paths_including_self_transitions() {
+        let cases: serde_json::Value = serde_json::from_str(&crate::test_fixture::text(
+            include_bytes!("../../../tests/fixtures/censored_batch_moments.json.gz"),
+        ))
+        .unwrap();
+        for case in cases.as_array().unwrap() {
+            let mut batch = RetainedMomentBatch::default();
+            let samples = case["samples"].as_array().unwrap();
+            for (i, sample) in samples.iter().enumerate() {
+                batch.record(
+                    [sample[0].as_f64().unwrap(), sample[1].as_f64().unwrap()],
+                    case["residual_sse"][i].as_f64().unwrap(),
+                );
+            }
+            assert_eq!(batch.count, samples.len());
+            let (mean, second, sse) = batch.averages();
+            for a in 0..2 {
+                assert!((mean[a] - case["mean"][a].as_f64().unwrap()).abs() < 1e-12);
+                for b in 0..2 {
+                    assert!(
+                        (second[a][b] - case["raw_second"][a][b].as_f64().unwrap()).abs() < 1e-12
+                    );
+                }
+            }
+            assert!((sse - case["mean_residual_sse"].as_f64().unwrap()).abs() < 1e-12);
+        }
+    }
+    #[test]
+    fn averaging_locations_does_not_replace_average_second_moments() {
+        let mut batch = RetainedMomentBatch::default();
+        batch.record([1., -2.], 0.1);
+        batch.record([-1., 2.], 0.3);
+        let (mean, second, residual) = batch.averages();
+        assert_eq!(mean, [0., 0.]);
+        assert_eq!(second, [[1., -2.], [-2., 4.]]);
+        assert!((residual - 0.2).abs() < 1e-15);
     }
 }
 
@@ -1411,7 +2521,37 @@ impl CompiledSensitivityDocument {
         evaluations: &mut usize,
         budget: usize,
     ) -> Result<Option<(f64, Vec<Vector>)>, Error> {
+        self.saem_marginal_ofv_with_cache(
+            request,
+            setup,
+            theta,
+            omega,
+            etas,
+            subject_multipliers,
+            evaluations,
+            budget,
+            None,
+        )
+    }
+
+    fn saem_marginal_ofv_with_cache(
+        self: &Arc<Self>,
+        request: &PopulationFitRequest,
+        setup: &Setup,
+        theta: Vector,
+        omega: Matrix,
+        etas: &[Vector],
+        subject_multipliers: Option<&[f64]>,
+        evaluations: &mut usize,
+        budget: usize,
+        mut mode_cache: Option<&mut [Option<ConditionalModeCache>]>,
+    ) -> Result<Option<(f64, Vec<Vector>)>, Error> {
         let dimensions = setup.dimensions;
+        let precise_modes = dimensions == 2
+            && request
+                .subjects
+                .iter()
+                .any(|subject| subject.observations.iter().any(|o| o.censoring.is_some()));
         let mut marginal = 0.;
         let mut modes = Vec::with_capacity(request.subjects.len());
         for (index, subject) in request.subjects.iter().enumerate() {
@@ -1425,7 +2565,33 @@ impl CompiledSensitivityDocument {
                     Some(value) => value,
                     None => return Ok(None),
                 };
+            let mode_variance = if mode_cache.is_some() && dimensions == 2 {
+                common_additive_variance(subject)
+            } else {
+                None
+            };
+            let prediction = mode_cache
+                .as_deref()
+                .and_then(|cache| cache.get(index))
+                .copied()
+                .flatten()
+                .and_then(|cache| {
+                    mode_variance.and_then(|variance| {
+                        cache.predict(theta, omega, variance, request.eta_bound)
+                    })
+                });
+            if let Some(seed) = prediction.filter(|seed| *seed != eta) {
+                if let Some(value) =
+                    self.saem_joint(subject, setup, theta, omega, seed, evaluations, budget)?
+                {
+                    if value < best {
+                        eta = seed;
+                        best = value;
+                    }
+                }
+            }
             let h = 0.005;
+            let curvature_step = if precise_modes { 0.0003125 } else { h };
             let mut cached_curvature = None;
             for _ in 0..16 {
                 if eta[..dimensions]
@@ -1440,7 +2606,7 @@ impl CompiledSensitivityDocument {
                     theta,
                     omega,
                     eta,
-                    h,
+                    curvature_step,
                     evaluations,
                     budget,
                 )?
@@ -1475,6 +2641,50 @@ impl CompiledSensitivityDocument {
                 if next == eta {
                     break;
                 }
+                // Near a conditional mode, scalar objective noise can obscure
+                // the quadratic improvement. Polish the stationary root using
+                // its actual score merit; observed curvature is checked again.
+                if precise_modes
+                    && (0..dimensions).all(|axis| (next[axis] - eta[axis]).abs() <= 1e-5)
+                {
+                    let Some(trial_gradient) = self.saem_joint_gradient(
+                        subject,
+                        setup,
+                        theta,
+                        omega,
+                        next,
+                        evaluations,
+                        budget,
+                    )?
+                    else {
+                        return Ok(None);
+                    };
+                    let old_norm = gradient[..dimensions]
+                        .iter()
+                        .map(|g| g.abs())
+                        .fold(0_f64, f64::max);
+                    let new_norm = trial_gradient[..dimensions]
+                        .iter()
+                        .map(|g| g.abs())
+                        .fold(0_f64, f64::max);
+                    if new_norm.is_finite() && new_norm < 0.5 * old_norm {
+                        let Some(value) = self.saem_joint(
+                            subject,
+                            setup,
+                            theta,
+                            omega,
+                            next,
+                            evaluations,
+                            budget,
+                        )?
+                        else {
+                            return Ok(None);
+                        };
+                        eta = next;
+                        best = value;
+                        continue;
+                    }
+                }
                 let mut accepted = false;
                 for _ in 0..12 {
                     let candidate = match self.saem_joint(
@@ -1489,7 +2699,11 @@ impl CompiledSensitivityDocument {
                         Some(value) => value,
                         None => return Ok(None),
                     };
-                    if candidate < best {
+                    let roundoff = 64. * f64::EPSILON * (1. + best.abs());
+                    let slope: f64 = (0..dimensions)
+                        .map(|axis| gradient[axis] * (next[axis] - eta[axis]))
+                        .sum();
+                    if candidate < best || (slope < 0. && candidate <= best + roundoff) {
                         best = candidate;
                         accepted = true;
                         break;
@@ -1514,7 +2728,7 @@ impl CompiledSensitivityDocument {
                     theta,
                     omega,
                     eta,
-                    h,
+                    curvature_step,
                     evaluations,
                     budget,
                 )?
@@ -1545,11 +2759,16 @@ impl CompiledSensitivityDocument {
                     .any(|x| !x.is_finite() || x.abs() > h / 10.)
                 || !newton_decrement.is_finite()
                 || newton_decrement > 1e-3
+                || (precise_modes && gradient[..dimensions].iter().any(|g| g.abs() > 1e-8))
                 || eta[..dimensions]
                     .iter()
                     .any(|x| x.abs() >= request.eta_bound - h)
             {
                 return Ok(None);
+            }
+            if let (Some(cache), Some(variance)) = (mode_cache.as_deref_mut(), mode_variance) {
+                cache[index] =
+                    ConditionalModeCache::from_mode(theta, omega, eta, hessian, variance);
             }
             // Integrating the normal eta prior cancels its (2π) factor with
             // the Laplace factor; remove only observation constants.
@@ -1600,88 +2819,115 @@ impl CompiledSensitivityDocument {
             MAX_SAEM_CORRELATION,
             residual.map_or(variance, |fit| fit.upper_variance),
         ];
-        let steps = [
-            0.025,
-            0.025,
-            0.1 * omega[0][0].max(0.01),
-            0.1 * omega[1][1].max(0.01),
-            0.025,
-            0.1 * variance,
+        let scales = [
+            1.,
+            1.,
+            omega[0][0].max(0.01),
+            omega[1][1].max(0.01),
+            1.,
+            variance.max(0.01),
         ];
-        let mut value = center;
-        let mut modes = etas.to_vec();
-        let mut certified = false;
-        let mut iterations = 0;
-        for _ in 0..max_iterations.max(1) {
-            let warm_modes = modes.clone();
-            let mut trial_point = point;
-            let mut trial_value = value;
-            let mut trial_modes = modes.clone();
-            let passed = certify_no_marginal_descent(
-                point,
-                lower,
-                upper,
-                steps,
-                value,
-                2. * request.gradient_tolerance * request.subjects.len() as f64,
-                |candidate| {
-                    let candidate_theta = [libm::exp(candidate[0]), libm::exp(candidate[1])];
-                    let cross = candidate[4] * libm::sqrt(candidate[2] * candidate[3]);
-                    let candidate_omega = [[candidate[2], cross], [cross, candidate[3]]];
-                    let mut modified;
-                    let subject_request = if let Some(fit) = residual {
-                        modified = request.clone();
-                        let sd = libm::sqrt(candidate[5]);
-                        for subject in &mut modified.subjects {
-                            for observation in &mut subject.observations {
-                                observation.error.additive_sd = qspquest_core::model::Quantity {
-                                    value: sd,
-                                    unit: fit.unit.clone(),
-                                };
-                            }
-                        }
-                        &modified
-                    } else {
-                        request
-                    };
-                    let value = self.saem_marginal_ofv(
-                        subject_request,
-                        setup,
-                        candidate_theta,
-                        candidate_omega,
-                        &warm_modes,
-                        None,
-                        evaluations,
-                        budget,
-                    )?;
-                    if let Some((ofv, modes)) = value {
-                        if ofv < trial_value {
-                            trial_value = ofv;
-                            trial_point = candidate;
-                            trial_modes = modes;
-                        }
-                        Ok(Some(ofv))
-                    } else {
-                        Ok(None)
+        let cache_enabled = request
+            .subjects
+            .iter()
+            .all(|subject| common_additive_variance(subject).is_some());
+        let mut mode_cache = vec![None; request.subjects.len()];
+        // Cached quadratics only predict initial modes, including for censoring.
+        // Every candidate still evaluates its actual censored likelihood and the
+        // existing conditional score and observed-curvature certificates.
+        let mut evaluate = |candidate: [f64; 6], warm_modes: &[Vector]| {
+            let candidate_theta = [libm::exp(candidate[0]), libm::exp(candidate[1])];
+            let cross = candidate[4] * libm::sqrt(candidate[2] * candidate[3]);
+            let candidate_omega = [[candidate[2], cross], [cross, candidate[3]]];
+            let mut modified;
+            let subject_request = if let Some(fit) = residual {
+                modified = request.clone();
+                let sd = libm::sqrt(candidate[5]);
+                for subject in &mut modified.subjects {
+                    for observation in &mut subject.observations {
+                        observation.error.additive_sd = qspquest_core::model::Quantity {
+                            value: sd,
+                            unit: fit.unit.clone(),
+                        };
                     }
-                },
-            )?;
-            if passed {
-                certified = true;
-                break;
-            }
-            if trial_point != point {
-                if iterations == max_iterations {
-                    break;
                 }
-                point = trial_point;
-                value = trial_value;
-                modes = trial_modes;
-                iterations += 1;
+                &modified
             } else {
-                break;
+                request
+            };
+            self.saem_marginal_ofv_with_cache(
+                subject_request,
+                setup,
+                candidate_theta,
+                candidate_omega,
+                warm_modes,
+                None,
+                evaluations,
+                budget,
+                cache_enabled.then_some(mode_cache.as_mut_slice()),
+            )
+        };
+        let mut refined = refine_marginal_box(
+            point,
+            lower,
+            upper,
+            scales,
+            center,
+            etas.to_vec(),
+            2. * request.gradient_tolerance * request.subjects.len() as f64,
+            max_iterations,
+            &mut evaluate,
+        )?;
+        let censored_error = residual.is_some()
+            && request
+                .subjects
+                .iter()
+                .any(|subject| subject.observations.iter().any(|o| o.censoring.is_some()));
+        let remaining = max_iterations.saturating_sub(refined.iterations);
+        if censored_error
+            && refined.certified
+            && remaining > 0
+            && refined.point[4].abs() >= MAX_SAEM_CORRELATION - 16. * f64::EPSILON
+        {
+            // Correlation-bound local solutions receive one deterministic
+            // decorrelation restart, selected by the identical objective.
+            // It shares the original evaluation and total iteration budgets.
+            let mut alternate = refined.point;
+            alternate[4] = 0.;
+            if let Some((value, modes)) = evaluate(alternate, &refined.modes)? {
+                let alternate_scales = [
+                    1.,
+                    1.,
+                    alternate[2].max(0.01),
+                    alternate[3].max(0.01),
+                    1.,
+                    alternate[5].max(0.01),
+                ];
+                let mut second = refine_marginal_box(
+                    alternate,
+                    lower,
+                    upper,
+                    alternate_scales,
+                    value,
+                    modes,
+                    2. * request.gradient_tolerance * request.subjects.len() as f64,
+                    remaining,
+                    &mut evaluate,
+                )?;
+                let total_iterations = refined.iterations + second.iterations;
+                if second.value < refined.value {
+                    second.iterations = total_iterations;
+                    refined = second;
+                } else {
+                    refined.iterations = total_iterations;
+                }
             }
         }
+        point = refined.point;
+        let value = refined.value;
+        let modes = refined.modes;
+        let certified = refined.certified;
+        let iterations = refined.iterations;
         let cross = point[4] * libm::sqrt(point[2] * point[3]);
         Ok(RefinedSaemPoint {
             theta: [libm::exp(point[0]), libm::exp(point[1])],
@@ -1691,6 +2937,90 @@ impl CompiledSensitivityDocument {
             certified,
             iterations,
         })
+    }
+
+    fn saem_one_effect_point_refined(
+        self: &Arc<Self>,
+        request: &PopulationFitRequest,
+        setup: &Setup,
+        theta: f64,
+        omega: f64,
+        beta: &[f64],
+        x: &[Vec<f64>],
+        residual: Option<&ResidualFit>,
+        center: f64,
+        modes: &[Vector],
+        evaluations: &mut usize,
+        budget: usize,
+        max_iterations: usize,
+    ) -> Result<MarginalBoxPoint, Error> {
+        let mut point = [0.; 6];
+        let mut lower = [0.; 6];
+        let mut upper = [0.; 6];
+        let mut scales = [1.; 6];
+        point[0] = libm::log(theta);
+        point[1] = omega;
+        lower[0] = libm::log(setup.lower[0]);
+        upper[0] = libm::log(setup.upper[0]);
+        lower[1] = setup.omega_lower[0];
+        upper[1] = setup.omega_upper[0];
+        scales[1] = omega.max(0.01);
+        if let Some(fit) = residual {
+            point[2] = fit.variance;
+            lower[2] = fit.lower_variance;
+            upper[2] = fit.upper_variance;
+            scales[2] = fit.variance.max(1e-6);
+        } else if let Some(effect) = &request.covariate_effect {
+            for (index, effect) in std::iter::once(effect)
+                .chain(effect.additional.iter())
+                .enumerate()
+            {
+                point[2 + index] = beta[index];
+                lower[2 + index] = effect.bounds[0];
+                upper[2 + index] = effect.bounds[1];
+            }
+        }
+        refine_marginal_box(
+            point,
+            lower,
+            upper,
+            scales,
+            center,
+            modes.to_vec(),
+            2. * request.gradient_tolerance * request.subjects.len() as f64,
+            max_iterations,
+            |candidate, warm_modes| {
+                let multipliers = x
+                    .iter()
+                    .map(|row| libm::exp(dot(&candidate[2..2 + beta.len()], row)))
+                    .collect::<Vec<_>>();
+                let mut modified;
+                let fitted_request = if let Some(fit) = residual {
+                    modified = request.clone();
+                    for subject in &mut modified.subjects {
+                        for observation in &mut subject.observations {
+                            observation.error.additive_sd = qspquest_core::model::Quantity {
+                                value: libm::sqrt(candidate[2]),
+                                unit: fit.unit.clone(),
+                            };
+                        }
+                    }
+                    &modified
+                } else {
+                    request
+                };
+                self.saem_marginal_ofv(
+                    fitted_request,
+                    setup,
+                    [libm::exp(candidate[0]), 0.],
+                    [[candidate[1], 0.], [0., 0.]],
+                    warm_modes,
+                    (!beta.is_empty()).then_some(multipliers.as_slice()),
+                    evaluations,
+                    budget,
+                )
+            },
+        )
     }
 
     fn saem_one_effect_uncertainty(
@@ -1856,13 +3186,22 @@ impl CompiledSensitivityDocument {
         let mut curvature_request = request.clone();
         for subject in &mut curvature_request.subjects {
             let regimen = &mut subject.simulation.run.regimen;
-            let factor = (1e-10 / regimen.rtol).min(1.);
+            let factor = (1e-12 / regimen.rtol).min(1.);
             regimen.rtol *= factor;
             if let Some(atol) = &mut regimen.atol {
                 *atol *= factor;
             }
             if let Some(tolerances) = &mut regimen.absolute_tolerances {
                 for tolerance in tolerances.values_mut() {
+                    tolerance.value *= factor;
+                }
+            }
+            for states in subject
+                .simulation
+                .derivative_absolute_tolerances
+                .values_mut()
+            {
+                for tolerance in states.values_mut() {
                     tolerance.value *= factor;
                 }
             }
@@ -1897,6 +3236,14 @@ impl CompiledSensitivityDocument {
             h = h.min(distance / (4. * scale));
         }
         h = h.min(correlation_stencil_limit(omega, &axes)?);
+        // Cached local quadratics predict initial modes only. Every probe
+        // still evaluates the actual likelihood and preserves the conditional
+        // score and observed-curvature certificates.
+        let cache_enabled = curvature_request
+            .subjects
+            .iter()
+            .all(|subject| common_additive_variance(subject).is_some());
+        let mut mode_cache = vec![None; curvature_request.subjects.len()];
         let mut evaluate = |offsets: &[f64; 5]| -> Result<f64, Error> {
             let mut candidate_theta = theta;
             let mut candidate_omega = omega;
@@ -1928,7 +3275,7 @@ impl CompiledSensitivityDocument {
                     "SAEM observed covariance requires an interior estimate within the permitted correlation limit",
                 ));
             }
-            self.saem_marginal_ofv(
+            self.saem_marginal_ofv_with_cache(
                 &curvature_request,
                 setup,
                 candidate_theta,
@@ -1937,6 +3284,7 @@ impl CompiledSensitivityDocument {
                 None,
                 evaluations,
                 budget,
+                cache_enabled.then_some(mode_cache.as_mut_slice()),
             )?
             .map(|(ofv, _)| ofv)
             .ok_or_else(|| {
@@ -2000,10 +3348,23 @@ impl CompiledSensitivityDocument {
         self: &Arc<Self>,
         request: &PopulationFitRequest,
     ) -> Result<PopulationFitResult, Error> {
-        match self.prepare_population_saem(request)? {
+        let mut result = match self.prepare_population_saem(request)? {
             PreparedSaem::One(prepared) => self.fit_population_saem_1d(request, prepared),
             PreparedSaem::Two(prepared) => self.fit_population_saem_2d(request, prepared),
+        }?;
+        if result.status == FitStatus::Converged && result.uncertainty.is_some() {
+            // SAEM validates strictly positive fixed-effect bounds before fitting.
+            let names = request
+                .fixed_effects
+                .iter()
+                .map(|p| p.parameter.clone())
+                .collect::<Vec<_>>();
+            qspquest_core::population_intervals::attach_positive_fixed_effect_intervals(
+                &mut result,
+                &names,
+            );
         }
+        Ok(result)
     }
     fn prepare_population_saem(
         self: &Arc<Self>,
@@ -2243,6 +3604,7 @@ impl CompiledSensitivityDocument {
             })
             .collect::<Vec<_>>();
         let mut iterations = 0_usize;
+        let mut marginal_refinement_iterations = 0_usize;
         let mut stable_iterations = 0_usize;
         let mut evaluated_proposals = 0_usize;
         let mut accepted_proposals = 0_usize;
@@ -2250,11 +3612,26 @@ impl CompiledSensitivityDocument {
         let mut final_relative_change = None;
         let mut recent_relative_changes = Vec::with_capacity(20);
         let mut post_burn_history = Vec::with_capacity(50);
+        let mut post_burn_proposed = 0_usize;
+        let mut post_burn_accepted = 0_usize;
+        let mut subject_proposed = vec![0_usize; count];
+        let mut subject_accepted = vec![0_usize; count];
+        let mut subject_stall = vec![0_usize; count];
+        let mut max_subject_stall = 0_usize;
+        let mut post_burn_completed_iterations = 0_usize;
+        let mut moved_by_subject = vec![false; count];
+        let mut previous_phi = phi.clone();
+        let mut lag_one = vec![LagOne::default(); count];
         let mut status = FitStatus::IterationLimit;
         for iteration in 0..request.max_iterations {
             let mut moved = 0_usize;
+            moved_by_subject.fill(false);
             for (index, subject) in subjects.iter().enumerate() {
                 for _ in 0..3 {
+                    if iteration >= burn_in {
+                        post_burn_proposed += 1;
+                        subject_proposed[index] += 1;
+                    }
                     let proposal = phi[index] + 0.8 * libm::sqrt(omega) * stream.normal();
                     let subject_log_theta = log_theta + dot(&beta, &x[index]);
                     let proposal_eta = proposal - subject_log_theta;
@@ -2307,7 +3684,12 @@ impl CompiledSensitivityDocument {
                         }
                         prediction_cache[index] = proposal_predictions;
                         moved += 1;
+                        moved_by_subject[index] = true;
                         accepted_proposals += 1;
+                        if iteration >= burn_in {
+                            post_burn_accepted += 1;
+                            subject_accepted[index] += 1;
+                        }
                     }
                 }
                 if status == FitStatus::EvaluationLimit {
@@ -2317,6 +3699,21 @@ impl CompiledSensitivityDocument {
             if status == FitStatus::EvaluationLimit {
                 break;
             }
+            if iteration >= burn_in {
+                post_burn_completed_iterations += 1;
+                for index in 0..count {
+                    subject_stall[index] = if moved_by_subject[index] {
+                        0
+                    } else {
+                        subject_stall[index] + 1
+                    };
+                    max_subject_stall = max_subject_stall.max(subject_stall[index]);
+                    if iteration > burn_in {
+                        lag_one[index].observe(previous_phi[index], phi[index]);
+                    }
+                }
+            }
+            previous_phi.clone_from(&phi);
             let sample_mean = phi.iter().sum::<f64>() / count as f64;
             let sample_second = phi.iter().map(|p| p * p).sum::<f64>() / count as f64;
             let sample_xphi = (0..columns)
@@ -2475,7 +3872,16 @@ impl CompiledSensitivityDocument {
             } else {
                 false
             };
-            stable_iterations = if window_stable {
+            let mixing_stable = post_burn_proposed > 0
+                && (0.05..=0.95).contains(&(post_burn_accepted as f64 / post_burn_proposed as f64))
+                && max_subject_stall <= 100
+                && (0..count).all(|index| {
+                    subject_accepted[index] > 0
+                        && lag_one[index]
+                            .correlation()
+                            .is_some_and(|value| value <= 0.9)
+                });
+            stable_iterations = if window_stable && mixing_stable {
                 stable_iterations + 1
             } else {
                 0
@@ -2504,7 +3910,7 @@ impl CompiledSensitivityDocument {
             .iter()
             .map(|row| libm::exp(dot(&beta, row)))
             .collect::<Vec<_>>();
-        let marginal = self.saem_marginal_ofv(
+        let mut marginal = self.saem_marginal_ofv(
             fitted_request,
             &setup,
             [theta, 0.],
@@ -2521,6 +3927,51 @@ impl CompiledSensitivityDocument {
                 FitStatus::LineSearchFailed
             };
         }
+        if status == FitStatus::Converged {
+            if let Some((ofv, modes)) = &marginal {
+                let refined = self.saem_one_effect_point_refined(
+                    fitted_request,
+                    &setup,
+                    theta,
+                    omega,
+                    &beta,
+                    &x,
+                    residual.as_ref(),
+                    *ofv,
+                    modes,
+                    &mut evaluations,
+                    request.max_evaluations - 3 * count,
+                    request.max_iterations.saturating_sub(iterations).min(64),
+                )?;
+                theta = libm::exp(refined.point[0]);
+                omega = refined.point[1];
+                beta.copy_from_slice(&refined.point[2..2 + columns]);
+                if let Some(fit) = &mut residual {
+                    fit.variance = refined.point[2];
+                    set_residual_sd(&mut subjects, fit);
+                }
+                iterations += refined.iterations;
+                marginal_refinement_iterations += refined.iterations;
+                marginal = Some((refined.value, refined.modes));
+                if !refined.certified {
+                    status = if evaluations >= request.max_evaluations - 3 * count {
+                        FitStatus::EvaluationLimit
+                    } else {
+                        FitStatus::LineSearchFailed
+                    };
+                }
+            }
+        }
+        let final_request = residual.as_ref().map(|_| {
+            let mut updated = request.clone();
+            updated.subjects = subjects.clone();
+            updated
+        });
+        let fitted_request = final_request.as_ref().unwrap_or(request);
+        let multipliers = x
+            .iter()
+            .map(|row| libm::exp(dot(&beta, row)))
+            .collect::<Vec<_>>();
         let uncertainty = if request.uncertainty {
             if status != FitStatus::Converged {
                 return Err(observed_covariance_failure(
@@ -2603,6 +4054,8 @@ impl CompiledSensitivityDocument {
             Some(recent_relative_changes[recent_window / 2])
         };
         Ok(PopulationFitResult {
+            fixed_effect_intervals: None,
+            fixed_effect_interval_error: None,
             status,
             fixed_effects,
             omega: vec![vec![omega]],
@@ -2638,6 +4091,7 @@ impl CompiledSensitivityDocument {
             }),
             saem_diagnostics: Some(PopulationSaemDiagnostics {
                 burn_in_iterations: burn_in,
+                marginal_refinement_iterations,
                 final_step_size,
                 final_relative_change,
                 recent_relative_change_median,
@@ -2645,10 +4099,25 @@ impl CompiledSensitivityDocument {
                 evaluated_proposals,
                 accepted_proposals,
                 consecutive_stable_iterations: stable_iterations,
-                post_burn_acceptance_by_axis: None,
-                post_burn_min_subject_acceptance_by_axis: None,
-                post_burn_max_subject_stall_iterations: None,
-                post_burn_max_lag_one_correlation_by_axis: None,
+                post_burn_acceptance_by_axis: (post_burn_proposed > 0)
+                    .then(|| vec![post_burn_accepted as f64 / post_burn_proposed as f64]),
+                post_burn_min_subject_acceptance_by_axis: subject_proposed
+                    .iter()
+                    .all(|n| *n > 0)
+                    .then(|| {
+                        vec![(0..count)
+                            .map(|index| {
+                                subject_accepted[index] as f64 / subject_proposed[index] as f64
+                            })
+                            .fold(1., f64::min)]
+                    }),
+                post_burn_max_subject_stall_iterations: (post_burn_completed_iterations > 0)
+                    .then_some(max_subject_stall),
+                post_burn_max_lag_one_correlation_by_axis: lag_one
+                    .iter()
+                    .map(LagOne::correlation)
+                    .collect::<Option<Vec<_>>>()
+                    .map(|values| vec![values.into_iter().fold(0., f64::max)]),
             }),
             objective_kind: if marginal.is_some() {
                 PopulationObjectiveKind::SaemMarginalObjectiveFunctionValue
@@ -2658,7 +4127,9 @@ impl CompiledSensitivityDocument {
             objective: marginal.map(|(value, _)| value).unwrap_or(objective),
             evaluations,
             iterations,
-            fit_request_hash: canonical_hash(&serde_json::json!(request))?,
+            fit_request_hash: canonical_hash(
+                &serde_json::json!({"algorithm":"saem_joint_projected_refinement_axis_mixing_v2","request":request}),
+            )?,
         })
     }
 
@@ -2738,6 +4209,7 @@ impl CompiledSensitivityDocument {
             }
         }
         let mut iterations = 0;
+        let mut marginal_refinement_iterations = 0_usize;
         let mut status = FitStatus::IterationLimit;
         let mut evaluated_proposals = 0;
         let mut accepted_proposals = 0;
@@ -2759,13 +4231,38 @@ impl CompiledSensitivityDocument {
         let mut pilot_lag_one = vec![[LagOne::default(); 2]; count];
         let mut extra_sweeps = false;
         let mut joint_proposals: Vec<Option<JointProposal>> = vec![None; count];
+        let mut proposal_priors: Vec<Option<(Vector, Matrix)>> = vec![None; count];
+        let mut proposal_residual_variances: Vec<Option<f64>> = vec![None; count];
+        let uncensored_residual = residual.is_some()
+            && subjects
+                .iter()
+                .all(|s| s.observations.iter().all(|o| o.censoring.is_none()));
+        let moment_batch_size = if residual.is_some() && !uncensored_residual {
+            4
+        } else {
+            1
+        };
+        let mut retained_batches = vec![RetainedMomentBatch::default(); count];
         for iteration in 0..request.max_iterations {
+            retained_batches.fill(RetainedMomentBatch::default());
+            let current_prior_precision = if residual.is_none() || uncensored_residual {
+                Some(
+                    precision(omega, 2)
+                        .ok_or_else(|| invalid("SAEM Omega must remain positive definite"))?
+                        .0,
+                )
+            } else {
+                None
+            };
             let mut moved = 0;
             moved_by_subject.fill(false);
             let mut proposed_by_axis = [0_usize; 2];
             let mut accepted_by_axis = [0_usize; 2];
             for (index, subject) in subjects.iter_mut().enumerate() {
-                if iteration < 4 || iteration % 20 == 0 {
+                if iteration < 4
+                    || (iteration % 20 == 0
+                        && (iteration < burn_in || (residual.is_some() && !uncensored_residual)))
+                {
                     let center = joint_proposals[index].map_or(log_theta, |q| q.mean);
                     joint_proposals[index] = self.saem_curvature_proposal(
                         subject,
@@ -2777,101 +4274,141 @@ impl CompiledSensitivityDocument {
                         &mut evaluations,
                         request.max_evaluations - 3 * count,
                     )?;
+                    proposal_priors[index] = current_prior_precision.map(|p| (log_theta, p));
+                    proposal_residual_variances[index] = residual.as_ref().map(|f| f.variance);
                 }
+                // Refresh the normal-prior factor without reevaluating the cached
+                // likelihood approximation. A failed rebase keeps the valid anchor.
+                let current_joint = match (
+                    joint_proposals[index],
+                    proposal_priors[index],
+                    current_prior_precision,
+                ) {
+                    (Some(q), Some((mean, prior)), Some(current)) => {
+                        let scale = match (proposal_residual_variances[index], residual.as_ref()) {
+                            (Some(previous), Some(fit)) => previous / fit.variance,
+                            _ => 1.,
+                        };
+                        let updated = if scale == 1. {
+                            q.rebased_prior(mean, prior, log_theta, current)
+                        } else {
+                            q.reweighted_likelihood(mean, prior, log_theta, current, scale)
+                        };
+                        Some(updated.unwrap_or(q))
+                    }
+                    _ => joint_proposals[index],
+                };
                 // If a burn-in pilot finds persistent subject chains, complete
                 // more coordinate sweeps before recording each SA sample.
-                let proposals = if residual.is_some() {
-                    5
-                } else if extra_sweeps {
+                let proposals = if extra_sweeps {
                     10
+                } else if joint_proposals[index].is_some() {
+                    // A complete independence transition retains its full
+                    // Hastings correction. Fitted residuals also retain one
+                    // symmetric transition, on a fixed acceptance-independent
+                    // schedule.
+                    2
+                } else if residual.is_some() {
+                    5
                 } else {
                     3
                 };
-                for step in 0..proposals {
-                    let mut proposal = phi[index];
-                    // A joint independence proposal uses its full Hastings
-                    // correction; remaining coordinate moves are symmetric.
-                    let axis = if residual.is_some() || extra_sweeps {
-                        (iteration + step) % 2
-                    } else {
-                        (stream.next_u64() % 2) as usize
-                    };
-                    let joint = if step == 0 {
-                        joint_proposals[index]
-                    } else {
-                        None
-                    };
-                    if let Some(q) = joint {
-                        proposal = q.draw(&mut stream);
-                    } else {
-                        proposal[axis] +=
-                            proposal_scale[axis] * libm::sqrt(omega[axis][axis]) * stream.normal();
-                    }
-                    for a in 0..2 {
-                        if joint.is_some() || a == axis {
-                            proposed_by_axis[a] += 1;
-                            if iteration >= burn_in {
-                                post_burn_proposed[a] += 1;
-                                subject_proposed[index][a] += 1;
-                            }
+                for _ in 0..moment_batch_size {
+                    for step in 0..proposals {
+                        let mut proposal = phi[index];
+                        // A joint independence proposal uses its full Hastings
+                        // correction; remaining coordinate moves are symmetric.
+                        let axis = if residual.is_some() || extra_sweeps {
+                            (iteration + step) % 2
+                        } else {
+                            (stream.next_u64() % 2) as usize
+                        };
+                        let joint = if step == 0 { current_joint } else { None };
+                        if let Some(q) = joint {
+                            proposal = q.draw(&mut stream);
+                        } else {
+                            proposal[axis] += proposal_scale[axis]
+                                * libm::sqrt(omega[axis][axis])
+                                * stream.normal();
                         }
-                    }
-                    let candidate_eta = [proposal[0] - log_theta[0], proposal[1] - log_theta[1]];
-                    if candidate_eta
-                        .iter()
-                        .any(|x| !x.is_finite() || x.abs() > request.eta_bound)
-                    {
-                        continue;
-                    }
-                    if evaluations >= request.max_evaluations - 3 * count {
-                        status = FitStatus::EvaluationLimit;
-                        break;
-                    }
-                    evaluations += 1;
-                    evaluated_proposals += 1;
-                    let (candidate_nll, candidate_predictions) = match self
-                        .saem_nll_in_place_with_predictions(subject, &setup, theta, candidate_eta)
-                    {
-                        Ok(value) => value,
-                        Err(error)
-                            if matches!(
-                                error.code,
-                                ErrorCode::Domain | ErrorCode::Solver | ErrorCode::Invariant
-                            ) =>
-                        {
-                            continue
-                        }
-                        Err(error) => return Err(error),
-                    };
-                    let candidate_sse = if let Some(fit) = &residual {
-                        Some(residual_moments(subject, &candidate_predictions, fit)?.1)
-                    } else {
-                        None
-                    };
-                    let current_eta = [phi[index][0] - log_theta[0], phi[index][1] - log_theta[1]];
-                    let current = nll[index] + prior_nll_vector(current_eta, omega, 2)?;
-                    let candidate = candidate_nll + prior_nll_vector(candidate_eta, omega, 2)?;
-                    let correction =
-                        joint.map_or(0., |q| q.log_kernel(phi[index]) - q.log_kernel(proposal));
-                    if libm::log(stream.uniform()) < current - candidate + correction {
-                        phi[index] = proposal;
-                        nll[index] = candidate_nll;
-                        if let Some(sse) = candidate_sse {
-                            residual_sse[index] = sse;
-                        }
-                        prediction_cache[index] = candidate_predictions;
-                        accepted_proposals += 1;
-                        moved += 1;
-                        moved_by_subject[index] = true;
                         for a in 0..2 {
                             if joint.is_some() || a == axis {
-                                accepted_by_axis[a] += 1;
+                                proposed_by_axis[a] += 1;
                                 if iteration >= burn_in {
-                                    post_burn_accepted[a] += 1;
-                                    subject_accepted[index][a] += 1;
+                                    post_burn_proposed[a] += 1;
+                                    subject_proposed[index][a] += 1;
                                 }
                             }
                         }
+                        let candidate_eta =
+                            [proposal[0] - log_theta[0], proposal[1] - log_theta[1]];
+                        if candidate_eta
+                            .iter()
+                            .any(|x| !x.is_finite() || x.abs() > request.eta_bound)
+                        {
+                            continue;
+                        }
+                        if evaluations >= request.max_evaluations - 3 * count {
+                            status = FitStatus::EvaluationLimit;
+                            break;
+                        }
+                        evaluations += 1;
+                        evaluated_proposals += 1;
+                        let (candidate_nll, candidate_predictions) = match self
+                            .saem_nll_in_place_with_predictions(
+                                subject,
+                                &setup,
+                                theta,
+                                candidate_eta,
+                            ) {
+                            Ok(value) => value,
+                            Err(error)
+                                if matches!(
+                                    error.code,
+                                    ErrorCode::Domain | ErrorCode::Solver | ErrorCode::Invariant
+                                ) =>
+                            {
+                                continue
+                            }
+                            Err(error) => return Err(error),
+                        };
+                        let candidate_sse = if let Some(fit) = &residual {
+                            Some(residual_moments(subject, &candidate_predictions, fit)?.1)
+                        } else {
+                            None
+                        };
+                        let current_eta =
+                            [phi[index][0] - log_theta[0], phi[index][1] - log_theta[1]];
+                        let current = nll[index] + prior_nll_vector(current_eta, omega, 2)?;
+                        let candidate = candidate_nll + prior_nll_vector(candidate_eta, omega, 2)?;
+                        let correction =
+                            joint.map_or(0., |q| q.log_kernel(phi[index]) - q.log_kernel(proposal));
+                        if libm::log(stream.uniform()) < current - candidate + correction {
+                            phi[index] = proposal;
+                            nll[index] = candidate_nll;
+                            if let Some(sse) = candidate_sse {
+                                residual_sse[index] = sse;
+                            }
+                            prediction_cache[index] = candidate_predictions;
+                            accepted_proposals += 1;
+                            moved += 1;
+                            moved_by_subject[index] = true;
+                            for a in 0..2 {
+                                if joint.is_some() || a == axis {
+                                    accepted_by_axis[a] += 1;
+                                    if iteration >= burn_in {
+                                        post_burn_accepted[a] += 1;
+                                        subject_accepted[index][a] += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if status == FitStatus::EvaluationLimit {
+                        break;
+                    }
+                    if moment_batch_size > 1 {
+                        retained_batches[index].record(phi[index], residual_sse[index]);
                     }
                 }
                 if status == FitStatus::EvaluationLimit {
@@ -2938,12 +4475,25 @@ impl CompiledSensitivityDocument {
             } else {
                 1. / (iteration - burn_in + 1) as f64
             };
+            let batch_moments: Option<Vec<_>> = (moment_batch_size > 1).then(|| {
+                retained_batches
+                    .iter()
+                    .map(|batch| batch.averages())
+                    .collect()
+            });
             for axis in 0..2 {
-                let sample_mean = phi.iter().map(|p| p[axis]).sum::<f64>() / count as f64;
+                let sample_mean = if let Some(moments) = &batch_moments {
+                    moments.iter().map(|m| m.0[axis]).sum::<f64>() / count as f64
+                } else {
+                    phi.iter().map(|p| p[axis]).sum::<f64>() / count as f64
+                };
                 mean_phi[axis] += gamma * (sample_mean - mean_phi[axis]);
                 for other in 0..2 {
-                    let sample_second =
-                        phi.iter().map(|p| p[axis] * p[other]).sum::<f64>() / count as f64;
+                    let sample_second = if let Some(moments) = &batch_moments {
+                        moments.iter().map(|m| m.1[axis][other]).sum::<f64>() / count as f64
+                    } else {
+                        phi.iter().map(|p| p[axis] * p[other]).sum::<f64>() / count as f64
+                    };
                     second_phi[axis][other] += gamma * (sample_second - second_phi[axis][other]);
                 }
             }
@@ -2977,21 +4527,23 @@ impl CompiledSensitivityDocument {
                         + next_log_theta[a] * next_log_theta[b];
                 }
             }
-            for axis in 0..2 {
-                next_omega[axis][axis] =
-                    next_omega[axis][axis].clamp(setup.omega_lower[axis], setup.omega_upper[axis]);
-            }
             let correlation_limit = if residual.is_some() && iteration < burn_in {
                 0.75
             } else {
                 MAX_SAEM_CORRELATION
             };
-            let covariance_limit =
-                correlation_limit * libm::sqrt(next_omega[0][0] * next_omega[1][1]);
-            let covariance = (0.5 * (next_omega[0][1] + next_omega[1][0]))
-                .clamp(-covariance_limit, covariance_limit);
-            next_omega[0][1] = covariance;
-            next_omega[1][0] = covariance;
+            next_omega = conditional_covariance_mstep(
+                next_omega,
+                setup.omega_lower,
+                setup.omega_upper,
+                correlation_limit,
+            )
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Domain,
+                    "SAEM M-step produced invalid population parameters",
+                )
+            })?;
             if next_theta.iter().any(|x| !x.is_finite()) || precision(next_omega, 2).is_none() {
                 return Err(Error::new(
                     ErrorCode::Domain,
@@ -3009,7 +4561,11 @@ impl CompiledSensitivityDocument {
             );
             if let Some(fit) = &mut residual {
                 let previous = fit.variance;
-                let sample = residual_sse.iter().sum::<f64>() / fit.observations as f64;
+                let sample = if let Some(moments) = &batch_moments {
+                    moments.iter().map(|m| m.2).sum::<f64>() / fit.observations as f64
+                } else {
+                    residual_sse.iter().sum::<f64>() / fit.observations as f64
+                };
                 let residual_gain = gamma.min(0.2);
                 fit.variance = (previous + residual_gain * (sample - previous))
                     .clamp(fit.lower_variance, fit.upper_variance);
@@ -3141,6 +4697,7 @@ impl CompiledSensitivityDocument {
                     set_residual_sd(&mut subjects, fit);
                 }
                 iterations += refined.iterations;
+                marginal_refinement_iterations += refined.iterations;
                 marginal = Some(refined.marginal);
                 if !refined.certified {
                     status = if evaluations >= request.max_evaluations - 3 * count {
@@ -3222,10 +4779,10 @@ impl CompiledSensitivityDocument {
         } else {
             Some(recent_relative_changes[recent_window / 2])
         };
-        let post_burn_acceptance_by_axis = std::array::from_fn(|axis| {
+        let post_burn_acceptance_by_axis: [f64; 2] = std::array::from_fn(|axis| {
             post_burn_accepted[axis] as f64 / post_burn_proposed[axis].max(1) as f64
         });
-        let post_burn_min_subject_acceptance_by_axis = std::array::from_fn(|axis| {
+        let post_burn_min_subject_acceptance_by_axis: [f64; 2] = std::array::from_fn(|axis| {
             (0..count)
                 .map(|index| {
                     subject_accepted[index][axis] as f64
@@ -3233,12 +4790,14 @@ impl CompiledSensitivityDocument {
                 })
                 .fold(1., f64::min)
         });
-        let post_burn_max_lag_one_correlation_by_axis = std::array::from_fn(|axis| {
+        let post_burn_max_lag_one_correlation_by_axis: [f64; 2] = std::array::from_fn(|axis| {
             (0..count)
                 .filter_map(|index| lag_one[index][axis].correlation())
                 .fold(0., f64::max)
         });
         Ok(PopulationFitResult {
+            fixed_effect_intervals: None,
+            fixed_effect_interval_error: None,
             status,
             fixed_effects,
             omega: vec![omega[0].to_vec(), omega[1].to_vec()],
@@ -3255,6 +4814,7 @@ impl CompiledSensitivityDocument {
             }),
             saem_diagnostics: Some(PopulationSaemDiagnostics {
                 burn_in_iterations: burn_in,
+                marginal_refinement_iterations,
                 final_step_size,
                 final_relative_change,
                 recent_relative_change_median,
@@ -3263,13 +4823,13 @@ impl CompiledSensitivityDocument {
                 accepted_proposals,
                 consecutive_stable_iterations: stable_iterations,
                 post_burn_acceptance_by_axis: (post_burn_proposed != [0; 2])
-                    .then_some(post_burn_acceptance_by_axis),
+                    .then_some(post_burn_acceptance_by_axis.to_vec()),
                 post_burn_min_subject_acceptance_by_axis: (post_burn_proposed != [0; 2])
-                    .then_some(post_burn_min_subject_acceptance_by_axis),
+                    .then_some(post_burn_min_subject_acceptance_by_axis.to_vec()),
                 post_burn_max_subject_stall_iterations: (post_burn_proposed != [0; 2])
                     .then_some(max_subject_stall),
                 post_burn_max_lag_one_correlation_by_axis: (post_burn_proposed != [0; 2])
-                    .then_some(post_burn_max_lag_one_correlation_by_axis),
+                    .then_some(post_burn_max_lag_one_correlation_by_axis.to_vec()),
             }),
             objective_kind: if marginal.is_some() {
                 PopulationObjectiveKind::SaemMarginalObjectiveFunctionValue
@@ -3279,7 +4839,9 @@ impl CompiledSensitivityDocument {
             objective: marginal.map(|(value, _)| value).unwrap_or(surrogate),
             evaluations,
             iterations,
-            fit_request_hash: canonical_hash(&serde_json::json!(request))?,
+            fit_request_hash: canonical_hash(
+                &serde_json::json!({"algorithm":"saem_joint_covariance_mode_reuse_v13","request":request}),
+            )?,
         })
     }
 }
@@ -3474,5 +5036,148 @@ mod curvature_proposal_tests {
         }
         // Independent expansion: delta = [-3, 3.5], quadratic = 36 - 21 + 24.5.
         assert!((q.log_kernel([-2., 3.]) + 19.75).abs() < 1e-12);
+    }
+
+    #[test]
+    fn prior_rebase_matches_independent_gaussian_conditional_and_density_ratio() {
+        let old_omega: Matrix = [[0.2, 0.03], [0.03, 0.1]];
+        let new_omega: Matrix = [[0.001, -0.009], [-0.009, 0.1]];
+        let old_mean: Vector = [0.2, -0.4];
+        let new_mean: Vector = [0.4, -0.1];
+        let old_covariance: Matrix = [
+            [0.05837479790924359, -0.004285108854321994],
+            [-0.004285108854321995, 0.051672448162739956],
+        ];
+        let l00 = libm::sqrt(old_covariance[0][0]);
+        let l10 = old_covariance[1][0] / l00;
+        let q = JointProposal {
+            mean: [0.2018192092169081, -0.2820103909965625],
+            precision: [
+                [17.23560209424084, 1.4293193717277486],
+                [1.4293193717277488, 19.471204188481675],
+            ],
+            lower: [
+                [l00, 0.],
+                [l10, libm::sqrt(old_covariance[1][1] - l10 * l10)],
+            ],
+        };
+        let p0 = precision(old_omega, 2).unwrap().0;
+        let p1 = precision(new_omega, 2).unwrap().0;
+        let updated = q.rebased_prior(old_mean, p0, new_mean, p1).unwrap();
+        let expected_mean: Vector = [0.40291787485328356, -0.1387935034553281];
+        let expected_covariance: Matrix = [
+            [0.0006296101739842496, -0.004869666392634797],
+            [-0.004869666392634797, 0.053889469272496465],
+        ];
+        let covariance: Matrix = std::array::from_fn(|a| {
+            std::array::from_fn(|b| {
+                (0..2)
+                    .map(|k| updated.lower[a][k] * updated.lower[b][k])
+                    .sum()
+            })
+        });
+        for a in 0..2 {
+            assert!((updated.mean[a] - expected_mean[a]).abs() < 1e-11);
+            for b in 0..2 {
+                assert!((covariance[a][b] - expected_covariance[a][b]).abs() < 1e-12);
+            }
+        }
+        let mut constant = None;
+        for x in [[-1., 0.], [0.4, -0.2], [2., 1.]] {
+            let old_eta = [x[0] - old_mean[0], x[1] - old_mean[1]];
+            let new_eta = [x[0] - new_mean[0], x[1] - new_mean[1]];
+            let value = updated.log_kernel(x) - q.log_kernel(x)
+                + prior_nll_vector(new_eta, new_omega, 2).unwrap()
+                - prior_nll_vector(old_eta, old_omega, 2).unwrap();
+            if let Some(previous) = constant {
+                assert!(f64::abs(value - previous) < 1e-8);
+            } else {
+                constant = Some(value);
+            }
+        }
+    }
+
+    #[test]
+    fn prior_rebase_refuses_nonpositive_cached_precision() {
+        let q = JointProposal {
+            mean: [0., 0.],
+            precision: [[1., 0.], [0., 1.]],
+            lower: [[1., 0.], [0., 1.]],
+        };
+        assert!(q
+            .rebased_prior(
+                [0.; 2],
+                [[1000., 0.], [0., 1000.]],
+                [0.; 2],
+                [[1., 0.], [0., 1.]]
+            )
+            .is_none());
+    }
+}
+
+#[cfg(test)]
+mod residual_proposal_tests {
+    use super::*;
+    #[test]
+    fn residual_precision_rebase_matches_independent_gaussian_conditionals() {
+        let cases: serde_json::Value = serde_json::from_str(&crate::test_fixture::text(
+            include_bytes!("../../../tests/fixtures/gaussian_residual_proposals.json.gz"),
+        ))
+        .unwrap();
+        for case in cases.as_array().unwrap() {
+            let old_mean: Vector = serde_json::from_value(case["old_mean"].clone()).unwrap();
+            let new_mean: Vector = serde_json::from_value(case["new_mean"].clone()).unwrap();
+            let old_omega: Matrix = serde_json::from_value(case["old_omega"].clone()).unwrap();
+            let new_omega: Matrix = serde_json::from_value(case["new_omega"].clone()).unwrap();
+            let h: Matrix = serde_json::from_value(case["proposal0_precision"].clone()).unwrap();
+            let mean: Vector = serde_json::from_value(case["proposal0_mean"].clone()).unwrap();
+            let covariance = precision(h, 2).unwrap().0;
+            let l00 = libm::sqrt(covariance[0][0]);
+            let l10 = covariance[1][0] / l00;
+            let q = JointProposal {
+                mean,
+                precision: h,
+                lower: [[l00, 0.], [l10, libm::sqrt(covariance[1][1] - l10 * l10)]],
+            };
+            let updated = q
+                .reweighted_likelihood(
+                    old_mean,
+                    precision(old_omega, 2).unwrap().0,
+                    new_mean,
+                    precision(new_omega, 2).unwrap().0,
+                    case["likelihood_precision_factor"].as_f64().unwrap(),
+                )
+                .unwrap();
+            let expected_mean: Vector =
+                serde_json::from_value(case["expected_mean"].clone()).unwrap();
+            let expected_covariance: Matrix =
+                serde_json::from_value(case["expected_covariance"].clone()).unwrap();
+            let actual_covariance = precision(updated.precision, 2).unwrap().0;
+            for a in 0..2 {
+                assert!((updated.mean[a] - expected_mean[a]).abs() <= 1e-10);
+                for b in 0..2 {
+                    assert!((actual_covariance[a][b] - expected_covariance[a][b]).abs() <= 1e-12);
+                }
+            }
+        }
+    }
+    #[test]
+    fn residual_precision_rebase_rejects_invalid_scale() {
+        let q = JointProposal {
+            mean: [0.; 2],
+            precision: [[1., 0.], [0., 1.]],
+            lower: [[1., 0.], [0., 1.]],
+        };
+        for scale in [0., -1., f64::NAN, f64::INFINITY] {
+            assert!(q
+                .reweighted_likelihood(
+                    [0.; 2],
+                    [[1., 0.], [0., 1.]],
+                    [0.; 2],
+                    [[1., 0.], [0., 1.]],
+                    scale
+                )
+                .is_none());
+        }
     }
 }

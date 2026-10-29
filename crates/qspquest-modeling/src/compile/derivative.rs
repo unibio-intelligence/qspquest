@@ -213,6 +213,49 @@ pub(super) fn differentiate(expr: &Expr, name: &str, state_jacobian: bool) -> Re
             )
         }
         Expr::Call {
+            name: Function::InverseGaussianDensity,
+            arguments,
+        } => {
+            let (x, mean, shape) = (
+                arguments[0].clone(),
+                arguments[1].clone(),
+                arguments[2].clone(),
+            );
+            let delta = sub(x.clone(), mean.clone());
+            let time_score = add(
+                neg(div(Expr::number(1.5), x.clone())),
+                mul(
+                    Expr::number(0.5),
+                    sub(
+                        div(shape.clone(), power(x.clone(), 2.)),
+                        div(shape.clone(), power(mean.clone(), 2.)),
+                    ),
+                ),
+            );
+            let mean_score = div(mul(shape.clone(), delta.clone()), power(mean.clone(), 3.));
+            let shape_score = sub(
+                div(Expr::number(0.5), shape.clone()),
+                div(
+                    power(delta, 2.),
+                    mul(Expr::number(2.), mul(power(mean, 2.), x.clone())),
+                ),
+            );
+            let score = add(
+                add(mul(time_score, d(&x)?), mul(mean_score, d(&arguments[1])?)),
+                mul(shape_score, d(&shape)?),
+            );
+            // The exact zero extension is smooth at zero for positive mean
+            // and shape. Its density and all parameter derivatives vanish.
+            Expr::conditional(
+                Expr::Compare {
+                    operator: Compare::Gt,
+                    arguments: Box::new([expr.clone(), Expr::number(0.)]),
+                },
+                mul(expr.clone(), score),
+                Expr::number(0.),
+            )
+        }
+        Expr::Call {
             name: Function::Hill,
             arguments,
         } => {

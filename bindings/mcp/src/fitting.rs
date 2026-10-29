@@ -420,9 +420,12 @@ impl Declaration {
                                 serde_json::from_value(raw_result).map_err(|e| {
                                     format!("Recorded individual fitting result: {e}")
                                 })?;
-                            if result.population.is_some() || result.fit.is_none() {
+                            if result.population.is_some()
+                                || result.fit.is_none()
+                                || result.residual_scales.is_some()
+                            {
                                 return Err(
-                                    "Individual evidence must retain an individual fit result"
+                                    "Individual evidence must retain an individual fit result without profiled residual scales"
                                         .into(),
                                 );
                             }
@@ -722,6 +725,28 @@ mod tests {
             &f.contract["workflows"][0]["native_request"]
         )
         .is_err());
+    }
+    #[test]
+    fn individual_archive_evidence_cannot_hide_profiled_residual_scales() {
+        let mut f = fixture(Operation::FitIndividual, true);
+        check(&f).unwrap();
+        let mut result: Value = serde_json::from_slice(&f.files["fitting/result.json"]).unwrap();
+        result["residual_scales"] = json!({"cp":0.1});
+        let bytes = serde_json::to_vec(&result).unwrap();
+        let result_hash = hash(&bytes);
+        f.files.insert("fitting/result.json".into(), bytes);
+        f.index["members"]["fitting/result.json"] = json!(result_hash);
+        let mut evidence: Value =
+            serde_json::from_slice(&f.files["fitting/evidence.json"]).unwrap();
+        evidence["native_result"]["sha256"] = json!(result_hash);
+        let bytes = serde_json::to_vec(&evidence).unwrap();
+        let evidence_hash = hash(&bytes);
+        f.files.insert("fitting/evidence.json".into(), bytes);
+        f.index["members"]["fitting/evidence.json"] = json!(evidence_hash);
+        f.contract["workflows"][0]["qualification"]["evidence"]["sha256"] = json!(evidence_hash);
+        assert!(check(&f)
+            .unwrap_err()
+            .contains("without profiled residual scales"));
     }
     #[test]
     fn scalar_and_individual_contracts_match_only_their_complete_native_request() {

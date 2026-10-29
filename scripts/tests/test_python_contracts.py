@@ -18,7 +18,7 @@ class PythonContractTests(unittest.TestCase):
     def test_all_native_contracts_and_public_signatures_match(self):
         report = check(ROOT)
         self.assertEqual(report['status'], 'matched')
-        self.assertEqual(report['generated_native_schemas'], 16)
+        self.assertEqual(report['generated_native_schemas'], 20)
         self.assertEqual(report['result_methods'], 10)
         self.assertGreaterEqual(report['signatures'], 61)
 

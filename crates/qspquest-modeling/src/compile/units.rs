@@ -183,6 +183,12 @@ fn lower(expr: &Expr, units: &BTreeMap<String, Unit>, path: &str) -> Result<(Exp
                     dimensionless(kinds[1], path)?;
                     Dimension::NONE
                 }
+                Function::InverseGaussianDensity => {
+                    let dimension = numeric(kinds[0], path)?;
+                    same(kinds[0], kinds[1], path)?;
+                    same(kinds[0], kinds[2], path)?;
+                    dimension.power(-1)?
+                }
                 _ => {
                     dimensionless(kinds[0], path)?;
                     Dimension::NONE

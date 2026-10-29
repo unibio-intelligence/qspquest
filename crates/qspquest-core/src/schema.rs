@@ -3,6 +3,34 @@ use serde_json::Value;
 pub fn documents() -> Vec<(&'static str, Value)> {
     let mut documents = vec![
         (
+            "probit-normal-binomial-fit.schema.json",
+            serde_json::to_value(schemars::schema_for!(
+                crate::probit_fit::ProbitNormalBinomialFitRequest
+            ))
+            .unwrap(),
+        ),
+        (
+            "probit-normal-binomial-result.schema.json",
+            serde_json::to_value(schemars::schema_for!(
+                crate::probit_fit::ProbitNormalBinomialFitResult
+            ))
+            .unwrap(),
+        ),
+        (
+            "gamma-poisson-fit.schema.json",
+            serde_json::to_value(schemars::schema_for!(
+                crate::discrete_fit::GammaPoissonFitRequest
+            ))
+            .unwrap(),
+        ),
+        (
+            "discrete-fit-result.schema.json",
+            serde_json::to_value(schemars::schema_for!(
+                crate::discrete_fit::DiscreteFitResult
+            ))
+            .unwrap(),
+        ),
+        (
             "model.schema.json",
             serde_json::to_value(schemars::schema_for!(crate::model::ModelDocument)).unwrap(),
         ),

@@ -557,3 +557,39 @@ fn commands_and_plans_reject_unsupported_schemas_without_science_output() {
         assert!(error["error"]["code"].is_string());
     }
 }
+
+#[test]
+fn fit_data_runs_both_discrete_likelihoods_and_rejects_invalid_requests() {
+    for (fixture, expected) in [
+        ("gamma-poisson-fit.json", 14.29792892),
+        ("probit-normal-binomial-fit.json", 6.59167373),
+    ] {
+        let request = root().join("docs/examples").join(fixture);
+        let output = run(&["fit-data".as_ref(), request.as_os_str()]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(value["status"], "converged");
+        assert!((value["negative_log_likelihood"].as_f64().unwrap() - expected).abs() < 1e-7);
+        assert!(value["compiler_source_sha256"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+    }
+    let temp = Temp::new();
+    for bytes in [
+        br#"{"schema":"qspquest.run/v0.1"}"#.to_vec(),
+        b"not json".to_vec(),
+        vec![b' '; 1_000_001],
+    ] {
+        let path = temp.write("invalid.json", bytes);
+        let output = run(&["fit-data".as_ref(), path.as_os_str()]);
+        assert!(!output.status.success());
+        assert!(output.stdout.is_empty());
+        let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert!(error["error"]["code"].is_string());
+    }
+}

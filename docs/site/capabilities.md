@@ -18,8 +18,10 @@ Source declarations do not establish scientific qualification for a release.
 | Bounded SBML export | — | Requires `interchange` | — | — | — | — | — | — |
 | Sampled-grid exposure summaries | — | Requires `analysis` | — | — | — | — | — | — |
 | Conditional fit diagnostics | — | Requires `analysis` | — | — | — | — | — | — |
+| Gamma–Poisson count fitting | Declared | Declared | Declared | Declared | — | — | — | — |
 | Native individual/pooled Gaussian fit | Declared | Declared | Declared | Declared | Requires `m0-conformance` | — | Requires `sandbox-abi` | Declared |
 | Native bounded population fit | Declared | Declared | Declared | Declared | Requires `m0-conformance` | — | Requires `sandbox-abi` | Declared |
+| Probit-normal binomial fitting | Declared | Declared | Declared | Declared | — | — | — | — |
 | Native bounded scalar Gaussian fit | Declared | Declared | — | Declared | — | — | Requires `sandbox-abi` | Declared |
 | Format complete decision responses | — | — | — | — | — | — | — | Declared |
 | Read governed artifact | — | — | — | — | — | — | — | Requires `managed` |

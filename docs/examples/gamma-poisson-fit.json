@@ -1,0 +1,17 @@
+{
+  "schema": "qspquest.gamma-poisson-fit/v0.1",
+  "observations": [
+    {"count": 0, "exposure": {"value": 1, "unit": "h"}},
+    {"count": 1, "exposure": {"value": 1, "unit": "h"}},
+    {"count": 4, "exposure": {"value": 1, "unit": "h"}},
+    {"count": 9, "exposure": {"value": 1, "unit": "h"}},
+    {"count": 16, "exposure": {"value": 1, "unit": "h"}}
+  ],
+  "initial_shape": 1,
+  "shape_bounds": [0.01, 100],
+  "initial_rate": {"value": 1, "unit": "h"},
+  "rate_bounds": [{"value": 0.01, "unit": "h"}, {"value": 100, "unit": "h"}],
+  "max_evaluations": 1000,
+  "max_iterations": 200,
+  "gradient_tolerance": 1e-7
+}

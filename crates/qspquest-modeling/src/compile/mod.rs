@@ -414,6 +414,29 @@ impl Program {
                             }
                         }
                         Function::Ifelse => unreachable!("ifelse is lowered into branches"),
+                        Function::InverseGaussianDensity => {
+                            let mean = registers[args[1]];
+                            let shape = registers[args[2]];
+                            if mean <= 0. || shape <= 0. {
+                                f64::NAN
+                            } else if x <= 0. {
+                                0.
+                            } else {
+                                let log_normalizer = 0.5
+                                    * (libm::log(shape)
+                                        - libm::log(2. * std::f64::consts::PI)
+                                        - 3. * libm::log(x));
+                                let cost = if x == mean {
+                                    0.
+                                } else {
+                                    libm::exp(
+                                        libm::log(shape) - std::f64::consts::LN_2 - libm::log(x)
+                                            + 2. * (libm::log((x - mean).abs()) - libm::log(mean)),
+                                    )
+                                };
+                                libm::exp(log_normalizer - cost)
+                            }
+                        }
                     }
                 }
             };
@@ -647,7 +670,7 @@ impl Compiler<'_> {
                     }
                     Expr::Call { name, .. } => {
                         let valid = match name {
-                            Function::Hill => args.len() == 3,
+                            Function::Hill | Function::InverseGaussianDensity => args.len() == 3,
                             Function::Min | Function::Max => args.len() >= 2,
                             _ => args.len() == 1,
                         };

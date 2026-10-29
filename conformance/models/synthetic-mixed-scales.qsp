@@ -1,0 +1,15 @@
+model synthetic_mixed_scales
+time_unit = h
+parameters
+  k_fast = 10 [1/h] log
+  k_slow = 0.1 [1/h] log
+states
+  bulk = 1 [mg]
+  trace = 0.000000001 [mol]
+dynamics
+  d/dt(bulk) = -k_slow * bulk
+  d/dt(trace) = -k_fast * trace
+outputs
+  bulk_amount = bulk [mg]
+  trace_amount = trace [mol]
+end

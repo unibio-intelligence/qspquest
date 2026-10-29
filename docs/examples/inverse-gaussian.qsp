@@ -1,0 +1,16 @@
+model delayed_systemic_input
+time_unit = h
+parameters
+ f = 0.5 [1] estimated
+ dose = 100 [mg] fixed
+ mean_time = 2 [h] fixed
+ shape_time = 4 [h] fixed
+ elimination = 0.2 [1/h] fixed
+ volume = 5 [L] fixed
+states
+ central = 0 [mg]
+dynamics
+ d/dt(central) = f * dose * inverse_gaussian_density(time, mean_time, shape_time) - elimination * central
+outputs
+ cp = central / volume [mg/L]
+end

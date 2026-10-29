@@ -1,6 +1,6 @@
 [package]
 name = "diffsol-la"
-version = "0.2.0"
+version = "0.3.0"
 edition.workspace = true
 description = "Linear algebra traits and backends (vectors, matrices, linear solvers) for diffsol."
 license.workspace = true
@@ -17,6 +17,7 @@ cuda = ["dep:cudarc"]
 # CUDA backend with kernels written in Rust via NVIDIA cuda-oxide. Requires
 # `cargo oxide` on the pinned nightly; see README.
 cuda-oxide = ["dep:cuda-core", "dep:cudarc"]
+#oxide# cuda-oxide = ["dep:cuda-device", "dep:cuda-host", "dep:cuda-core", "dep:cudarc"]
 suitesparse = ["dep:suitesparse_sys"]
 algebraic-ops = []
 deterministic = ["dep:libm"]
@@ -41,6 +42,11 @@ cudarc = { workspace = true, optional = true, default-features = false, features
   "nvrtc",
 ] }
 
+# cuda-oxide: device/host glue is git-only (not on crates.io), so these lines are
+# commented out for publishing. Enable with:
+#   sed -i -e '/^cuda-oxide = /d' -e 's/^#oxide# //' crates/diffsol-la/Cargo.toml
+#oxide# cuda-device = { git = "https://github.com/NVIDIA/cuda-rust.git", rev = "ec4aa4797956534578a1af010f86252a0b6d8626", optional = true }
+#oxide# cuda-host = { git = "https://github.com/NVIDIA/cuda-rust.git", rev = "ec4aa4797956534578a1af010f86252a0b6d8626", optional = true }
 cuda-core = { version = "0.3.1", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

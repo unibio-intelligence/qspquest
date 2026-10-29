@@ -112,6 +112,21 @@ impl ResolvedBindings {
     /// Definitions may be unordered. Only independent bindings and other derived
     /// bindings may appear in their expressions; state/time/input dependencies fail.
     pub fn new(base: &[String], derived: &[DerivedBinding]) -> Result<Self, Error> {
+        Self::new_internal(base, derived, false)
+    }
+    // The caller dimension-checks declarations before expansion and the expanded
+    // model afterwards. Here quantity literals need shape/name checks only.
+    pub(super) fn new_unit_checked(
+        base: &[String],
+        derived: &[DerivedBinding],
+    ) -> Result<Self, Error> {
+        Self::new_internal(base, derived, true)
+    }
+    fn new_internal(
+        base: &[String],
+        derived: &[DerivedBinding],
+        unit_checked: bool,
+    ) -> Result<Self, Error> {
         if base.len() + derived.len() > 4096 {
             return Err(invalid("too many sensitivity bindings"));
         }
@@ -132,8 +147,13 @@ impl ResolvedBindings {
             })
             .collect();
         Program::compile(&Expr::number(0.), &symbols)?;
+        let table = crate::compile::SymbolTable::new(&symbols)?;
         for binding in derived {
-            numeric(Program::compile(&binding.expression, &symbols)?)?;
+            if unit_checked {
+                Program::check_unit_shape(&binding.expression, &table, 256)?;
+            } else {
+                numeric(Program::compile(&binding.expression, &symbols)?)?;
+            }
         }
         let defs: BTreeMap<_, _> = derived
             .iter()
@@ -164,6 +184,19 @@ impl ResolvedBindings {
         let mut source = definition.clone();
         source.bindings.extend(self.resolved.keys().cloned());
         CompiledModel::compile(&source)?;
+        let result = self.expand_unit_checked_model(definition)?;
+        CompiledModel::compile(&result)?;
+        Ok(result)
+    }
+    // Used between the typed source and expanded-model unit checks. Preserve
+    // physical literals here; numerical lowering follows unit normalization.
+    pub(super) fn expand_unit_checked_model(
+        &self,
+        definition: &ModelDefinition,
+    ) -> Result<ModelDefinition, Error> {
+        if definition.bindings != self.base {
+            return Err(invalid("independent binding order differs"));
+        }
         let mut result = definition.clone();
         let mut remaining = 1_000_000;
         let mut cache = self.resolved.clone();
@@ -192,7 +225,6 @@ impl ResolvedBindings {
                 .map(|e| expand(e, &defs, &mut cache, &mut visiting, &mut remaining, 0))
                 .transpose()?;
         }
-        CompiledModel::compile(&result)?;
         Ok(result)
     }
     /// Expand an observable using the same resolved dependency graph.

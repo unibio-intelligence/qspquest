@@ -287,9 +287,13 @@ fn validate_fit_operation(
         request.problem,
         qspquest_core::fit::FitProblem::Individual(_)
     );
-    if (operation == "fit_individual") != individual {
+    let profiled = matches!(
+        request.problem,
+        qspquest_core::fit::FitProblem::ProfiledProportional(_)
+    );
+    if !profiled && (operation == "fit_individual") != individual {
         return Err(
-            json!({"code":"unsupported","message":"Fit problem kind does not match the requested tool.","expression":"fit_request.problem.kind","suggestion":"Use fit_individual for an individual problem; use fit_population for pooled, Laplace, FOCEI or native SAEM."}),
+            json!({"code":"unsupported","message":"Fit problem kind does not match the requested tool.","expression":"fit_request.problem.kind","suggestion":"Use fit_individual for individual or profiled proportional fitting; use fit_population for pooled, Laplace, FOCEI or native SAEM."}),
         );
     }
     Ok(())
@@ -310,6 +314,14 @@ mod boundary_tests {
                 "run":run(),"with_respect_to":["cl"],"derivative_absolute_tolerances":{}},
                 "observations":[],"priors":[]},"bounds":[],"max_evaluations":10,
                 "max_iterations":5,"gradient_tolerance":1e-5}}})
+    }
+    #[test]
+    fn profiled_proportional_is_admitted_by_both_fitting_routes() {
+        let mut value = individual();
+        value["problem"]["kind"] = json!("profiled_proportional");
+        let fit: qspquest_core::fit::FitRequest = serde_json::from_value(value).unwrap();
+        assert!(validate_fit_operation("fit_individual", &fit).is_ok());
+        assert!(validate_fit_operation("fit_population", &fit).is_ok());
     }
     #[test]
     fn exact_operation_denominator_rejects_aliases_and_repeated_prefixes() {

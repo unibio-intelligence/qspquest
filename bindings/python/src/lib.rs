@@ -244,6 +244,32 @@ fn format_model(py: Python<'_>, source: String) -> PyResult<String> {
         qspquest_modeling::language::format(&document).map_err(diagnostic)
     })
 }
+#[pyfunction]
+fn fit_gamma_poisson_json(py: Python<'_>, request: String) -> PyResult<String> {
+    detached(py, move || {
+        if request.len() > 1_000_000 {
+            return Err(invalid("request exceeds one million bytes"));
+        }
+        let request: qspquest_core::discrete_fit::GammaPoissonFitRequest =
+            serde_json::from_str(&request).map_err(invalid)?;
+        let result =
+            qspquest_modeling::discrete_fit::fit_gamma_poisson(&request).map_err(scientific)?;
+        serde_json::to_string(&result).map_err(invalid)
+    })
+}
+#[pyfunction]
+fn fit_probit_normal_binomial_json(py: Python<'_>, request: String) -> PyResult<String> {
+    detached(py, move || {
+        if request.len() > 1_000_000 {
+            return Err(invalid("request exceeds one million bytes"));
+        }
+        let request: qspquest_core::probit_fit::ProbitNormalBinomialFitRequest =
+            serde_json::from_str(&request).map_err(invalid)?;
+        let result = qspquest_modeling::probit_normal::fit_probit_normal_binomial(&request)
+            .map_err(scientific)?;
+        serde_json::to_string(&result).map_err(invalid)
+    })
+}
 /// Native serde normalization and JCS identity; no compilation or numerical execution.
 #[pyfunction]
 #[pyo3(signature = (source, request, operation, result=None))]
@@ -304,9 +330,12 @@ fn fitting_identity(
                 _ => {
                     let result: qspquest_core::fit::FitResult =
                         serde_json::from_str(&result).map_err(invalid)?;
-                    if result.population.is_some() || result.fit.is_none() {
+                    if result.population.is_some()
+                        || result.fit.is_none()
+                        || result.residual_scales.is_some()
+                    {
                         return Err(invalid(
-                            "individual evidence requires an individual fit result",
+                            "individual evidence requires an individual fit result without profiled residual scales",
                         ));
                     }
                     serde_json::to_value(result).map_err(invalid)?
@@ -365,6 +394,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PythonModel>()?;
     m.add_class::<PythonSensitivities>()?;
     m.add_function(wrap_pyfunction!(format_model, m)?)?;
+    m.add_function(wrap_pyfunction!(fit_gamma_poisson_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fit_probit_normal_binomial_json, m)?)?;
     m.add_function(wrap_pyfunction!(fitting_identity, m)?)?;
     m.add_function(wrap_pyfunction!(normalize_interchange_expression, m)?)?;
     m.add_function(wrap_pyfunction!(convert_interchange_quantity, m)?)?;

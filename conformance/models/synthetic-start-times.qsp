@@ -1,0 +1,12 @@
+model synthetic_start_times
+time_unit = h
+parameters
+  forcing = 1 [mg/h2]
+states
+  amount = 5 [mg] input
+dynamics
+  d/dt(amount) = input_amount + forcing * time
+outputs
+  amount = amount [mg]
+  elapsed_absolute = time [h]
+end

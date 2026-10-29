@@ -124,8 +124,8 @@ fn invalid_structural_indices_return_an_error() {
 #[test]
 fn sparse_pivoting_and_fill_match_independent_dense_factorization() {
     use diffsol::{
-        AdaptiveLU, Closure, LinearSolver, NalgebraMat, NalgebraNativeLU, NalgebraVec,
-        ParameterisedOp, Vector,
+        AdaptiveLU, Closure, LinearSolver, NalgebraLU, NalgebraMat, NalgebraVec, ParameterisedOp,
+        Vector,
     };
     fn solve<LS: LinearSolver<NalgebraMat<f64>>>(
         op: &impl diffsol::NonLinearOpJacobian<
@@ -174,7 +174,7 @@ fn sparse_pivoting_and_fill_match_independent_dense_factorization() {
         Default::default(),
     );
     let sparse = solve::<AdaptiveLU>(&op, &b);
-    let dense = solve::<NalgebraNativeLU<f64>>(&op, &b);
+    let dense = solve::<NalgebraLU<f64>>(&op, &b);
     // Exercise the faer sparse backend used by the catalog, with pivoting and fill.
     let mut faer_closure = diffsol::Closure::<diffsol::FaerSparseMat<f64>, _, _>::new(
         |x, _, _, y| apply(x, y),

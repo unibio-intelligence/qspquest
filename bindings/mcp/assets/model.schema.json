@@ -458,6 +458,7 @@
         "floor",
         "ceil",
         "hill",
+        "inverse_gaussian_density",
         "ifelse"
       ],
       "type": "string"

@@ -8,6 +8,8 @@ from .types import (
     FitRequest as FitRequest, FitResult as FitResult, ScalarGaussianFitRequest, ScalarGaussianFitResult,
     MorrisExecutionRequest, MorrisExecutionResult, ScanRequest, ScanResult,
     SteadyStateRequest, SteadyStateResult, CycleIterationRequest, CycleIterationResult,
+    GammaPoissonFitRequest, DiscreteFitResult,
+    ProbitNormalBinomialFitRequest,ProbitNormalBinomialFitResult,
 )
 from .analysis_types import (
     ParameterSpec as ParameterSpec, ParameterBounds as ParameterBounds,
@@ -17,6 +19,9 @@ from .analysis_types import (
 )
 
 __version__: str
+
+def fit_gamma_poisson(request: GammaPoissonFitRequest | str) -> DiscreteFitResult: ...
+def fit_probit_normal_binomial(request:ProbitNormalBinomialFitRequest|str)->ProbitNormalBinomialFitResult: ...
 
 @dataclass(frozen=True)
 class IndividualFitDataset:

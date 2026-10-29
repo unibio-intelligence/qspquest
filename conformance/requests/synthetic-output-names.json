@@ -1,0 +1,45 @@
+{
+  "schema": "qspquest.run/v0.1",
+  "request_id": "synthetic-output-names",
+  "solver": "diffsol_bdf",
+  "budgets": {
+    "solver_callbacks": 1000000,
+    "output_values": 1000000,
+    "events": 10000
+  },
+  "regimen": {
+    "end": {
+      "value": 2,
+      "unit": "h"
+    },
+    "samples": [
+      {
+        "value": 1,
+        "unit": "h"
+      },
+      {
+        "value": 2,
+        "unit": "h"
+      }
+    ],
+    "administrations": [
+      {
+        "target": "central",
+        "time": {
+          "value": 0,
+          "unit": "h"
+        },
+        "amount": {
+          "value": 6,
+          "unit": "mg"
+        },
+        "delivery": {
+          "kind": "bolus"
+        },
+        "bioavailability": 1
+      }
+    ],
+    "rtol": 1e-09,
+    "atol": 1e-11
+  }
+}

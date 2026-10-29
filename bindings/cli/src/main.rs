@@ -15,7 +15,7 @@ use std::{
     sync::Arc,
 };
 const INPUT_LIMIT: u64 = 1_000_000;
-const HELP: &str = "qspquest — offline pharmacology modeling\n\nUsage:\n  qspquest run MODEL REQUEST.json\n  qspquest plan MODEL REQUEST.json\n  qspquest morris MODEL REQUEST.json\n  qspquest scan MODEL REQUEST.json\n  qspquest fit MODEL REQUEST.json\n  qspquest sensitivities MODEL REQUEST.json\n  qspquest plan-steady-state MODEL REQUEST.json\n  qspquest plan-iterate-periodic MODEL REQUEST.json\n  qspquest steady-state MODEL REQUEST.json\n  qspquest iterate-periodic MODEL REQUEST.json\n  qspquest validate MODEL\n  qspquest format MODEL\n  qspquest --version\n\nMODEL is a .qsp text or model JSON file (detected by content).\nJSON models are limited to 4,000,000 bytes; text models and requests\nare limited to 1,000,000 bytes. Results go to stdout;\nstructured errors go to stderr. Files are never modified.\nplan prepares run/scan/sensitivity/fit requests without numerical execution.\n";
+const HELP: &str = "qspquest — offline pharmacology modeling\n\nUsage:\n  qspquest run MODEL REQUEST.json\n  qspquest plan MODEL REQUEST.json\n  qspquest morris MODEL REQUEST.json\n  qspquest scan MODEL REQUEST.json\n  qspquest fit MODEL REQUEST.json\n  qspquest fit-data REQUEST.json\n  qspquest sensitivities MODEL REQUEST.json\n  qspquest plan-steady-state MODEL REQUEST.json\n  qspquest plan-iterate-periodic MODEL REQUEST.json\n  qspquest steady-state MODEL REQUEST.json\n  qspquest iterate-periodic MODEL REQUEST.json\n  qspquest validate MODEL\n  qspquest format MODEL\n  qspquest --version\n\nMODEL is a .qsp text or model JSON file (detected by content).\nJSON models are limited to 4,000,000 bytes; text models and requests\nare limited to 1,000,000 bytes. Results go to stdout;\nstructured errors go to stderr. Files are never modified.\nplan prepares run/scan/sensitivity/fit requests without numerical execution.\n";
 struct Failure {
     exit: u8,
     value: Value,
@@ -103,6 +103,28 @@ fn command(args: &[OsString]) -> Result<String, Failure> {
         return Ok(format!("qspquest {}\n", env!("CARGO_PKG_VERSION")));
     }
     let action = args.first().and_then(|a| a.to_str()).unwrap_or("");
+    if action == "fit-data" {
+        if args.len() != 2 {
+            return Err(Failure::new(2, "usage", HELP));
+        }
+        let request = read(Path::new(&args[1]), INPUT_LIMIT)?;
+        let value: serde_json::Value = serde_json::from_str(&request)
+            .map_err(|error| Failure::new(2, "invalid_json", error))?;
+        let result=match value.get("schema").and_then(|s|s.as_str()) {
+            Some("qspquest.gamma-poisson-fit/v0.1")=> {
+                let request=serde_json::from_value(value).map_err(|error|Failure::new(2,"invalid_json",error))?;
+                serde_json::to_value(qspquest_modeling::discrete_fit::fit_gamma_poisson(&request).map_err(Failure::scientific)?)
+            }
+            Some("qspquest.probit-normal-binomial-fit/v0.1")=> {
+                let request=serde_json::from_value(value).map_err(|error|Failure::new(2,"invalid_json",error))?;
+                serde_json::to_value(qspquest_modeling::probit_normal::fit_probit_normal_binomial(&request).map_err(Failure::scientific)?)
+            }
+            _=>return Err(Failure::new(2,"invalid_input","fit-data requires a supported Gamma-Poisson or probit-normal-binomial request schema")),
+        }.map_err(|error|Failure::new(2,"serialization",error))?;
+        return serde_json::to_string_pretty(&result)
+            .map(|text| text + "\n")
+            .map_err(|error| Failure::new(2, "serialization", error));
+    }
     let expected = match action {
         "run"
         | "plan"

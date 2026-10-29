@@ -62,6 +62,15 @@ This path has a synthetic recovery test with different change times and values
 across subjects. Linear interpolation remains unsupported by the native model.
 Other population fitters reject the SAEM-specific fitted-covariate field.
 
+## Positive fixed-effect intervals
+
+A converged native SAEM fit with observed-information covariance returns
+`fixed_effect_intervals` with method `positive_fixed_effect_log_wald_delta_v1`.
+These asymptotic 95% intervals use the positive lognormal fixed-effect domain
+and preserve the fitted parameters and covariance. See the complete
+[log-Wald tutorial](tutorials/population-log-wald.md) for Python and CLI commands,
+output fields, refusal behavior and interpretation limits.
+
 ## Uncertainty and limits
 
 For a converged one- or two-effect fit with fixed residual error and no fitted

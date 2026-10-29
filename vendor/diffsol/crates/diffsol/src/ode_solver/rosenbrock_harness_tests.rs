@@ -6,7 +6,7 @@ use crate::{
             exponential_decay_problem, exponential_decay_problem_with_root,
             negative_exponential_decay_problem,
         },
-        heat2d::head2d_problem,
+        heat2d::heat2d_problem,
         robertson_ode::robertson_ode,
     },
     ode_solver::tests::{
@@ -29,7 +29,7 @@ macro_rules! harness {
             }
             #[test]
             fn t_config() {
-                test_config(robertson_ode::<M>(false, 1).0.$ctor::<LS>().unwrap());
+                test_config(robertson_ode::<M>(1).0.$ctor::<LS>().unwrap());
             }
             #[test]
             fn t_interpolate() {
@@ -84,19 +84,19 @@ macro_rules! harness {
             }
             #[test]
             fn t_robertson_ode() {
-                let (problem, soln) = robertson_ode::<M>(false, 1);
+                let (problem, soln) = robertson_ode::<M>(1);
                 let mut s = problem.$ctor::<LS>().unwrap();
                 test_ode_solver(&mut s, soln, None, false, false);
             }
             #[test]
             fn t_robertson_ode_tstop() {
-                let (problem, soln) = robertson_ode::<M>(false, 1);
+                let (problem, soln) = robertson_ode::<M>(1);
                 let mut s = problem.$ctor::<LS>().unwrap();
                 test_ode_solver(&mut s, soln, None, true, false);
             }
             #[test]
             fn t_heat2d_faer_sparse() {
-                let (problem, soln) = head2d_problem::<FaerSparseMat<f64>, 10>();
+                let (problem, soln) = heat2d_problem::<FaerSparseMat<f64>, 10>(1);
                 let mut s = problem.$ctor::<FaerSparseLU<f64>>().unwrap();
                 test_ode_solver(&mut s, soln, None, false, false);
             }

@@ -2,6 +2,52 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "Error": {
+      "properties": {
+        "code": {
+          "$ref": "#/definitions/ErrorCode"
+        },
+        "expression": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "time": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "ErrorCode": {
+      "description": "Stable failure categories. No partial scientific output accompanies an error.",
+      "enum": [
+        "invalid_input",
+        "unit",
+        "unknown_unit",
+        "type",
+        "unknown_symbol",
+        "expression_limit",
+        "unsupported",
+        "domain",
+        "invariant",
+        "solver",
+        "work_budget",
+        "output_budget"
+      ],
+      "type": "string"
+    },
     "ExecutionIdentity": {
       "additionalProperties": false,
       "properties": {
@@ -264,6 +310,28 @@
             "null"
           ]
         },
+        "fixed_effect_interval_error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Error"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Diagnostic when optional fixed-effect intervals cannot be computed. Fitted estimates, convergence and covariance remain available."
+        },
+        "fixed_effect_intervals": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PositiveFixedEffectIntervals"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Asymptotic 95% log-Wald intervals for positive fixed effects of a converged SAEM fit with valid observed-information covariance. Absent when covariance was not requested or the method is unsupported."
+        },
         "fixed_effects": {
           "additionalProperties": {
             "$ref": "#/definitions/Quantity"
@@ -518,27 +586,34 @@
             "null"
           ]
         },
+        "marginal_refinement_iterations": {
+          "default": 0,
+          "description": "Deterministic marginal point-refinement steps included in total iterations. They do not advance the stochastic approximation gain clock.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
         "post_burn_acceptance_by_axis": {
-          "description": "Acceptance per coordinate after burn-in, including out-of-bound proposals.",
+          "description": "Acceptance per coordinate after burn-in, including out-of-bound proposals. One entry per random-effect coordinate (one or two).",
           "items": {
             "format": "double",
             "type": "number"
           },
           "maxItems": 2,
-          "minItems": 2,
+          "minItems": 1,
           "type": [
             "array",
             "null"
           ]
         },
         "post_burn_max_lag_one_correlation_by_axis": {
-          "description": "Largest positive within-subject lag-one correlation per coordinate. This is a mixing warning, not an effective sample size estimate.",
+          "description": "Largest positive within-subject lag-one correlation per coordinate. This is a mixing warning, not an effective sample size estimate. One entry per random-effect coordinate (one or two).",
           "items": {
             "format": "double",
             "type": "number"
           },
           "maxItems": 2,
-          "minItems": 2,
+          "minItems": 1,
           "type": [
             "array",
             "null"
@@ -554,13 +629,13 @@
           ]
         },
         "post_burn_min_subject_acceptance_by_axis": {
-          "description": "Lowest subject-level acceptance per coordinate after burn-in.",
+          "description": "Lowest subject-level acceptance per coordinate after burn-in. One entry per random-effect coordinate (one or two).",
           "items": {
             "format": "double",
             "type": "number"
           },
           "maxItems": 2,
-          "minItems": 2,
+          "minItems": 1,
           "type": [
             "array",
             "null"
@@ -645,6 +720,82 @@
       ],
       "type": "object"
     },
+    "PositiveFixedEffectInterval": {
+      "additionalProperties": false,
+      "properties": {
+        "estimate": {
+          "format": "double",
+          "type": "number"
+        },
+        "log_coordinate_standard_error": {
+          "format": "double",
+          "type": "number"
+        },
+        "lower": {
+          "format": "double",
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source_standard_error": {
+          "format": "double",
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "upper": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "estimate",
+        "log_coordinate_standard_error",
+        "lower",
+        "name",
+        "source_standard_error",
+        "unit",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "PositiveFixedEffectIntervalMethod": {
+      "enum": [
+        "positive_fixed_effect_log_wald_delta_v1"
+      ],
+      "type": "string"
+    },
+    "PositiveFixedEffectIntervals": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence_level": {
+          "format": "double",
+          "type": "number"
+        },
+        "critical_value": {
+          "format": "double",
+          "type": "number"
+        },
+        "intervals": {
+          "items": {
+            "$ref": "#/definitions/PositiveFixedEffectInterval"
+          },
+          "type": "array"
+        },
+        "method": {
+          "$ref": "#/definitions/PositiveFixedEffectIntervalMethod"
+        }
+      },
+      "required": [
+        "confidence_level",
+        "critical_value",
+        "intervals",
+        "method"
+      ],
+      "type": "object"
+    },
     "Quantity": {
       "additionalProperties": false,
       "properties": {
@@ -682,6 +833,17 @@
         {
           "type": "null"
         }
+      ]
+    },
+    "residual_scales": {
+      "additionalProperties": {
+        "format": "double",
+        "type": "number"
+      },
+      "description": "Estimated dimensionless proportional SDs; present only for explicit profiling.",
+      "type": [
+        "object",
+        "null"
       ]
     },
     "schema": {

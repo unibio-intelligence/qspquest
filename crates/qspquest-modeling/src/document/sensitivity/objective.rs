@@ -10,11 +10,48 @@ pub(super) struct LoweredGaussianObservation {
     pub(super) censored: bool,
     pub(super) model: GaussianErrorModel,
 }
+pub(super) fn validate_profiled_rows(data: &[LoweredGaussianObservation]) -> Result<(), Error> {
+    if data.iter().any(|row| {
+        row.additive != 0.
+            || row.proportional != 1.
+            || row.censored
+            || row.model != GaussianErrorModel::Normal
+    }) {
+        return Err(invalid("profiled proportional errors require uncensored normal rows, additive_sd=0 and proportional_sd=1"));
+    }
+    let mut counts = std::collections::BTreeMap::new();
+    for row in data {
+        *counts.entry(row.output).or_insert(0usize) += 1;
+    }
+    if counts.is_empty() || counts.values().any(|count| *count < 2) {
+        return Err(invalid(
+            "profiled proportional errors require at least two observations per output",
+        ));
+    }
+    Ok(())
+}
 
 pub(super) struct PreparedGaussianPrimal {
     pub(super) run: qspquest_core::run::RunRequest,
     pub(super) prepared: PreparedRun,
     pub(super) data: Vec<LoweredGaussianObservation>,
+}
+pub(super) fn profiled_identity(
+    solver: qspquest_core::run::Solver,
+    mut identity: qspquest_core::run::ExecutionIdentity,
+) -> Result<qspquest_core::run::ExecutionIdentity, Error> {
+    identity.algorithm = match solver {
+        qspquest_core::run::Solver::DiffsolRodas5p => {
+            "rodas5p_forward_profiled_proportional_gaussian_objective"
+        }
+        _ => "bdf_forward_profiled_proportional_gaussian_objective",
+    }
+    .into();
+    identity.run_request_hash = canonical_hash(&serde_json::json!({
+        "algorithm":identity.algorithm,"request_hash":identity.run_request_hash,
+        "profile_group":"output","version":1
+    }))?;
+    Ok(identity)
 }
 
 pub(super) struct PreparedGaussianObjective {
@@ -170,6 +207,116 @@ fn observation_likelihood(
 }
 
 impl CompiledSensitivityDocument {
+    /// Profile one normal proportional residual SD per observed output.
+    /// Rows must declare zero additive error and unit proportional error;
+    /// censoring and lognormal observations require a different likelihood.
+    pub fn profiled_proportional_gaussian_objective(
+        self: &Arc<Self>,
+        request: &GaussianObjectiveRequest,
+    ) -> Result<
+        (
+            GaussianObjectiveResult,
+            std::collections::BTreeMap<String, f64>,
+        ),
+        Error,
+    > {
+        let PreparedGaussianObjective {
+            simulation,
+            run,
+            data,
+            mut gradient,
+            prior_nll,
+            priors: _,
+        } = self.prepare_gaussian_objective(request)?;
+        validate_profiled_rows(&data)?;
+        let result = self.execute_prepared_run(&simulation, run)?;
+        let width = self.output_names().len();
+        let mut groups = vec![(0usize, 0_f64, 0_f64); width];
+        for row in &data {
+            let prediction = *result.result.outputs[row.output]
+                .values
+                .get(row.row)
+                .ok_or_else(|| invalid("observation row is outside the simulation result"))?;
+            if !prediction.is_finite() || prediction == 0. {
+                return Err(Error::new(
+                    ErrorCode::Domain,
+                    "profiled proportional errors require finite nonzero predictions",
+                ));
+            }
+            let residual = row.value / prediction - 1.;
+            let group = &mut groups[row.output];
+            group.0 += 1;
+            group.1 = libm::hypot(group.1, residual);
+            group.2 += libm::log(prediction.abs());
+        }
+        let mut nll = 0.;
+        let mut scales = std::collections::BTreeMap::new();
+        for (output, &(count, norm, log_predictions)) in groups.iter().enumerate() {
+            if count == 0 {
+                continue;
+            }
+            let scale = norm / libm::sqrt(count as f64);
+            if !scale.is_finite() || scale <= 0. {
+                return Err(Error::new(
+                    ErrorCode::Domain,
+                    "profiled proportional scale has no finite positive MLE",
+                ));
+            }
+            nll += log_predictions + count as f64 * (libm::log(scale) + 1.4189385332046727);
+            scales.insert(self.output_names()[output].clone(), scale);
+        }
+        for row in &data {
+            let prediction = result.result.outputs[row.output].values[row.row];
+            let scale = scales[&self.output_names()[row.output]];
+            let ratio = row.value / prediction;
+            let derivative = (1. - ((ratio - 1.) / scale) * (ratio / scale)) / prediction;
+            for (p, value) in gradient.iter_mut().enumerate() {
+                *value += derivative * result.derivatives[p * width + row.output].values[row.row];
+            }
+        }
+        let objective = nll + prior_nll;
+        if !objective.is_finite() || gradient.iter().any(|g| !g.is_finite()) {
+            return Err(Error::new(
+                ErrorCode::Domain,
+                "profiled proportional likelihood or derivative overflow",
+            ));
+        }
+        let identity = profiled_identity(
+            request.simulation.run.solver,
+            Self::prospective_objective_identity(request, result.result.identity)?,
+        )?;
+        let gradient = self
+            .parameters()
+            .iter()
+            .zip(gradient)
+            .map(|(parameter, value)| {
+                let unit = &self
+                    .primal
+                    .parameters
+                    .iter()
+                    .find(|p| &p.name == parameter)
+                    .expect("selected parameter validated")
+                    .default
+                    .unit;
+                ObjectiveGradient {
+                    parameter: parameter.clone(),
+                    unit: format!("1/({unit})"),
+                    value,
+                }
+            })
+            .collect();
+        Ok((
+            GaussianObjectiveResult {
+                identity,
+                negative_log_likelihood: nll,
+                negative_log_prior: prior_nll,
+                objective,
+                gradient,
+                observations: request.observations.len(),
+            },
+            scales,
+        ))
+    }
     fn lower_observations(
         &self,
         observations: &[GaussianObservation],

@@ -33,7 +33,6 @@ pub fn resolve_unit_bindings(
             expression: b.expression.clone(),
         })
         .collect::<Vec<_>>();
-    let resolver = ResolvedBindings::new(&base, &raw)?;
     let mut source = definition.clone();
     source
         .bindings
@@ -87,6 +86,7 @@ pub fn resolve_unit_bindings(
     for r in readouts {
         crate::compile::units::normalize(&r.expression, &symbols, r.unit)?;
     }
+    let resolver = ResolvedBindings::new_unit_checked(&base, &raw)?;
     let raw_model = ModelDefinition {
         bindings: base,
         states: definition
@@ -103,7 +103,7 @@ pub fn resolve_unit_bindings(
             })
             .collect(),
     };
-    let expanded = resolver.expand_model(&raw_model)?;
+    let expanded = resolver.expand_unit_checked_model(&raw_model)?;
     let mut result = definition.clone();
     for (state, expanded) in result.states.iter_mut().zip(expanded.states) {
         if matches!(state.initial, InitialCondition::Expression(_)) {

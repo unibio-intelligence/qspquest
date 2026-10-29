@@ -39,6 +39,19 @@ for a complete simulation and fitting workflow. The archive route is checked on
 macOS ARM64 and in the Linux ARM64 R image; other installations need qualification. QSPQuest
 is not yet published to CRAN or R-universe.
 
+## Count and correlated binomial fitting
+
+`fit_gamma_poisson(request)` estimates a shared Gamma shape/rate from independent
+count/exposure rows. `fit_probit_normal_binomial(request)` estimates two group
+means and litter-effect SDs from independent binomial litters. Supply a complete
+versioned request as an R list or JSON string; a compiled ODE model is not needed.
+Inspect the returned `status` and work counts. These are bounded point estimates.
+
+The [count tutorial](../../docs/tutorials/gamma-poisson-counts.md) and
+[correlated-binomial tutorial](../../docs/tutorials/probit-normal-binomial.md)
+include complete synthetic inputs, exact R commands, units, limits and expected
+results. Both functions are also documented by `help("fit_gamma_poisson")`.
+
 ## Explicit NONMEM-style simulation input
 
 For structural model translation, see the [software adapter guide](../../docs/SOFTWARE-ADAPTERS.md).

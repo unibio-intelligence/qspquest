@@ -47,6 +47,11 @@ The saved `bins` contain observed and simulated concentration quantiles and
 replicate intervals. They describe this predictive experiment, not uncertainty
 in fitted parameter estimates or drug-specific qualification.
 
+The HTML report labels these limits as lower and upper replicate bands. They
+are conditional on the supplied population parameters, variability and residual
+error. When those settings are fitted, the bands do not propagate their
+estimation uncertainty; in-sample agreement does not establish held-out coverage.
+
 Check that worker count preserves scientific results and random streams:
 
 ```sh

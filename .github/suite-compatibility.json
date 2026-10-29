@@ -10,8 +10,8 @@
     },
     "validation": {
       "repository": "unibio-intelligence/qspquest-validation",
-      "commit": "f1c487f9094e07039c39d4a0ccd5fb9b7e33a205",
-      "manifest_sha256": "f877e5911833e756c16c7d7765e8c3e3246f83cc663d906e35450bb016c8684e"
+      "commit": "cea7cb81aea44b922741ac4fcdd633e5b1404b89",
+      "manifest_sha256": "3a0ef1a74c72a79217765ba1803a12a8a7064a25fb29a833d557acbe6b26d5b4"
     }
   },
   "required_engine_files": [

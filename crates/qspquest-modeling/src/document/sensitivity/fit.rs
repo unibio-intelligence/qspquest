@@ -60,6 +60,19 @@ impl CompiledSensitivityDocument {
                     schema: FitResultSchema::V01,
                     fit: Some(fit),
                     population: None,
+                    residual_scales: None,
+                })
+            }
+            FitProblem::ProfiledProportional(r) => {
+                let mut result = self.fit_profiled_proportional_gaussian(r)?;
+                result.fit.fit_request_hash = canonical_hash(
+                    &serde_json::json!({"schema":request.schema,"kind":"profiled_proportional","fit_request_hash":result.fit.fit_request_hash}),
+                )?;
+                Ok(FitResult {
+                    schema: FitResultSchema::V01,
+                    fit: Some(result.fit),
+                    population: None,
+                    residual_scales: Some(result.residual_scales),
                 })
             }
             FitProblem::Laplace(r) | FitProblem::Focei(r) | FitProblem::Saem(r) => {
@@ -76,6 +89,7 @@ impl CompiledSensitivityDocument {
                     schema: FitResultSchema::V01,
                     fit: None,
                     population: Some(population),
+                    residual_scales: None,
                 })
             }
         }
@@ -283,26 +297,42 @@ impl CompiledSensitivityDocument {
         self: &Arc<Self>,
         request: &GaussianFitRequest,
     ) -> Result<GaussianFitResult, Error> {
-        self.fit_gaussian_subjects(request, &[])
+        self.fit_gaussian_subjects(request, &[], false)
+            .map(|(fit, _)| fit)
     }
     /// Pooled MLE/MAP with shared selected parameters and separate subject inputs.
     pub fn fit_pooled_gaussian(
         self: &Arc<Self>,
         request: &PooledGaussianFitRequest,
     ) -> Result<GaussianFitResult, Error> {
-        self.fit_gaussian_subjects(&request.fit, &request.additional_subjects)
+        self.fit_gaussian_subjects(&request.fit, &request.additional_subjects, false)
+            .map(|(fit, _)| fit)
+    }
+
+    /// Bounded joint MLE/MAP of model parameters and one proportional normal
+    /// residual scale per output, using exact likelihood profiling.
+    pub fn fit_profiled_proportional_gaussian(
+        self: &Arc<Self>,
+        request: &GaussianFitRequest,
+    ) -> Result<ProfiledProportionalGaussianFitResult, Error> {
+        let (fit, residual_scales) = self.fit_gaussian_subjects(request, &[], true)?;
+        Ok(ProfiledProportionalGaussianFitResult {
+            fit,
+            residual_scales,
+        })
     }
     pub(super) fn prepare_gaussian_fit(
         self: &Arc<Self>,
         request: &GaussianFitRequest,
         additional: &[GaussianObjectiveRequest],
     ) -> Result<PreparedGaussianFit, Error> {
-        self.prepare_gaussian_fit_observed(request, additional, None)
+        self.prepare_gaussian_fit_observed(request, additional, false, None)
     }
     pub(super) fn prepare_gaussian_fit_observed(
         self: &Arc<Self>,
         request: &GaussianFitRequest,
         additional: &[GaussianObjectiveRequest],
+        profile_proportional: bool,
         mut plan: Option<&mut super::fit_planning::FitPlanBuilder>,
     ) -> Result<PreparedGaussianFit, Error> {
         if additional.len() > 1023 {
@@ -414,8 +444,11 @@ impl CompiledSensitivityDocument {
                     });
                     error
                 })?;
+            if profile_proportional {
+                super::objective::validate_profiled_rows(&prepared.data)?;
+            }
             if let Some(plan) = plan.as_deref_mut() {
-                plan.gaussian(self, objective, &prepared)?;
+                plan.gaussian(self, objective, &prepared, profile_proportional)?;
             }
         }
         Ok(PreparedGaussianFit {
@@ -431,7 +464,8 @@ impl CompiledSensitivityDocument {
         self: &Arc<Self>,
         request: &GaussianFitRequest,
         additional: &[GaussianObjectiveRequest],
-    ) -> Result<GaussianFitResult, Error> {
+        profile_proportional: bool,
+    ) -> Result<(GaussianFitResult, std::collections::BTreeMap<String, f64>), Error> {
         let PreparedGaussianFit {
             lower,
             upper: _,
@@ -439,14 +473,25 @@ impl CompiledSensitivityDocument {
             units,
             mut x,
             starts: _,
-        } = self.prepare_gaussian_fit(request, additional)?;
+        } = if profile_proportional {
+            self.prepare_gaussian_fit_observed(request, additional, true, None)?
+        } else {
+            self.prepare_gaussian_fit(request, additional)?
+        };
         let n = self.parameters().len();
         // Each objective retains its simulation budgets. Evaluation count bounds total work.
         // Refinement only follows a stalled line search, within the original work limits.
         let precision_scale = Cell::new(1.0_f64);
-        let evaluate = |x: &[f64]| -> Result<GaussianObjectiveResult, Error> {
+        let evaluate = |x: &[f64]| -> Result<
+            (
+                GaussianObjectiveResult,
+                std::collections::BTreeMap<String, f64>,
+            ),
+            Error,
+        > {
             let mut combined: Option<GaussianObjectiveResult> = None;
             let mut identities = Vec::new();
+            let mut scales = std::collections::BTreeMap::new();
             for (subject, template) in std::iter::once(&request.objective)
                 .chain(additional)
                 .enumerate()
@@ -480,13 +525,20 @@ impl CompiledSensitivityDocument {
                         },
                     );
                 }
-                let result = self.gaussian_objective(&objective).map_err(|mut e| {
+                let evaluation = if profile_proportional {
+                    self.profiled_proportional_gaussian_objective(&objective)
+                } else {
+                    self.gaussian_objective(&objective)
+                        .map(|v| (v, std::collections::BTreeMap::new()))
+                };
+                let (result, residual_scales) = evaluation.map_err(|mut e| {
                     e.expression = Some(format!(
                         "subjects[{subject}].{}",
                         e.expression.unwrap_or_default()
                     ));
                     e
                 })?;
+                scales = residual_scales;
                 identities.push(result.identity.clone());
                 if let Some(total) = &mut combined {
                     total.negative_log_likelihood += result.negative_log_likelihood;
@@ -533,9 +585,9 @@ impl CompiledSensitivityDocument {
                 }
                 .into();
             }
-            Ok(result)
+            Ok((result, scales))
         };
-        let mut value = evaluate(&x)?;
+        let (mut value, mut residual_scales) = evaluate(&x)?;
         let mut evaluations = 1;
         let mut iterations = 0;
         let mut h = identity(n);
@@ -593,7 +645,7 @@ impl CompiledSensitivityDocument {
                 }
                 evaluations += 1;
                 match evaluate(&trial) {
-                    Ok(v)
+                    Ok((v, scales))
                         if {
                             let roundoff = 32.0 * f64::EPSILON * (1.0 + value.objective.abs());
                             let trial_g = scaled(&v);
@@ -607,7 +659,7 @@ impl CompiledSensitivityDocument {
                                     && trial_norm < current_norm)
                         } =>
                     {
-                        accepted = Some((trial, step, v));
+                        accepted = Some((trial, step, v, scales));
                         break;
                     }
                     Ok(_) => {}
@@ -620,11 +672,11 @@ impl CompiledSensitivityDocument {
                 }
                 alpha *= 0.5;
             }
-            let Some((next, step, v)) = accepted else {
+            let Some((next, step, v, scales)) = accepted else {
                 if evaluations < request.max_evaluations && precision_scale.get() > 1e-4 {
                     precision_scale.set(precision_scale.get() * 0.01);
                     evaluations += 1;
-                    value = evaluate(&x)?;
+                    (value, residual_scales) = evaluate(&x)?;
                     g = scaled(&value);
                     continue;
                 }
@@ -654,6 +706,7 @@ impl CompiledSensitivityDocument {
             }
             x = next;
             value = v;
+            residual_scales = scales;
             g = next_g;
             iterations += 1;
         };
@@ -668,16 +721,21 @@ impl CompiledSensitivityDocument {
                 )
             })
             .collect();
-        Ok(GaussianFitResult {
-            status,
-            parameters,
-            objective: value,
-            evaluations,
-            iterations,
-            projected_gradient_norm: projected(&x, &g).iter().fold(0_f64, |a, b| a.max(b.abs())),
-            fit_request_hash: canonical_hash(
-                &serde_json::json!({"algorithm":"projected_bfgs_affine_box_refined_v2","request":request,"additional_subjects":additional}),
-            )?,
-        })
+        Ok((
+            GaussianFitResult {
+                status,
+                parameters,
+                objective: value,
+                evaluations,
+                iterations,
+                projected_gradient_norm: projected(&x, &g)
+                    .iter()
+                    .fold(0_f64, |a, b| a.max(b.abs())),
+                fit_request_hash: canonical_hash(
+                    &serde_json::json!({"algorithm":if profile_proportional {"projected_bfgs_affine_box_profiled_proportional_v1"} else {"projected_bfgs_affine_box_refined_v2"},"request":request,"additional_subjects":additional}),
+                )?,
+            },
+            residual_scales,
+        ))
     }
 }

@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "CountExposure": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "exposure": {
+          "$ref": "#/definitions/Quantity"
+        }
+      },
+      "required": [
+        "count",
+        "exposure"
+      ],
+      "type": "object"
+    },
+    "GammaPoissonFitSchema": {
+      "enum": [
+        "qspquest.gamma-poisson-fit/v0.1"
+      ],
+      "type": "string"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "gradient_tolerance": {
+      "description": "Infinity norm of the projected score in log(shape), log(rate).",
+      "format": "double",
+      "type": "number"
+    },
+    "initial_rate": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Quantity"
+        }
+      ],
+      "description": "Gamma shape-rate convention: rate beta has exposure units, while the latent Poisson intensity lambda has reciprocal exposure units."
+    },
+    "initial_shape": {
+      "format": "double",
+      "type": "number"
+    },
+    "max_evaluations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "max_iterations": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/definitions/CountExposure"
+      },
+      "type": "array"
+    },
+    "rate_bounds": {
+      "items": {
+        "$ref": "#/definitions/Quantity"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/GammaPoissonFitSchema"
+    },
+    "shape_bounds": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    }
+  },
+  "required": [
+    "gradient_tolerance",
+    "initial_rate",
+    "initial_shape",
+    "max_evaluations",
+    "max_iterations",
+    "observations",
+    "rate_bounds",
+    "schema",
+    "shape_bounds"
+  ],
+  "title": "GammaPoissonFitRequest",
+  "type": "object",
+  "x-qspquest-spec-version": "qspquest.spec/0.1",
+  "x-qspquest-validation": "Structural schema only; compile, bind and validate execution capabilities before running."
+}

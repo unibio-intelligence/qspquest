@@ -1,5 +1,7 @@
 useDynLib(qspquest, .registration = TRUE)
 export(compile_model)
+export(fit_gamma_poisson)
+export(fit_probit_normal_binomial)
 export(simulate_model)
 export(fit_model)
 export(scan_model)

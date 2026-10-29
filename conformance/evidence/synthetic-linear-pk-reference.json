@@ -1,0 +1,1214 @@
+{
+  "scope": "Owned constant-coefficient PK reference via independently assembled augmented matrix exponential",
+  "scipy": "1.16.2",
+  "cases": [
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 1e-06,
+      "expected": [
+        7.0000005
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 0.5,
+      "expected": [
+        7.25
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 24.0,
+      "expected": [
+        18.999999999999996
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 240.0,
+      "expected": [
+        127.0
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999840000024
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.257109207600308
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 24.0,
+      "expected": [
+        1.6706484576446756
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": null,
+      "amounts": [
+        7.0
+      ],
+      "rates": [
+        0.5
+      ],
+      "duration": 240.0,
+      "expected": [
+        1.6666666666666665
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        14.00000219999991
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        15.078231618838181
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.537033861720592,
+        49.662966138279415
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.4999999999999947,
+        330.4999999999996
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        13.99999800000021
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        13.050675413273675
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.5370338617205905,
+        4.407898780646766
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0
+      ],
+      "exchange": [],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.499999999999966,
+        4.333333333333274
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 1e-06,
+      "expected": [
+        7.000000033333372,
+        14.00000126666663
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 0.5,
+      "expected": [
+        7.025970817703223,
+        14.624029182296777
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 24.0,
+      "expected": [
+        13.708067328267525,
+        38.49193267173246
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 240.0,
+      "expected": [
+        83.90624999999876,
+        249.09374999999642
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.999997933333892,
+        14.000001266666418
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.094828218261918,
+        14.576124802193819
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 24.0,
+      "expected": [
+        3.7939806886023124,
+        21.260723099141416
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0
+      ],
+      "rates": [
+        0.5,
+        0.8
+      ],
+      "duration": 240.0,
+      "expected": [
+        4.3331804830014455,
+        24.998940329923844
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        14.000000799999912,
+        21.000002499999994
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        14.37973686950153,
+        22.248494749336654
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.5370338617205928,
+        26.96160604389238,
+        70.10136009438705
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.500000000000266,
+        156.5000000000056,
+        459.00000000001575
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        13.999996600000843,
+        21.000002499999574
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        12.49395311052924,
+        22.151877926811856
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.5370338617205896,
+        7.224103296661987,
+        34.96463989037253
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0
+      ],
+      "exchange": [
+        0.8
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.500000000000018,
+        7.999774866582592,
+        40.49843921081074
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999982333341,
+        14.000001266666608,
+        21.00000130999998
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.929741940072352,
+        14.61913171161332,
+        21.651126348314328
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 24.0,
+      "expected": [
+        12.376100662502001,
+        36.25214351421061,
+        50.97175582328742
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 240.0,
+      "expected": [
+        70.39391570950319,
+        211.179358842442,
+        336.4267254480563
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999772333404,
+        14.000001266666398,
+        21.000001309999902
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.021834031286257,
+        14.572028851724118,
+        21.63330681682656
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 24.0,
+      "expected": [
+        4.503106186885493,
+        22.34861849819294,
+        43.05778388464947
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": null,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1
+      ],
+      "duration": 240.0,
+      "expected": [
+        7.7249529360924125,
+        35.00269621283867,
+        107.43330072062022
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        14.000000169999987,
+        21.000002499999937,
+        28.000002029999994
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        14.081984051762579,
+        22.233494243093414,
+        29.01275332398219
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.5370338617205843,
+        22.22094559710183,
+        61.902309392545234,
+        74.53971114863218
+      ]
+    },
+    {
+      "clearance": 0.0,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.4999999999997184,
+        114.37587489236714,
+        340.6219438787366,
+        524.5021812288584
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 1e-06,
+      "expected": [
+        6.99999910000009,
+        13.999995970001168,
+        21.000002499999514,
+        28.000002029999834
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 0.5,
+      "expected": [
+        6.571768381161818,
+        12.25014595376017,
+        22.138730997741632,
+        28.976903796513657
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 24.0,
+      "expected": [
+        2.537033861720585,
+        7.84539245701578,
+        35.60785186530567,
+        59.398417864699276
+      ]
+    },
+    {
+      "clearance": 1.2,
+      "volumes": [
+        4.0,
+        12.0,
+        20.0
+      ],
+      "exchange": [
+        0.8,
+        0.3
+      ],
+      "absorption": 0.2,
+      "amounts": [
+        7.0,
+        14.0,
+        21.0,
+        28.0
+      ],
+      "rates": [
+        0.5,
+        0.8,
+        1.1,
+        1.4
+      ],
+      "duration": 240.0,
+      "expected": [
+        2.500000000000056,
+        12.286027269138092,
+        53.11982603888884,
+        148.50156803893987
+      ]
+    }
+  ]
+}

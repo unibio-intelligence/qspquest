@@ -65,6 +65,7 @@ children. Canonical text formatting uses the same nodes. See
 | abs, min, max | supported; min/max take 2+ arguments | pending nonsmooth convention qualification |
 | floor, ceil | parameter-only argument | pending boundary qualification |
 | hill | max(x,0)^n/(k^n+max(x,0)^n), n>0, k>0; stable logarithmic evaluation | pending boundary qualification; no approximate singular Jacobian enabled |
+| inverse_gaussian_density | three arguments with the same dimension; positive mean and shape; reciprocal-dimension result | exact zero extension for nonpositive first argument; clock and parameter partials |
 | comparisons / not / and / or | typed booleans, lazy and/or | not numeric derivatives |
 | conditional / ifelse | selected branch only, matching branch types | selected branch when condition is independent of differentiation variable |
 
@@ -75,6 +76,9 @@ The expression and model tests exercise rebinding, lazy branches, original-domai
 preservation, symbolic derivatives and strict JSON decoding.
 
 ## Output-only guards
+
+The [inverse-Gaussian input tutorial](../docs/tutorials/inverse-gaussian-input.md)
+includes a runnable delayed-input model and synthetic fraction fit.
 
 A model output may branch on its sampled state or time. The selected branch is
 evaluated lazily at the requested observation; an inactive invalid logarithm or

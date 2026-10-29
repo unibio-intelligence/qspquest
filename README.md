@@ -87,5 +87,5 @@ and units before interpreting its results.
 See [contributing](CONTRIBUTING.md) for tests, builds and bug reports, and the
 [security policy](SECURITY.md) for private vulnerability reports.
 Ubi-owned engine code and synthetic examples use [Apache-2.0](LICENSE).
-Vendored components retain their licenses and [provenance](vendor/DIFFSOL-PROVENANCE.md).
+Vendored components retain their [license notices](vendor/DIFFSOL-PROVENANCE.md).
 Developed by [UniBio Intelligence](https://unibiointelligence.com).

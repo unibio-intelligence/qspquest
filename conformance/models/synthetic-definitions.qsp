@@ -1,0 +1,20 @@
+model synthetic_definitions
+time_unit = h
+parameters
+  cl = 0.3 [L/h] log
+  v = 3 [L] log
+definitions
+  elimination = cl * concentration [mg/h]
+  concentration = central / v [ug/L]
+  forcing = input_central [mg/h]
+  elapsed = time [h]
+states
+  central = 0 [mg] input
+dynamics
+  d/dt(central) = forcing - elimination
+outputs
+  cp = concentration [mg/L]
+  cp_ug = concentration [ug/L]
+  loss = elimination [mg/h]
+  elapsed = elapsed [h]
+end

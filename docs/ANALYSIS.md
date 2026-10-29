@@ -100,6 +100,85 @@ requested time grid. Restart with the same inputs, controls, code, native build
 and numerical environment. Changed inputs or older algorithm checkpoints are
 rejected; start a new analysis in a new directory.
 
+## Run an individual likelihood profile
+
+Use Python 3.10 or later with the matching released wheel and its `analysis`
+extra installed, as above. Run this complete example in that environment:
+
+```sh
+python - <<'PY'
+import json
+import math
+import numpy as np
+from qspquest import CompiledModel
+
+model = CompiledModel("""model gaussian_profile
+time_unit = h
+parameters
+ theta = 2.718281828459045 [1] estimated
+ decay = 0 [1/h] fixed
+states
+ anchor = 0 [1]
+dynamics
+ d/dt(anchor) = -decay * anchor
+outputs
+ z = log(theta) [1]
+end
+""")
+times = np.linspace(0, 2, 24)
+y = 1.4 + np.random.default_rng(81).normal(0, 0.25, len(times))
+run = {
+    "schema": "qspquest.run/v0.1",
+    "solver": "diffsol_bdf",
+    "budgets": {"events": 100, "output_values": 1000, "solver_callbacks": 10000},
+    "regimen": {
+        "end": {"value": 2, "unit": "h"},
+        "administrations": [], "samples": [],
+        "observations": [
+            {"time": {"value": float(t), "unit": "h"}, "side": "post"}
+            for t in times
+        ],
+        "rtol": 1e-10, "atol": 1e-12,
+    },
+}
+rows = [
+    {"row": i, "output": "z", "value": {"value": float(v), "unit": "1"}}
+    for i, v in enumerate(y)
+]
+result = model.profile_likelihood(
+    run, rows,
+    {"theta": {"initial": math.exp(1), "lower": math.exp(-0.2),
+               "upper": math.exp(3), "unit": "1"}},
+    {"additive": {"initial": 0.2, "lower": 0.05, "upper": 0.8}},
+    "theta", np.exp(np.linspace(0.8, 2, 161)).tolist(),
+    max_iterations=300, max_simulations=20000,
+)
+assert result["status"] == "complete"
+assert abs(math.log(result["estimate"]) - float(y.mean())) < 1e-5
+assert all(endpoint is not None for endpoint in result["interval"])
+print(json.dumps({key: result[key] for key in ["status", "estimate", "interval"]}))
+PY
+```
+
+The output reports a complete profile, a positive estimate near 4, and two
+finite interval endpoints. The independent Gaussian mean check verifies the
+point estimate on these generated observations. The 95% interval uses a
+chi-square likelihood-ratio approximation with grid interpolation; it does not
+establish biological validity or general interval coverage.
+
+Structural optimization uses a bounded preliminary fit followed by Powell
+refinement. `initial_fit` and `unrestricted_fit` retain both records; their
+combined iterations respect `max_iterations`. Each structural nuisance fit
+uses Powell. All simulations share `max_simulations`, including initialization
+and refinement. `fit_data(method="Powell")` applies `tolerance` to both function
+and parameter stopping criteria.
+
+Check the profile status and every grid-point status. A failed nuisance fit
+makes the profile incomplete even when it lies outside the interval. An open
+endpoint remains null: widen the parameter bounds or grid only when justified
+by the intended analysis. Do not treat a boundary as a confidence endpoint.
+
+
 ## Operations
 
 - `CompiledModel.fit_data(run, observations, parameters, error, ...)`: bounded

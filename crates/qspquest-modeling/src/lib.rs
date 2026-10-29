@@ -1,9 +1,12 @@
 //! Pharmacology execution engine. Native simulation and bounded fitting API.
 pub mod capabilities;
 pub mod compile;
+pub mod discrete_fit;
 pub mod document;
+pub mod hmm;
 pub mod language;
 pub mod linear_pk;
+pub mod probit_normal;
 pub mod runtime;
 pub mod steady_state;
 use diffsol::AdaptiveLU;
@@ -13,8 +16,11 @@ pub use qspquest_core::{Budgets, Error, ErrorCode, Event, Protocol, Sample};
 use std::cell::{Cell, RefCell};
 
 /// Exact vendored Diffsol source revision, including both local Rosenbrock methods.
-pub(crate) const DIFFSOL_BACKEND_VERSION: &str =
-    concat!("0.17.1+sha256:", env!("QSPQUEST_DIFFSOL_SOURCE_SHA256"));
+pub(crate) const DIFFSOL_BACKEND_VERSION: &str = concat!(
+    env!("QSPQUEST_DIFFSOL_VERSION"),
+    "+sha256:",
+    env!("QSPQUEST_DIFFSOL_SOURCE_SHA256")
+);
 
 /// Constant-coefficient interval propagation used by the common event driver.
 /// The driver retains ownership of event ordering, observations and budgets.
@@ -1326,3 +1332,7 @@ mod rosenbrock_integration_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/fixture_support/mod.rs"]
+mod test_fixture;

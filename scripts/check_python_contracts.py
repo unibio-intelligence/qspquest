@@ -4,7 +4,7 @@ import argparse
 import ast
 import json
 from pathlib import Path
-from generate_python_types import generate
+from generate_python_types import generate, SCHEMAS
 
 FORWARDED = {
     'fit_data': ('estimation', 'fit_data'),
@@ -70,7 +70,7 @@ def check(root):
     stubs = {path.stem: ast.parse(path.read_text(), feature_version=(3, 10)) for path in package.glob('*.pyi')}
     if (package / 'types.py').read_text() != generate(root):
         raise ValueError('Generated Python types differ from the current native schemas')
-    counts = {'generated_native_schemas': 16, 'signatures': 0, 'result_methods': 0}
+    counts = {'generated_native_schemas': len(SCHEMAS), 'signatures': 0, 'result_methods': 0}
     for module, stub in stubs.items():
         runtime = trees[module]
         runtime_functions, stub_functions = functions(runtime), functions(stub)

@@ -51,6 +51,16 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(self.entry('python_analysis', 'profile_likelihood')['estimators'], ['L-BFGS-B'])
         self.assertEqual({e['operation'] for e in self.catalog['entries'] if e['interface'] == 'wasm_worker'}, {'simulate'})
 
+    def test_discrete_commands_and_profiled_fitting_are_registered(self):
+        for operation in ('fit_gamma_poisson', 'fit_probit_normal_binomial'):
+            for interface in ('rust', 'python', 'r', 'cli'):
+                entry = self.entry(interface, operation)
+                self.assertTrue(entry['implemented'] and entry['exposed'])
+                self.assertEqual(entry['solvers'], ['none'])
+            self.assertEqual(self.entry('cli', operation)['api'], 'qspquest fit-data')
+        for interface in ('rust', 'python', 'r', 'cli', 'mcp'):
+            self.assertIn('profiled_proportional', self.entry(interface, 'fit_individual')['estimators'])
+
     def test_changed_source_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
