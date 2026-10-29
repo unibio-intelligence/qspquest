@@ -23,7 +23,7 @@ PACKAGE = Path('bindings/python/python/qspquest')
 SOURCE_PATTERNS = (
     'pyproject.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/config.toml',
     'LICENSE', 'THIRD-PARTY-NOTICES.txt', 'SECURITY.md', 'bindings/python/README.md',
-    'crates/*/Cargo.toml', 'crates/*/build.rs', 'crates/*/src/**/*.rs',
+    'crates/*/Cargo.toml', 'crates/*/README.md', 'crates/*/LICENSE', 'crates/*/test-data/**/*', 'crates/*/build.rs', 'crates/*/src/**/*.rs',
     'crates/*/examples/**/*.rs', 'bindings/*/Cargo.toml', 'bindings/mcp/build.rs',
     'bindings/mcp/assets/**/*', 'bindings/*/src/**/*.rs',
     'bindings/r/src/rust/Cargo.toml', 'bindings/r/src/rust/src/**/*.rs',

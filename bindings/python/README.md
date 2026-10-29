@@ -7,8 +7,7 @@ No model library is needed for the example below.
 
 ## Install
 
-Use CPython 3.10 or newer in a virtual environment. QSPQuest 0.1.0 is not yet
-published to PyPI. From the complete project checkout or extracted Python source
+Use CPython 3.10 or newer in a virtual environment. Install QSPQuest 0.1.0rc1 using a matching wheel or the source archive. From the complete project checkout or extracted Python source
 archive, create an environment. On macOS or Linux:
 
 ```sh
@@ -39,7 +38,7 @@ A wheel must match the operating system and processor. For the macOS Apple
 Silicon wheel, run from the directory containing that file:
 
 ```sh
-python -m pip install ./qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl
+python -m pip install ./qspquest-0.1.0rc1-cp310-abi3-macosx_11_0_arm64.whl
 ```
 
 For another platform, use its matching wheel filename. Wheels need no Rust
@@ -47,7 +46,7 @@ compiler. If a wheel is unavailable, install the Python source archive with
 Rust 1.98.1, Cargo and a native C/C++ compiler on `PATH`:
 
 ```sh
-python -m pip install ./qspquest-0.1.0.tar.gz
+python -m pip install ./qspquest-0.1.0rc1.tar.gz
 ```
 
 The source build installs its pinned build backend and downloads locked Cargo
@@ -63,7 +62,7 @@ python -c "import qspquest; print(qspquest.__version__)"
 qspquest-doctor --json
 ```
 
-Expect version `0.1.0`. The doctor compiles and simulates an analytical synthetic
+Expect version `0.1.0rc1`. The doctor compiles and simulates an analytical synthetic
 model and reports checks, engine identity and missing optional dependencies.
 An import error usually means the active interpreter differs from the one used
 for installation or the native extension could not load. Use `python -m pip`
@@ -116,7 +115,7 @@ python-libsbml for SBML/OMEX import and export. Install only the extras needed;
 for example with the same local source archive:
 
 ```sh
-python -m pip install './qspquest-0.1.0.tar.gz[analysis,interchange]'
+python -m pip install './qspquest-0.1.0rc1.tar.gz[analysis,interchange]'
 qspquest-doctor --analysis --interchange --json
 ```
 

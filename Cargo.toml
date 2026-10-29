@@ -5,7 +5,7 @@ exclude = ["vendor/diffsol"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-rc.1"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
@@ -13,7 +13,7 @@ publish = false
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-qspquest-core = { path = "crates/qspquest-core" }
+qspquest-core = { path = "crates/qspquest-core", version = "=0.1.0-rc.1" }
 qspquest-modeling = { path = "crates/qspquest-modeling" }
 diffsol = { path = "vendor/diffsol/crates/diffsol", version = "=0.18.0", default-features = false, features = ["nalgebra", "faer", "deterministic"] }
 

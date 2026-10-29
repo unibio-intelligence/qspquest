@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tarfile
 import tempfile
+import tomllib
 import unittest
 import warnings
 import zipfile
@@ -13,9 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import check_distribution as distribution
 
+VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+
 
 def package_metadata():
-    return ('Metadata-Version: 2.4\nName: qspquest\nVersion: 0.1.0\n'
+    return (f'Metadata-Version: 2.4\nName: qspquest\nVersion: {VERSION}\n'
             'Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM\n\n' +
             (ROOT / 'bindings/python/README.md').read_text()).encode()
 
@@ -57,7 +60,7 @@ class DistributionTests(unittest.TestCase):
 
     def wheel(self, directory, *, omitted=None, changed=None, extra=None,
               record_change=None, duplicate=False, symlink=False):
-        info = 'qspquest-0.1.0.dist-info'
+        info = f'qspquest-{VERSION}.dist-info'
         files = {name: source.read_bytes() for name, source in distribution.python_files(ROOT).items()}
         files.update({info + '/licenses/' + name: (ROOT / name).read_bytes()
                       for name in ('LICENSE', 'THIRD-PARTY-NOTICES.txt')})
@@ -80,7 +83,7 @@ class DistributionTests(unittest.TestCase):
         if record_change:
             raw_record = record_change(raw_record)
         files[record_name] = raw_record.encode()
-        path = Path(directory) / 'qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl'
+        path = Path(directory) / f'qspquest-{VERSION}-cp310-abi3-macosx_11_0_arm64.whl'
         with zipfile.ZipFile(path, 'w') as archive:
             for name, raw in files.items():
                 member = zipfile.ZipInfo(name)
@@ -167,7 +170,7 @@ class DistributionTests(unittest.TestCase):
 
     def test_wheel_rejects_altered_source_even_with_consistent_record(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('qspquest/control.py', 'qspquest-0.1.0.dist-info/licenses/LICENSE'):
+            for name in ('qspquest/control.py', f'qspquest-{VERSION}.dist-info/licenses/LICENSE'):
                 with self.subTest(name=name):
                     path = self.wheel(directory, changed=name)
                     with self.assertRaisesRegex(ValueError, 'differs from selected source'):
@@ -194,8 +197,8 @@ class DistributionTests(unittest.TestCase):
                            {'extra': 'qspquest/link.py', 'symlink': True},
                            {'extra': 'qspquest/_native.pyd'},
                            {'extra': 'qspquest.libs/private.json'},
-                           {'extra': 'qspquest-0.1.0.dist-info/private.json'},
-                           {'extra': 'qspquest-0.1.0.dist-info/RECORD.jws'}):
+                           {'extra': f'qspquest-{VERSION}.dist-info/private.json'},
+                           {'extra': f'qspquest-{VERSION}.dist-info/RECORD.jws'}):
                 with self.subTest(kwargs=kwargs):
                     with self.assertRaises(ValueError):
                         distribution.inspect_wheel(self.wheel(directory, **kwargs))

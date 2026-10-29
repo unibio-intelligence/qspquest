@@ -151,9 +151,10 @@ mod tests {
 
     #[test]
     fn seeded_design_has_known_grid_and_current_generator_identity() {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../conformance/requests/synthetic-morris.json"
-        ))
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test-data/conformance/requests/synthetic-morris.json"
+        )))
         .unwrap();
         let mut input: MorrisDesignRequest =
             serde_json::from_value(fixture["problem"]["request"].clone()).unwrap();

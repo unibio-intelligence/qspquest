@@ -1,0 +1,79 @@
+name: Publish Python distributions
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Python version already present in the reviewed GitHub release
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: pypi-${{ inputs.version }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'unibio-intelligence/qspquest' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Require the matching completed source release
+        id: source
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, re, tomllib
+          from pathlib import Path
+          version = os.environ['VERSION']
+          if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?', version):
+              raise SystemExit('Use the selected stable or release-candidate Python version')
+          if tomllib.loads(Path('pyproject.toml').read_text())['project']['version'] != version:
+              raise SystemExit('Selected source version differs')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('tag=v' + version.replace('rc', '-rc.') + '\n')
+          PY
+          RELEASE_TAG="v${VERSION/rc/-rc.}"
+          gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          if json.loads((Path(os.environ['RUNNER_TEMP']) / 'release.json').read_text())['isDraft']:
+              raise SystemExit('A completed GitHub release is required')
+          PY
+          git fetch --no-tags --depth=1 origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "$RELEASE_TAG^{commit}")"
+      - name: Download the exact reviewed distributions
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_TAG" --dir dist \
+            --pattern 'qspquest-${{ inputs.version }}-*.whl' \
+            --pattern 'qspquest-${{ inputs.version }}.tar.gz' --pattern SHA256SUMS
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root = Path('dist')
+          sums = {}
+          for line in (root / 'SHA256SUMS').read_text().splitlines():
+              digest, name = line.split(maxsplit=1)
+              name = name.lstrip('* ')
+              if name in sums:
+                  raise SystemExit('Duplicate checksum identity')
+              sums[name] = digest
+          for path in root.iterdir():
+              if path.name != 'SHA256SUMS' and hashlib.sha256(path.read_bytes()).hexdigest() != sums.get(path.name):
+                  raise SystemExit('Artifact checksum differs: ' + path.name)
+          (root / 'SHA256SUMS').rename(Path(__import__('os').environ['RUNNER_TEMP']) / 'SHA256SUMS')
+          PY
+          python scripts/check_distribution.py dist
+      - name: Publish with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+        with:
+          packages-dir: dist/
