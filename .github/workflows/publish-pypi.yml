@@ -22,7 +22,7 @@ jobs:
       VERSION: ${{ inputs.version }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Require the matching completed source release
         id: source
         run: |
@@ -74,6 +74,6 @@ jobs:
           PY
           python scripts/check_distribution.py dist
       - name: Publish with PyPI Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: dist/

@@ -40,7 +40,10 @@ fn locked_diffsol(root: &Path) -> (String, bool) {
     let version = field("version");
     let source = field("source");
     if source == "registry+https://github.com/rust-lang/crates.io-index" {
-        return (format!("{version}+crates-io"), version_at_least(version, 0, 19));
+        return (
+            format!("{version}+crates-io"),
+            version_at_least(version, 0, 19),
+        );
     }
     assert!(
         source.starts_with("git+https://github.com/martinjrobins/diffsol?rev="),
@@ -55,7 +58,9 @@ fn locked_diffsol(root: &Path) -> (String, bool) {
     (format!("{version}+git:{revision}"), true)
 }
 fn version_at_least(version: &str, major: u64, minor: u64) -> bool {
-    let mut parts = version.split(['.', '-', '+']).map(|part| part.parse::<u64>().unwrap_or(0));
+    let mut parts = version
+        .split(['.', '-', '+'])
+        .map(|part| part.parse::<u64>().unwrap_or(0));
     (parts.next().unwrap_or(0), parts.next().unwrap_or(0)) >= (major, minor)
 }
 /// Inside the QSPQuest workspace, hash every input of the engine build.
@@ -90,16 +95,28 @@ fn main() {
     let workspace = manifest.join("../..");
     // A crate installed from crates.io is built in its consumer's workspace,
     // where only this package's own files are available.
-    let in_workspace = workspace.join("crates/qspquest-modeling/build.rs").is_file()
+    let in_workspace = workspace
+        .join("crates/qspquest-modeling/build.rs")
+        .is_file()
         && workspace.join("Cargo.lock").is_file();
     let (root, mut files, backend, step_limit) = if in_workspace {
         let (backend, step_limit) = locked_diffsol(&workspace);
-        (workspace.clone(), workspace_sources(&workspace), backend, step_limit)
+        (
+            workspace.clone(),
+            workspace_sources(&workspace),
+            backend,
+            step_limit,
+        )
     } else {
         let mut files = Vec::new();
         sources(&manifest.join("src"), &mut files);
         files.extend([manifest.join("Cargo.toml"), manifest.join("build.rs")]);
-        (manifest.clone(), files, "crates-io:unlocked".to_owned(), false)
+        (
+            manifest.clone(),
+            files,
+            "crates-io:unlocked".to_owned(),
+            false,
+        )
     };
     println!("cargo:rustc-env=QSPQUEST_DIFFSOL_BACKEND={backend}");
     if step_limit {
