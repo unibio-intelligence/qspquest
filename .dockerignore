@@ -48,7 +48,6 @@
 !bindings/python/python/qspquest/py.typed
 !bindings/python/python/qspquest/adapters/
 !bindings/python/python/qspquest/adapters/*.py
-!vendor/
 !conformance/
 !conformance/*.rs
 !conformance/tmdd-cases.json

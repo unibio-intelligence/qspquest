@@ -2,7 +2,7 @@ name: Docker images
 on:
   push:
     branches: [main]
-    paths: ['.cargo/**', '.gitattributes', 'Cargo.*', 'Dockerfile', 'compose.yaml', '.dockerignore', 'docker/**', 'crates/**', 'bindings/**', 'vendor/**', 'conformance/**', 'pyproject.toml', 'examples/**', 'docs/**', 'scripts/**', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
+    paths: ['.cargo/**', '.gitattributes', 'Cargo.*', 'Dockerfile', 'compose.yaml', '.dockerignore', 'docker/**', 'crates/**', 'bindings/**', 'conformance/**', 'pyproject.toml', 'examples/**', 'docs/**', 'scripts/**', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,6 +1,6 @@
 Third-party Rust dependency notices
 
-Cargo.lock SHA-256: d93a49a46f8896f8e66082bd33fef1e9c4e41132a0d97562741093b272354bb3
+Cargo.lock SHA-256: 7d00c84a68cbcd95ca0d79a70b10224eec69080f57ecbc99beba26573e78c89c
 
 These notices cover the locked native and WebAssembly dependencies of the
 supported engine and bindings, including optional MCP sandbox features and

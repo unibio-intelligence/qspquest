@@ -14,7 +14,7 @@
     "Cargo.toml": "4112fb671681be3de978964d858dcc2fe97f05f7066d4f978d3a4828652c0c4f",
     "bindings/cli/src/main.rs": "9f356bb0f8af4c90bb36f04c6554a3e0c749fcc2084b8678675948f2ae9ff64c",
     "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
-    "bindings/mcp/Dockerfile": "152ef1530703f75e39f4b26058582669200fc6f243e2fd8b561f2393d3fa338e",
+    "bindings/mcp/Dockerfile": "5cfba71283867c80c9b623aa5910bef3f5b25dcc86c0b2155af29c5110faac4b",
     "bindings/mcp/assets/library/catalog.json": "7191e3d583bf096e463b8be73d99914a8f3cc345c4d9b134f461ced0e110748c",
     "bindings/mcp/assets/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/evidence.json": "f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
     "bindings/mcp/assets/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.1/evidence.json": "073dfdb95834cd7032f388fd4ea04c7aa7770a86b2c98f6608988463bb32376b",

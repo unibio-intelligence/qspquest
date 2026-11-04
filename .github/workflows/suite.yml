@@ -2,7 +2,7 @@ name: Suite compatibility
 on:
   push:
     branches: [main]
-    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'bindings/**', 'conformance/**', 'spec/**', 'examples/**', 'docs/examples/**', 'scripts/**', '.github/suite-compatibility.json', '.github/workflows/**']
   workflow_dispatch:
 permissions:
   contents: read

@@ -2,7 +2,7 @@ name: MCP qualification
 on:
   push:
     branches: [main]
-    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'vendor/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
+    paths: ['Dockerfile', 'docker/**', '.cargo/**', '.gitattributes', 'Cargo.*', 'crates/**', 'bindings/**', 'conformance/**', 'spec/**', 'scripts/**', '.dockerignore', '.github/workflows/**', '.github/workflows/suite.yml', '.github/suite-compatibility.json']
   workflow_dispatch:
     inputs:
       cache_only:

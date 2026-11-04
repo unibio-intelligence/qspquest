@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends cmake clang pkg
 COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY crates crates
-COPY vendor vendor
 COPY bindings bindings
 COPY conformance conformance
 COPY LICENSE ./

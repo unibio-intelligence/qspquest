@@ -27,8 +27,8 @@
       "mime_type": "application/json",
       "asset": "guides/spec/capabilities.json",
       "source": "spec/capabilities.json",
-      "source_sha256": "cdf50364345311779378a1ad70e26f390e50cd74bc18cf575e06975172bbe225",
-      "content_sha256": "cdf50364345311779378a1ad70e26f390e50cd74bc18cf575e06975172bbe225",
+      "source_sha256": "5986a0056703e4eea06428b2132153ff632e1cec6f21f4a9c02a38e97f2fe5fe",
+      "content_sha256": "5986a0056703e4eea06428b2132153ff632e1cec6f21f4a9c02a38e97f2fe5fe",
       "anchors": []
     },
     {
