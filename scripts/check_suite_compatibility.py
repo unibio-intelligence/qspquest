@@ -57,7 +57,7 @@ def load_lock(path):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
             raise ValueError("Invalid comparison tolerance: " + name)
     if not case["solvers"] or len(set(case["solvers"])) != len(case["solvers"]) or any(
-            s not in {"diffsol_bdf", "diffsol_rodas5p"} for s in case["solvers"]):
+            s not in {"diffsol_bdf"} for s in case["solvers"]):
         raise ValueError("Invalid native solver selection")
     return lock
 

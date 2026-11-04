@@ -21,20 +21,20 @@
       "publication_status": "pending"
     },
     {
-      "archive": "models/qspquest_diffdose_2026_idr_benchmark/0.3.0/model.omex",
+      "archive": "models/qspquest_diffdose_2026_idr_benchmark/0.3.1/model.omex",
       "description": "How does repeated exposure accelerate biomarker removal?",
       "fit_ready": true,
       "fitting_supported": true,
       "id": "qspquest_diffdose_2026_idr_benchmark",
       "license": "Apache-2.0",
       "name": "Drug-stimulated biomarker turnover",
-      "omex_sha256": "34dd0d01af9ef951fa84969ce4d008c860ac7abe55ae701b0866b80a8be426c0",
+      "omex_sha256": "e8ecac8677fb6b4685483d9f1063df370869754688d849b30c27aa335d822922",
       "scenario_ids": [
         "untreated",
         "lower_exposure",
         "higher_exposure"
       ],
-      "version": "0.3.0",
+      "version": "0.3.1",
       "publication_status": "pending"
     },
     {
@@ -294,5 +294,5 @@
   "license": "Apache-2.0",
   "comparison_evidence": "separate_one_time_dump",
   "availability_schema": "qspquest.model-availability/v1",
-  "availability_sha256": "1b39fc34c69ccf6e568c095f06cd8f2959f3c76a34c63e6ffa825fbdf7dc4bb0"
+  "availability_sha256": "10886be6187392a97553740dc1eaabb06f81b7d51c348f815c06c865d5af42c2"
 }

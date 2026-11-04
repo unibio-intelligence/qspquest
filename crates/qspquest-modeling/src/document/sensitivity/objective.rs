@@ -40,13 +40,8 @@ pub(super) fn profiled_identity(
     solver: qspquest_core::run::Solver,
     mut identity: qspquest_core::run::ExecutionIdentity,
 ) -> Result<qspquest_core::run::ExecutionIdentity, Error> {
-    identity.algorithm = match solver {
-        qspquest_core::run::Solver::DiffsolRodas5p => {
-            "rodas5p_forward_profiled_proportional_gaussian_objective"
-        }
-        _ => "bdf_forward_profiled_proportional_gaussian_objective",
-    }
-    .into();
+    crate::validate_solver(solver)?;
+    identity.algorithm = "bdf_forward_profiled_proportional_gaussian_objective".into();
     identity.run_request_hash = canonical_hash(&serde_json::json!({
         "algorithm":identity.algorithm,"request_hash":identity.run_request_hash,
         "profile_group":"output","version":1
@@ -457,19 +452,20 @@ impl CompiledSensitivityDocument {
         self: &Arc<Self>,
         request: &GaussianObjectiveRequest,
     ) -> Result<PreparedGaussianPrimal, Error> {
+        crate::validate_solver(request.simulation.run.solver)?;
         if !request.priors.is_empty() {
             return Err(invalid("population subject priors are unsupported"));
         }
         if request.simulation.with_respect_to != self.parameters()
             || !matches!(
                 request.simulation.run.solver,
-                qspquest_core::run::Solver::DiffsolBdf | qspquest_core::run::Solver::DiffsolRodas5p
+                qspquest_core::run::Solver::DiffsolBdf
             )
             || request.simulation.run.seed.is_some()
         {
             return Err(Error::new(
                 ErrorCode::Unsupported,
-                "population likelihood requires deterministic diffsol_bdf or diffsol_rodas5p and the selected parameter order",
+                "population likelihood requires diffsol_bdf and the selected parameter order",
             ));
         }
         let observations = &request.observations;
@@ -565,11 +561,7 @@ impl CompiledSensitivityDocument {
         identity.run_request_hash = canonical_hash(
             &serde_json::json!({"simulation_request_hash":identity.run_request_hash,"requested_budgets":request.simulation.run.budgets,"observations":request.observations,"priors":request.priors}),
         )?;
-        identity.algorithm = match request.simulation.run.solver {
-            qspquest_core::run::Solver::DiffsolRodas5p => "rodas5p_forward_gaussian_objective",
-            _ => "bdf_forward_gaussian_objective",
-        }
-        .into();
+        identity.algorithm = "bdf_forward_gaussian_objective".into();
         Ok(identity)
     }
 

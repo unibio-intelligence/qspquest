@@ -1,15 +1,14 @@
 # Choose an MCP deployment profile
 
-Purpose: run local stdio or intentionally public HTTP, then verify the managed
-boundary with a complete synthetic test. Prerequisites: the released source
-archive, Rust 1.98.1, its locked build dependencies, a native compiler, Python 3
-for the optional HTTP client below, and permission to bind loopback sockets.
-Run commands from the source root. No account or paid operation is used here.
+Run the MCP server locally over stdio, as an open HTTP server, or in managed
+(signed-in) mode. You need the source archive, Rust 1.98.1, a native compiler,
+Python 3 for the optional HTTP client below, and permission to open local
+network ports. Run commands from the source root. No account is needed.
 
 ## Prepare a synthetic library
 
-The released source contains a complete oral-dose teaching model. Copy it to a
-separate source-only directory and build the default server:
+The source includes an oral-dose teaching model. Copy it to its own directory
+and build the server:
 
 ```sh
 mkdir -p .qspquest-tutorial-models
@@ -18,9 +17,7 @@ export QSPQUEST_LIBRARY_DIR="$(cd .qspquest-tutorial-models && pwd)"
 cargo build --locked -p qspquest-mcp
 ```
 
-This example uses only files shipped in the source distribution. For scientific
-work, select a verified model library and inspect its qualification records.
-The teaching model does not qualify a clinical prediction.
+For real work, use a model library and check each model's limitations.
 
 ## Local stdio
 
@@ -28,12 +25,11 @@ The teaching model does not qualify a clinical prediction.
 target/debug/qspquest-mcp --profile local --library-dir "$QSPQUEST_LIBRARY_DIR"
 ```
 
-The process prints its local profile to stderr and waits for an MCP client on
-stdio. Ctrl-C exits. Omitting both `--profile` and `--http` selects this same
-profile. Configure the client with the absolute executable path and these args.
-Model inputs and results travel between that client and the local process.
-CSV export requires an explicit private `--output-dir`; HTTP refuses this option.
-Local result resources are bounded and expire according to the capabilities.
+The process waits for an MCP client on stdio; Ctrl-C exits. This is also the
+default when neither `--profile` nor `--http` is given. Configure your client
+with the absolute executable path and these arguments. CSV export needs a
+private `--output-dir` (not available over HTTP). Stored results are size-limited
+and expire; `qspquest://capabilities` gives the limits.
 
 ## Public bounded HTTP
 
@@ -64,14 +60,14 @@ assert any(tool['name'] == 'simulate' for tool in tools)
 PY
 ```
 
-Expect the discovered tool names, including `simulate`. No credential is needed:
-this profile intentionally exposes bounded computation. Omitting `--profile`
-with `--http` selects public HTTP unless managed mode was explicitly configured.
-`/healthz` reports process readiness. The default build refuses HTTP user-source
-execution; use `sh scripts/build-mcp.sh` for the sandbox build. HTTP has no local
-CSV exports or result-resource cache. Input and result bodies travel to this
-server. Use HTTPS at the ingress for remote clients. Binding `0.0.0.0` or `::`
-exposes the listener beyond loopback; startup reports that exposure.
+Expect the tool names, including `simulate`. No login is needed: this profile
+is open to anyone who can reach it, with limits on computation. `--http` without
+`--profile` selects this profile unless managed mode is configured. `/healthz`
+reports whether the server is ready. The default build will not run
+user-supplied models over HTTP; use `sh scripts/build-mcp.sh` for the sandboxed
+build that can. HTTP has no CSV export or stored results. Put HTTPS in front of
+the server for remote clients. Binding `0.0.0.0` or `::` makes the server
+reachable from other machines; startup warns about this.
 
 Native clients normally omit `Origin`. All requests carrying a browser Origin
 are refused unless it is explicitly allowed. For a browser client, set:
@@ -81,13 +77,11 @@ export QSPQUEST_MCP_ALLOWED_ORIGINS=https://app.example.test
 export QSPQUEST_MCP_ALLOWED_HOSTS=mcp.example.test
 ```
 
-These are configuration examples: replace both with the actual browser origin
-and MCP request Host. Origins match scheme, hostname and exact port; HTTPS's
+Replace both with your actual browser origin and MCP host. Origins match scheme, hostname and exact port; HTTPS's
 default port is 443. Other ports, `null` and wildcards are refused. Host entries
 are comma-separated hostnames or IP addresses with optional ports. Defaults
 allow `localhost`, `127.0.0.1` and `[::1]`. Forwarded Host headers do not replace
-the actual Host. Allowing an Origin does not create authentication or enable
-cross-origin browser access in a client that otherwise forbids it.
+the actual Host. Allowing an Origin does not add authentication.
 
 ## Managed HTTP
 
@@ -108,8 +102,7 @@ price preview and Job/Artifact descriptors. It rejects cross-tenant Artifact
 metadata, suppresses rejected upstream bodies, and prevents Free scopes from
 making private platform calls. Fixtures and complete inputs are shipped in
 `bindings/mcp/tests/deployment.rs` and `bindings/mcp/tests/managed.rs`.
-These checks do not qualify a deployed resolver's OAuth validation, platform
-atomicity, prices or scientific operations.
+These tests do not check a real deployment.
 
 A real managed deployment additionally requires an approved session resolver,
 a governed API and a gateway providing HTTPS. Build the managed sandbox without the optional browser widget:

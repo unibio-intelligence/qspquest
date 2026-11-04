@@ -49,9 +49,6 @@
 !bindings/python/python/qspquest/adapters/
 !bindings/python/python/qspquest/adapters/*.py
 !vendor/
-!vendor/DIFFSOL-PROVENANCE.md
-!vendor/diffsol/
-!vendor/diffsol/**
 !conformance/
 !conformance/*.rs
 !conformance/tmdd-cases.json

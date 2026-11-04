@@ -1423,8 +1423,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "type": "string"

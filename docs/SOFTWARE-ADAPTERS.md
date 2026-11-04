@@ -2,13 +2,12 @@
 
 `qspquest.adapters` imports and exports deterministic individual ODE models
 for NONMEM, nlmixr2, rxode2, Pumas, Monolix Mlxtran, Phoenix PML and WinNonlin
-ASCII. Every accepted import compiles with the same native QSPQuest engine.
-The adapters do not call a vendor executable, fit populations, infer missing
+ASCII. Imported models run on the QSPQuest engine. The adapters do not call a vendor executable, fit populations, infer missing
 units, evaluate source programs or open proprietary project containers.
 
-This is a documented source subset, not general compatibility with every model
-written for these tools. Unsupported statements raise `AdapterError` before
-returning an executable model. A native compiler failure raises `QSPQuestError`.
+Only the syntax in the table below is supported, not every model written for
+these tools. Unsupported statements raise `AdapterError`; a compiler failure
+raises `QSPQuestError`.
 
 | Source | Direct model import | Explicit exclusions |
 |---|---|---|
@@ -51,17 +50,14 @@ print(answer["results"]["synthetic"]["outputs"][0]["values"])
 
 **Units are numerical coordinates.** State, parameter, dose and output units are
 `1`, with the explicitly supplied source time unit `s`, `min`, `h` or `d`
-(`day` is accepted as an alias for `d`). The example retains the original numbers;
-it does not qualify their physical units as mg, L or mg/L. The imported model's
-fixed clock basis preserves the numeric derivative and `t` across time units.
-Use a native unit-bearing model or SBML/OMEX when physical-unit interchange is
-required. Inspect `warnings`, `symbol_map`, `output_map`, `compartment_map` and
-`source_sha256` before using an import. Source identifiers map to stable native
-identifiers without case/Unicode collisions.
+(`day` is accepted as an alias for `d`). Numbers are kept as written; QSPQuest
+does not know whether they mean mg, L or mg/L. Use a native unit-bearing model
+or SBML/OMEX when you need physical units. Inspect `warnings`, `symbol_map`,
+`output_map`, `compartment_map` and `source_sha256` before using an import.
 
-Statistical declarations are rejected by default. Explicit
-`structural_only=True` retains supported-block declarations as unexecuted source
-metadata. It does not sample random effects or translate a likelihood. Supply
+Statistical declarations are rejected by default. `structural_only=True` keeps
+them as metadata without running them. It does not sample random effects or
+translate a likelihood. Supply
 every individual effect and scalar covariate used in the equations explicitly,
 for example `parameters={"eta.cl": 0.1}` for nlmixr2,
 `{"ETA_1": 0.1}` for NONMEM or `{"eta_1": 0.1}` for Pumas `eta[1]`.
@@ -92,10 +88,9 @@ global `observation_side="pre"` or `"post"`, independent of row order.
 Only ID, TIME, EVID, DV, MDV, AMT, CMT, RATE, ADDL, II and SS may be mapped. Censoring,
 reset events, nonzero SS, negative RATE codes, unmapped columns and time-varying
 covariates are rejected. Templates never silently extend the requested horizon.
-DV and observation CMT are preserved as source metadata; simulation returns every
-selected readout at each sample and does not infer an observation likelihood or
-endpoint assignment. Native population fitting uses the separate explicit
-`population_fit_dataset` endpoint/error contract.
+DV and observation CMT are kept as metadata only; simulation returns every
+selected output at each sample. For population fitting, use
+`population_fit_dataset`.
 
 `export_dataset(dataset, software, columns=...)` returns source-order records
 with the chosen destination headers. It preserves source columns and dose codes;
@@ -111,23 +106,21 @@ print(exported.source)
 restored = exported.import_back()
 ```
 
-Exports accept an `AdaptedModel`, retain numerical equations/values and provide
-explicit parameters, outputs and dosing-target bindings. Preserve the complete
-`ExportedModel` alongside its text: Mlxtran/rxode2 require parameter bindings,
-and other formats need the explicit readout/dosing selections. Exports rename
-source symbols and exclude statistical/estimation metadata; they do not promise
-textual round trips or produce full fitting projects. NONMEM and WinNonlin export
+Exports take an `AdaptedModel` and keep its equations and values. Keep the
+whole `ExportedModel`, not just its text: Mlxtran/rxode2 need its parameter
+values, and other formats need its output and dosing selections. Exports rename
+symbols and drop statistical/estimation metadata; the text will not match the
+original, and no fitting project is produced. NONMEM and WinNonlin export
 support one readout. Nonzero initial states are preserved in rxode2/nlmixr2/Pumas/
 Mlxtran/WinNonlin; direct NONMEM and Phoenix export rejects them. General native
 physical-unit models should use `qspquest.interchange` instead.
-Source bounds are retained for Pumas, NONMEM and Phoenix export. Export to the
-other source subsets rejects bounded parameters because those subsets cannot
-retain the bounds faithfully.
+Source bounds are retained for Pumas, NONMEM and Phoenix export. Other formats
+reject bounded parameters because they cannot keep the bounds.
 
 ## Optional existing-converter bridge
 
-Existing external converters can handle more source syntax before the shared
-QSPQuest importer checks its own supported subset. No converter code is bundled
+External converters can translate more source syntax before QSPQuest checks
+it against its supported subset. No converter code is bundled
 in QSPQuest. Install and use those packages in a separate R environment; their
 licenses and dependencies remain independent.
 
@@ -157,8 +150,7 @@ The snapshot records the source function, initial fixed-effect values, compartme
 order and installed package versions. Import validates state order and rejects
 unsupported residual/dosing/history constructs. It does not make every model
 accepted by nonmem2rx/monolix2rx acceptable to QSPQuest. The helper has been
-exercised on an actual rxode2 UI; NONMEM and Monolix converter executions require
-separate qualification in an environment with those packages.
+tested with rxode2; it has not been tested with the NONMEM or Monolix converters.
 
 The relevant primary documentation is [NONMEM Users Guide VIII](https://nonmem.iconplc.com/nonmem744/guides/VIII.pdf),
 [nlmixr2](https://nlmixr2.org/), [Pumas model syntax](https://docs.pumas.ai/stable/basics/models/),
@@ -183,6 +175,6 @@ Rscript bindings/r/tests/software-adapters.R /tmp/qspquest-adapter-checks
 The synthetic parameters and source
 models were written for these checks; they are not extracted vendor/paper models.
 
-These checks establish the tested deterministic subset. They do not establish
+These checks cover only the supported deterministic subset. They do not establish
 full vendor compatibility, equivalent population estimation, NCA workflows or
 agreement with licensed NONMEM/Pumas/Phoenix/Monolix executables.

@@ -8,19 +8,18 @@ pub mod language;
 pub mod linear_pk;
 pub mod probit_normal;
 pub mod runtime;
+mod sampled_accuracy;
+mod solver_equations;
 pub mod steady_state;
-use diffsol::AdaptiveLU;
+use diffsol::NalgebraLU;
 use diffsol::{NalgebraMat, OdeBuilder, OdeSolverMethod};
 use qspquest_core::run::Solver;
 pub use qspquest_core::{Budgets, Error, ErrorCode, Event, Protocol, Sample};
 use std::cell::{Cell, RefCell};
 
-/// Exact vendored Diffsol source revision, including both local Rosenbrock methods.
-pub(crate) const DIFFSOL_BACKEND_VERSION: &str = concat!(
-    env!("QSPQUEST_DIFFSOL_VERSION"),
-    "+sha256:",
-    env!("QSPQUEST_DIFFSOL_SOURCE_SHA256")
-);
+/// Diffsol package and source: an exact Git revision in QSPQuest builds, or
+/// the crates.io release selected by the consuming workspace.
+pub(crate) const DIFFSOL_BACKEND_VERSION: &str = env!("QSPQUEST_DIFFSOL_BACKEND");
 
 /// Constant-coefficient interval propagation used by the common event driver.
 /// The driver retains ownership of event ordering, observations and budgets.
@@ -131,16 +130,6 @@ pub trait Model {
 fn sorted_unique(values: &mut Vec<f64>) {
     values.sort_by(f64::total_cmp);
     values.dedup();
-}
-
-fn incoming_f64(time: f64) -> f64 {
-    if time == 0.0 {
-        -f64::from_bits(1)
-    } else if time > 0.0 {
-        f64::from_bits(time.to_bits() - 1)
-    } else {
-        f64::from_bits(time.to_bits() + 1)
-    }
 }
 
 trait ProtocolExt {
@@ -339,6 +328,15 @@ pub fn simulate_with_sampled_accuracy<M: Model>(
     )
 }
 
+/// Validate that a requested numerical method is available in the upstream backend.
+pub fn validate_solver(solver: Solver) -> Result<(), Error> {
+    if matches!(solver, Solver::DiffsolRosenbrock23 | Solver::DiffsolRodas5p) {
+        return Err(Error::new(ErrorCode::Unsupported,
+            "diffsol_rosenbrock23 and diffsol_rodas5p are unavailable with upstream Diffsol; use diffsol_bdf or diffsol_esdirk34"));
+    }
+    Ok(())
+}
+
 pub(crate) fn simulate_with_solver_accuracy<M: Model>(
     model: &M,
     protocol: &Protocol,
@@ -347,6 +345,7 @@ pub(crate) fn simulate_with_solver_accuracy<M: Model>(
     solver_choice: Solver,
     sampled_accuracy: bool,
 ) -> Result<Vec<Sample>, Error> {
+    validate_solver(solver_choice)?;
     let pattern = model.jacobian_sparsity();
     if pattern
         .as_ref()
@@ -361,7 +360,7 @@ pub(crate) fn simulate_with_solver_accuracy<M: Model>(
             sampled_accuracy,
         )
     } else {
-        simulate_matrix::<M, NalgebraMat<f64>, AdaptiveLU>(
+        simulate_matrix::<M, NalgebraMat<f64>, NalgebraLU<f64>>(
             model,
             protocol,
             budgets,
@@ -445,9 +444,6 @@ where
     let tolerances = absolute_tolerances.unwrap_or(&scalar);
     let callbacks = Cell::new(0u64);
     let first_error = RefCell::new(None::<Error>);
-    let recover_trial_domain = Cell::new(false);
-    let trial_origin = Cell::new(protocol.start);
-    let last_trial_error = RefCell::new(None::<Error>);
     let guarded =
         |time: f64, out: &mut [f64], evaluate: &dyn Fn(&mut [f64]) -> Result<(), Error>| {
             let count = callbacks.get().saturating_add(1);
@@ -469,17 +465,7 @@ where
                 };
                 if let Err(mut error) = result {
                     error.time = Some(time);
-                    if recover_trial_domain.get()
-                        && time > trial_origin.get()
-                        && error.code == ErrorCode::Domain
-                    {
-                        // Report a non-finite trial to the common solver. It must
-                        // shrink and retry before replacing the accepted state.
-                        *last_trial_error.borrow_mut() = Some(error);
-                        out.fill(f64::NAN);
-                    } else {
-                        *first_error.borrow_mut() = Some(error);
-                    }
+                    *first_error.borrow_mut() = Some(error);
                 }
             }
             if first_error.borrow().is_some() {
@@ -635,74 +621,24 @@ where
                 "invalid interval duration",
             ));
         }
-        let is_rosenbrock = matches!(
-            solver_choice,
-            Solver::DiffsolRosenbrock23 | Solver::DiffsolRodas5p
-        );
-        let stop_is_discontinuity =
-            protocol.has_event(end) || model.rhs_jump_times().contains(&end);
-        let previous_rhs_time = Cell::new(None::<(f64, f64)>);
+        let equations = solver_equations::Equations::<Mat, _, _>::new(
+            initial,
+            model.jacobian_sparsity(),
+            |x: &[f64], elapsed: f64, y: &mut [f64]| {
+                let time = t + elapsed;
+                guarded(time, y, &|out| model.rhs(time, x, &rates, out))
+            },
+            |x: &[f64], elapsed: f64, v: &[f64], y: &mut [f64]| {
+                let time = t + elapsed;
+                guarded(time, y, &|out| model.jac_mul(time, x, &rates, v, out))
+            },
+        )
+        .map_err(&solver_error)?;
         let mut problem = OdeBuilder::<Mat>::new()
             .t0(0.0)
             .rtol(protocol.rtol)
             .atol(tolerances.iter().copied())
-            .rhs_implicit(
-                |x, _p, elapsed, y| {
-                    let mut time = t + elapsed;
-                    if is_rosenbrock && first_error.borrow().is_none() {
-                        let collapsed_probe = previous_rhs_time
-                            .get()
-                            .is_some_and(|(previous_elapsed, previous_absolute)| {
-                                let local_gap = (previous_elapsed - elapsed).abs();
-                                let ulp_margin = 8.0
-                                    * f64::EPSILON
-                                    * (1.0 + previous_elapsed.abs().max(elapsed.abs()));
-                                local_gap > ulp_margin && previous_absolute == time
-                            });
-                        let rounded_into_jump =
-                            stop_is_discontinuity && elapsed < interval_duration && time >= end;
-                        if rounded_into_jump {
-                            let incoming = incoming_f64(end);
-                            let resolution_limit =
-                                f64::EPSILON.sqrt() * (1.0 + interval_duration);
-                            if incoming > t && end - incoming <= resolution_limit {
-                                time = incoming;
-                            }
-                        }
-                        let unresolved_jump = rounded_into_jump && time >= end;
-                        // Interval rates and binding state stay fixed until enter_boundary.
-                        // An autonomous RHS does not inspect the rounded clock probe.
-                        if (collapsed_probe || unresolved_jump) && model.rhs_depends_on_time() {
-                            let mut error = Error::new(
-                                ErrorCode::Unsupported,
-                                "Rosenbrock time probes are not representable on the absolute model clock",
-                            );
-                            error.time = Some(time);
-                            *first_error.borrow_mut() = Some(error);
-                        }
-                        previous_rhs_time.set(Some((elapsed, time)));
-                    }
-                    guarded(time, y, &|out| {
-                        model.rhs(time, x, &rates, out)
-                    })
-                },
-                |x, _p, elapsed, v, y| {
-                    let time = t + elapsed;
-                    guarded(time, y, &|out| {
-                        model.jac_mul(time, x, &rates, v, out)
-                    })
-                },
-            )
-            .rhs_sparsity(model.jacobian_sparsity())
-            .init(
-                move |_p, _time, y| {
-                    for i in 0..n {
-                        y[i] = initial[i];
-                    }
-                },
-                n,
-            )
-            .build()
+            .build_from_eqn(equations)
             .map_err(&solver_error)?;
         if let Some(error) = first_error.borrow().clone() {
             return Err(error);
@@ -712,12 +648,7 @@ where
         // construction and nonlinear failure control differ.
         macro_rules! integrate_interval {
             ($constructor:expr, $configure:expr, $stop:expr) => {{
-                // Initial-step estimation also evaluates an unaccepted trial.
-                // Failures at the interval origin remain permanent errors.
-                trial_origin.set(t);
-                recover_trial_domain.set(is_rosenbrock);
                 let constructor_result = $constructor;
-                recover_trial_domain.set(false);
                 let mut solver = constructor_result.map_err(&solver_error)?;
                 if let Some(error) = first_error.borrow().clone() {
                     return Err(error);
@@ -725,6 +656,15 @@ where
                 // Permit any representable step; progress and callback guards
                 // below bound the solve when tolerances are very small.
                 solver.config_mut().minimum_timestep = 0.0;
+                // Every accepted step evaluates callbacks; the shared callback
+                // budget is the execution limit across all smooth intervals.
+                // Diffsol 0.18.0 has no step limit; the callback budget alone
+                // then bounds the solve.
+                #[cfg(diffsol_step_limit)]
+                {
+                    solver.config_mut().maximum_number_timesteps =
+                        usize::try_from(budgets.solver_callbacks).unwrap_or(usize::MAX);
+                }
                 $configure(&mut solver);
                 $stop(&mut solver).map_err(|source| {
                     let mut error = solver_error(source);
@@ -736,13 +676,9 @@ where
                 let mut column = 0;
                 while column < eval.len() {
                     let previous_time = solver.state().t;
-                    *last_trial_error.borrow_mut() = None;
-                    recover_trial_domain.set(is_rosenbrock);
                     let step_result = solver.step();
-                    recover_trial_domain.set(false);
                     step_result.map_err(|source| {
                         let mut error = first_error.borrow().clone()
-                            .or_else(|| last_trial_error.borrow().clone())
                             .unwrap_or_else(|| solver_error(source));
                         if error.time.is_none() {
                             error.time = Some(t + previous_time);
@@ -795,7 +731,6 @@ where
         let mut solve_interval = |factor| {
             state.clone_from(&interval_initial);
             output.truncate(output_start);
-            previous_rhs_time.set(None);
             problem.rtol = protocol.rtol * factor;
             problem.atol = original_atol.clone();
             problem.atol *= diffsol::scale(factor);
@@ -830,30 +765,10 @@ where
                     |solver: &mut diffsol::ExplicitRk<_, _>| solver
                         .set_stop_time(interval_duration)
                 ),
-                Solver::DiffsolRosenbrock23 => integrate_interval!(
-                    problem.rosenbrock23::<LS>(),
-                    |solver: &mut diffsol::Rosenbrock<_, _>| solver
-                        .set_time_derivative_within_step(true),
-                    |solver: &mut diffsol::Rosenbrock23<_, _>| {
-                        if stop_is_discontinuity {
-                            solver.set_discontinuity_stop_time(interval_duration)
-                        } else {
-                            solver.set_stop_time(interval_duration)
-                        }
-                    }
-                ),
-                Solver::DiffsolRodas5p => integrate_interval!(
-                    problem.rodas5p::<LS>(),
-                    |solver: &mut diffsol::Rosenbrock<_, _>| solver
-                        .set_time_derivative_within_step(true),
-                    |solver: &mut diffsol::Rodas5P<_, _>| {
-                        if stop_is_discontinuity {
-                            solver.set_discontinuity_stop_time(interval_duration)
-                        } else {
-                            solver.set_stop_time(interval_duration)
-                        }
-                    }
-                ),
+                Solver::DiffsolRosenbrock23 | Solver::DiffsolRodas5p => {
+                    return Err(Error::new(ErrorCode::Unsupported,
+                        "requested solver is unavailable with upstream Diffsol; use diffsol_bdf or diffsol_esdirk34"));
+                }
                 Solver::AnalyticLinearPk => {
                     return Err(Error::new(
                         ErrorCode::Unsupported,
@@ -868,17 +783,15 @@ where
                 .collect())
         };
         if sampled_accuracy || matches!(solver_choice, Solver::DiffsolTrBdf2) {
-            diffsol::refine_sampled_trajectory(
+            sampled_accuracy::refine_sampled_trajectory(
                 protocol.rtol,
                 tolerances,
                 if sampled_accuracy { 8 } else { 6 },
                 if sampled_accuracy { 0.25 } else { 1.0 },
                 &mut solve_interval,
                 |source| {
-                    let mut error = solver_error(source);
-                    if error.time.is_none() {
-                        error.time = Some(end);
-                    }
+                    let mut error = Error::new(ErrorCode::Solver, source);
+                    error.time = Some(end);
                     error
                 },
             )?;
@@ -890,445 +803,14 @@ where
 }
 
 #[cfg(test)]
-mod rosenbrock_integration_tests {
+mod solver_support_tests {
     use super::*;
-    use std::cell::{Cell, RefCell};
-
-    struct TrialDomain {
-        failures: Cell<usize>,
-        persistent: bool,
-    }
-    impl Model for TrialDomain {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![1.0]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            None
-        }
-        fn rhs_depends_on_time(&self) -> bool {
-            false
-        }
-        fn rhs(&self, time: f64, _: &[f64], _: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            // A single failed stage is a deterministic rejection oracle. It is
-            // not a model benchmark; the endpoint after retry remains 1-t.
-            if time > 0.0 && (self.persistent || self.failures.get() == 0) {
-                self.failures.set(self.failures.get() + 1);
-                return Err(Error::new(ErrorCode::Domain, "non-finite trial evaluation"));
-            }
-            out[0] = -1.0;
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            _: f64,
-            _: &[f64],
-            _: &[f64],
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            out[0] = 0.0;
-            Ok(())
-        }
-    }
-
     #[test]
-    fn rosenbrock_trial_domain_errors_retry_and_persistent_errors_fail() {
+    fn unavailable_methods_have_actionable_errors() {
         for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-            let model = TrialDomain {
-                failures: Cell::new(0),
-                persistent: false,
-            };
-            let rows = simulate_with_solver(
-                &model,
-                &protocol(0.0, 0.1, vec![0.05, 0.1]),
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap();
-            assert_eq!(model.failures.get(), 1);
-            assert!((rows.last().unwrap().values[0] - 0.9).abs() < 1e-8);
-            let model = TrialDomain {
-                failures: Cell::new(0),
-                persistent: true,
-            };
-            let error = simulate_with_solver(
-                &model,
-                &protocol(0.0, 0.1, vec![0.1]),
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap_err();
-            assert_eq!(error.code, ErrorCode::Domain);
-        }
-    }
-
-    #[test]
-    fn rosenbrock_domain_retries_preserve_callback_budget() {
-        let model = TrialDomain {
-            failures: Cell::new(0),
-            persistent: true,
-        };
-        let error = simulate_with_solver(
-            &model,
-            &protocol(0.0, 0.1, vec![0.1]),
-            Budgets {
-                solver_callbacks: 30,
-                ..Budgets::default()
-            },
-            None,
-            Solver::DiffsolRodas5p,
-        )
-        .unwrap_err();
-        assert_eq!(error.code, ErrorCode::WorkBudget);
-    }
-
-    struct TimeForcing {
-        origin: f64,
-    }
-
-    impl Model for TimeForcing {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![0.0]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            None
-        }
-        fn rhs(&self, time: f64, _: &[f64], _: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            out[0] = time - self.origin;
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            _: f64,
-            _: &[f64],
-            _: &[f64],
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            out[0] = 0.0;
-            Ok(())
-        }
-    }
-
-    struct TimeJump;
-
-    struct AutonomousInput;
-    impl Model for AutonomousInput {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![0.]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            Some(1.)
-        }
-        fn rhs_depends_on_time(&self) -> bool {
-            false
-        }
-        fn rhs(&self, _: f64, _: &[f64], rates: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            out[0] = rates[0];
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            _: f64,
-            _: &[f64],
-            _: &[f64],
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            out[0] = 0.;
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn autonomous_infusion_keeps_observation_one_ulp_before_stop() {
-        let start = 42.;
-        let duration = 1. / 48.;
-        let stop = start + duration;
-        let near = incoming_f64(stop);
-        for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-            let mut p = protocol(start, stop + 1., vec![near, stop, stop + 1.]);
-            p.events.push(Event::Infusion {
-                time: start,
-                target: 0,
-                amount: 1.,
-                duration,
-            });
-            let rows = simulate_with_solver(&AutonomousInput, &p, Budgets::default(), None, solver)
-                .unwrap();
-            let observed = rows.iter().find(|row| row.time == near).unwrap();
-            assert!((observed.values[0] - (near - start) / duration).abs() < 1e-10);
-            assert!((rows.last().unwrap().values[0] - 1.).abs() < 1e-10);
-            assert!(rows.iter().any(|row| row.time == stop));
-        }
-    }
-
-    struct NonlinearDecay {
-        jacobian_times: RefCell<Vec<f64>>,
-    }
-
-    impl Model for NonlinearDecay {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![2.0]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            None
-        }
-        fn rhs(&self, _: f64, x: &[f64], _: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            out[0] = -x[0] * x[0];
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            time: f64,
-            x: &[f64],
-            _: &[f64],
-            v: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            self.jacobian_times.borrow_mut().push(time);
-            out[0] = -2.0 * x[0] * v[0];
-            Ok(())
-        }
-    }
-
-    impl Model for TimeJump {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn discontinuities(&self) -> &[f64] {
-            &[1.0]
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![0.0]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            Some(1.0)
-        }
-        fn rhs(&self, time: f64, _: &[f64], _: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            out[0] = if time < 1.0 { 0.0 } else { 1.0 };
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            _: f64,
-            _: &[f64],
-            _: &[f64],
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            out[0] = 0.0;
-            Ok(())
-        }
-    }
-
-    struct EndpointProbe {
-        saw_exact_end: Cell<bool>,
-        checkpoint: bool,
-    }
-
-    impl Model for EndpointProbe {
-        fn validate(&self) -> Result<(), Error> {
-            Ok(())
-        }
-        fn discontinuities(&self) -> &[f64] {
-            if self.checkpoint {
-                &[1.0]
-            } else {
-                &[]
-            }
-        }
-        fn rhs_jump_times(&self) -> &[f64] {
-            &[]
-        }
-        fn initial(&self) -> Vec<f64> {
-            vec![0.0]
-        }
-        fn dose_scale(&self, _: usize) -> Option<f64> {
-            None
-        }
-        fn rhs(&self, time: f64, _: &[f64], _: &[f64], out: &mut [f64]) -> Result<(), Error> {
-            if time == 1.0 {
-                self.saw_exact_end.set(true);
-            }
-            out[0] = 1.0;
-            Ok(())
-        }
-        fn jac_mul(
-            &self,
-            _: f64,
-            _: &[f64],
-            _: &[f64],
-            _: &[f64],
-            out: &mut [f64],
-        ) -> Result<(), Error> {
-            out[0] = 0.0;
-            Ok(())
-        }
-    }
-
-    fn protocol(start: f64, end: f64, samples: Vec<f64>) -> Protocol {
-        Protocol {
-            start,
-            end,
-            samples,
-            events: vec![],
-            rtol: 1e-8,
-            atol: 1e-10,
-        }
-    }
-
-    #[test]
-    fn smooth_absolute_time_forcing_and_declared_jump() {
-        for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-            let smooth = simulate_with_solver(
-                &TimeForcing { origin: 2.0 },
-                &protocol(2.0, 6.0, vec![2.0, 6.0]),
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap();
-            assert!((smooth.last().unwrap().values[0] - 8.0).abs() < 1e-6);
-
-            let covariate_only_jump = simulate_with_solver(
-                &TimeJump,
-                &protocol(0.0, 2.0, vec![1.0, 2.0]),
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap();
-            let before_change = covariate_only_jump
-                .iter()
-                .find(|row| row.time == 1.0 && row.side == "pre")
-                .unwrap();
-            let after_change = covariate_only_jump
-                .iter()
-                .find(|row| row.time == 1.0 && row.side == "post")
-                .unwrap();
-            assert!(before_change.values[0].abs() < 1e-8);
-            assert!(after_change.values[0].abs() < 1e-8);
-            assert!((covariate_only_jump.last().unwrap().values[0] - 1.0).abs() < 1e-6);
-
-            let jumped = simulate_with_solver(
-                &TimeJump,
-                &Protocol {
-                    events: vec![Event::Bolus {
-                        time: 1.0,
-                        target: 0,
-                        amount: 2.0,
-                    }],
-                    ..protocol(0.0, 2.0, vec![0.5, 1.0, 1.5, 2.0])
-                },
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap();
-            let pre = jumped
-                .iter()
-                .find(|row| row.time == 1.0 && row.side == "pre")
-                .unwrap();
-            let post = jumped
-                .iter()
-                .find(|row| row.time == 1.0 && row.side == "post")
-                .unwrap();
-            assert!(pre.values[0].abs() < 1e-8, "{solver:?}: {pre:?}");
-            assert!((post.values[0] - 2.0).abs() < 1e-8, "{solver:?}: {post:?}");
-            let final_amount = jumped.last().unwrap().values[0];
-            assert!(
-                (final_amount - 3.0).abs() < 1e-6,
-                "{solver:?}: {final_amount}"
-            );
-        }
-    }
-
-    #[test]
-    fn ordinary_final_target_evaluates_rhs_at_exact_endpoint() {
-        for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-            for checkpoint in [false, true] {
-                let model = EndpointProbe {
-                    saw_exact_end: Cell::new(false),
-                    checkpoint,
-                };
-                let rows = simulate_with_solver(
-                    &model,
-                    &protocol(0.0, 1.0, vec![1.0]),
-                    Budgets::default(),
-                    None,
-                    solver,
-                )
-                .unwrap();
-                assert!(
-                    model.saw_exact_end.get(),
-                    "{solver:?} skipped the smooth endpoint with checkpoint={checkpoint}"
-                );
-                assert!((rows.last().unwrap().values[0] - 1.0).abs() < 1e-6);
-            }
-        }
-    }
-
-    #[test]
-    fn nonrepresentable_absolute_time_probes_fail_explicitly() {
-        for origin in [-1e16, 1e16] {
-            for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-                let result = simulate_with_solver(
-                    &TimeForcing { origin },
-                    &protocol(origin, origin + 4.0, vec![origin, origin + 4.0]),
-                    Budgets::default(),
-                    None,
-                    solver,
-                );
-                let error = result.unwrap_err();
-                assert_eq!(error.code, ErrorCode::Unsupported, "{solver:?}: {error}");
-                assert!(error.message.contains("not representable"));
-            }
-        }
-    }
-
-    #[test]
-    fn nonlinear_jacobian_is_refreshed_within_a_qspquest_interval() {
-        for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
-            let model = NonlinearDecay {
-                jacobian_times: RefCell::new(Vec::new()),
-            };
-            let rows = simulate_with_solver(
-                &model,
-                &protocol(0.0, 1.0, vec![1.0]),
-                Budgets::default(),
-                None,
-                solver,
-            )
-            .unwrap();
-            let final_value = rows.last().unwrap().values[0];
-            let exact = 2.0 / 3.0;
-            assert!(
-                (final_value - exact).abs() < 2e-5,
-                "{solver:?}: {final_value}"
-            );
-            assert!(
-                model
-                    .jacobian_times
-                    .borrow()
-                    .iter()
-                    .any(|time| *time > 0.0 && *time < 1.0),
-                "{solver:?} reused its initial nonlinear Jacobian"
-            );
+            let error = validate_solver(solver).unwrap_err();
+            assert_eq!(error.code, ErrorCode::Unsupported);
+            assert!(error.message.contains("diffsol_bdf"));
         }
     }
 }

@@ -217,7 +217,7 @@ class SuiteCompatibilityTests(unittest.TestCase):
                                'manifest_sha256': SUITE.sha((validation / 'manifest.json').read_bytes())}}
         lock = {'components': pins, 'required_engine_files': [], 'engine_version': '0.1.0',
                 'case': {'model_id': 'synthetic', 'model_version': '1', 'scenario': 'example',
-                         'solvers': ['diffsol_bdf', 'diffsol_rodas5p'], 'absolute_tolerance': 1e-8, 'relative_tolerance': 1e-4}}
+                         'solvers': ['diffsol_bdf'], 'absolute_tolerance': 1e-8, 'relative_tolerance': 1e-4}}
         cli = root / 'cli'
         output = {**self.output, 'identity': {'compiler_version': 'qspquest/0.1.0', 'compiler_source_sha256': 'sha256:' + '1' * 64}}
         cli.write_text('#!' + sys.executable + '\nprint(' + repr(json.dumps(output)) + ')\n')
@@ -291,7 +291,7 @@ class SuiteCompatibilityTests(unittest.TestCase):
                 else:
                     SUITE.check(lock, models, validation, cli, report, engine_root=root)
                     self.assertTrue(report['counterpart_recheck_passed'])
-                    self.assertEqual(len(report['checks']), 4)
+                    self.assertEqual(len(report['checks']), 3)
                     for role in ('models', 'validation'):
                         self.assertEqual(report['verified_counterparts'][role]['commit'], lock['components'][role]['commit'])
 

@@ -3,7 +3,7 @@
 This example estimates a fraction from synthetic concentrations after a delayed
 systemic input. It uses a fixed inverse-Gaussian input shape, linear elimination
 and independent additive Gaussian observation error. It does not estimate
-population variation or establish biological validity.
+population variation or show biological validity.
 
 The complete [model](qspquest://documentation/files/docs/examples/inverse-gaussian.qsp) and
 [fit request](qspquest://documentation/files/docs/examples/inverse-gaussian-fit.json) are included.
@@ -18,9 +18,8 @@ target/release/qspquest fit docs/examples/inverse-gaussian.qsp docs/examples/inv
 
 The result should have `status: "converged"` and a fitted `f` within `0.00001`
 of `0.7`. The example fixes the administered amount, volume, elimination rate,
-input mean and shape; changing those quantities changes the estimand.
-The observations are synthetic and their additive standard deviation is
-`0.1 mg/L`.
+input mean and shape. The observations are synthetic, with additive standard
+deviation `0.1 mg/L`.
 
 `inverse_gaussian_density(time, mean, shape)` takes three quantities with the
 same dimension. Its result has the inverse dimension. For positive time,
@@ -32,11 +31,9 @@ sqrt(shape / (2*pi*time^3))
 ```
 
 Its integral over positive time is one. At nonpositive time the value is
-exactly zero, including the zero-time limit of its clock and parameter
-derivatives. Mean and shape must remain positive even when time is zero.
-The runtime evaluates the positive-time density in logarithmic form to avoid
-intermediate overflow. Invalid arguments and nonrepresentable results fail
-with a domain error.
+exactly zero, and so are its derivatives. Mean and shape must be positive
+even when time is zero. Invalid arguments, or results too large to represent,
+fail with a domain error.
 
 Multiply the density by an amount to obtain an input rate. In the supplied
 model, an amount in `mg` and times in `h` produce a rate in `mg/h`.
@@ -45,7 +42,6 @@ of variation. For a squared coefficient of variation `cv2`, use
 `shape = mean / cv2`.
 
 For scalar fitting, keep the fitted parameter inside the request's bounds and
-make sure it is marked `estimated`. Observation row numbers refer to the
-ordered requested output times, including the initial zero-time row. The
-generic restriction on dynamic conditional expressions still applies; use the
-qualified density directly for this input.
+mark it `estimated`. Observation row numbers count the requested output times
+in order, starting with the zero-time row. Use the density function directly for
+this input rather than building it from conditional expressions.

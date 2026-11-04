@@ -16,8 +16,8 @@ ax = result.plot('cp')
 ```
 
 `infusion('depot', 300, 'mg', duration=1, time_unit='h')` declares a fixed-duration
-infusion. The model must include the corresponding input forcing. Helpers use
-explicit units and the native schema; the native binder still validates them.
+infusion. The model must include the corresponding input forcing. Helpers build
+native requests with explicit units, which the engine then validates.
 `run_request` requires increasing sample times. Supply a native request directly
 for duplicate pre/post samples, repeats, resets or step covariates.
 
@@ -42,8 +42,8 @@ fit = dataset.fit(model, parameters, omega, error,
     max_iterations=600, burn_in=150)
 ```
 
-The explicit `error` is the analysis residual contract; it replaces fixed errors
-stored on adapter endpoints for this fitting variant. Current analysis fits use
-one observed output and one shared error contract. Priors are unsupported.
+The `error` argument sets the residual error model and overrides any fixed
+errors stored on adapter endpoints. These fits currently use one observed output
+and one shared error model. Priors are unsupported.
 Subject covariates are constant. Unknown subject IDs fail rather than disappear.
 See the [oral PK notebook](../tutorials/oral-pk-analysis.md) for complete subject requests, observation rows and source-row identity.

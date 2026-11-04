@@ -174,14 +174,14 @@ fn tiny_initial_steps_are_independent_of_absolute_clock_origin() {
 }
 
 #[test]
-fn autonomous_rodas5p_preserves_large_absolute_origins() {
+fn autonomous_bdf_preserves_large_absolute_origins() {
     let model = qspquest_modeling::document::CompiledDocument::from_json(include_str!(
         "../../../conformance/models/synthetic-one-compartment.json"
     ))
     .unwrap();
     for origin in [-1e16, 1e16] {
         let req: RunRequest = serde_json::from_value(serde_json::json!({
-            "schema":"qspquest.run/v0.1", "solver":"diffsol_rodas5p",
+            "schema":"qspquest.run/v0.1", "solver":"diffsol_bdf",
             "budgets":{"solver_callbacks":1000000,"events":100,"output_values":1000},
             "initial_states":{"central":{"value":6,"unit":"mg"}},
             "parameters":{"cl":{"value":0.6,"unit":"L/h"},"v":{"value":4.5,"unit":"L"}},

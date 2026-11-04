@@ -1,7 +1,7 @@
 # Inspect model cards and retrieve full details
 
-Use this workflow to inspect a model's simulation interface without loading its
-complete metadata and equations into the tool response. Python 3.10 or later on
+Use this workflow to get a short summary of a model (its card), and fetch the
+full equations and metadata only when you need them. Python 3.10 or later on
 macOS or Linux, the Rust toolchain and a native compiler are required. Run from
 the QSPQuest source distribution root:
 
@@ -12,53 +12,46 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --mode
 
 The complete example creates a temporary synthetic `.qsp` model and a stored
 request, starts the server with that local library, and removes them on exit.
-It requires no downloaded model library, assistant account or provider credits.
-Expected output is:
+No downloads or accounts are needed. Expected output is:
 
 ```text
 Verified compact model card, complete metadata and stored scenario.
 ```
 
-The example checks the card's time unit and simulation interface, retrieves
-complete metadata, checks that its version and archive digest match the card,
-and compares the stored scenario with the supplied request. These are interface
-checks using a synthetic model; they do not qualify a published model or a
-modified scenario for clinical use.
+The example checks the card, fetches the full metadata and checks it matches
+the card, and compares the stored scenario with the original request.
 
 In an MCP client, call `get_model` with `{"model_id":"your_model_id"}`. The
-default `detail: compact` response gives model identity, citations, execution
-availability, time unit, dose targets, parameter names/defaults/units, modeled
-outputs, state units, fitting capabilities and scenario IDs. It omits equations,
-source text and extensive metadata. A reported-values name list
-is a labeled preview of at most 25 names; its count describes the complete list.
-Inspect execution blockers and dimensional limitations before interpreting units.
+default `detail: compact` response gives the model's ID and version, citations,
+whether it can run, time unit, dose targets, parameter names/defaults/units,
+outputs, state units, fitting support and scenario IDs. It omits equations and
+source text. Lists of reported values show at most 25 names, with a count of the
+full list. Check any listed blockers and unit limitations before using units.
 
-`interface.output_contract` provides the canonical output ID, returned column,
-native unit and accepted request aliases. Alias records keep any declared source
-unit separate from the native unit. A source label with `pg/mL` can still return
-native unit `1`; this mapping applies no unit conversion. Analyte and compartment
-are null unless the archive explicitly declares them. Do not infer either from
-a name or state index.
+`interface.output_contract` lists each output's ID, returned column, unit and
+accepted alternative names. The unit used in the original paper is kept separate
+from the unit QSPQuest returns: an output labeled `pg/mL` in the source can still
+return unit `1`, and no conversion is applied. Analyte and compartment are null
+unless the model states them; do not guess them from names.
 
 Compact cards include at most 32 output descriptors. Check `output_count` and
 `descriptors_complete`. To inspect particular outputs, pass `outputs` with 1 to
 32 exact aliases or canonical IDs, for example
 `{"model_id":"your_model_id","outputs":["your_output_name"]}`. Unknown or
-ambiguous names fail before execution. The complete details resource retains
-all descriptors even when a card is filtered.
+ambiguous names fail with an error. The full model details always include
+every output.
 
 `plan_run` records `plan.output_mapping` for simulation and initial-value
 requests and parameter scans. `simulate` and `scan_parameters` return the same
 mapping beside their numerical results,
 including readout selections and default outputs. Match each `requested_output`
 to `returned_column` in the complete result's `outputs` array and check
-`returned_unit`; no positional decoding is required. For initial values,
+`returned_unit`; you do not need to rely on column order. For initial values,
 `get_patient_parameters.output_mapping[].returned_quantity` identifies the key
-in `patient_quantities`. Changing a request alias changes the plan hash, even
-when the native calculation is equivalent. Large mappings can be omitted from
-a bounded inline response; `output_mapping_notice` states the omitted mapping
-count, and `full_result_resource` links the complete record. Retrieve that resource before testing
-analyte completeness.
+in `patient_quantities`. Using a different alias changes the plan hash, even
+when the calculation is the same. Large mappings may be left out of the response;
+`output_mapping_notice` then gives the count, and `full_result_resource` links
+the full record.
 
 Run the complete synthetic example to verify planning, mapping and every
 returned concentration against its analytical value:
@@ -81,34 +74,29 @@ The complete synthetic example scans clearance at 0.3 and 0.6 L/h with a 3 L
 volume and 6 mg bolus. It checks both returned columns through `output_mapping`
 and all 602 concentrations against `2 * exp(-clearance / 3 * time)` mg/L.
 Expected output is `Verified two parameter-scan trajectories, mapped
-concentration columns and 602 analytical samples.` The mapping applies to every
-scan point; it does not qualify a published model or its parameter bounds.
+concentration columns and 602 analytical samples.`
 
-Before changing a parameter, inspect `plan.override_receipt`. Each explicitly
-supplied parameter or covariate has its request name, canonical native name,
-supplied value, effective request quantities and native consumers. State
-equations are traced through algebraic definitions; output consumers also
-include potential propagation through state evolution. These are structural
-references across all expression branches, so they do not promise a measurable
-effect or establish identifiability.
+Before changing a parameter, check `plan.override_receipt`. For each parameter
+or covariate you set, it shows the name you used, the model's own name, the
+value, and which equations and outputs use it. A parameter that appears in an
+equation may still have little or no measurable effect.
 
 `consumption` distinguishes `dynamic`, `initialization_only`,
 `static_output_only` and `unused`. Initial expressions replaced by an explicit
 `initial_states` quantity are listed separately in `replaced_initial_states`.
-An unused override emits a warning in the plan and result. A static output
-changes a stored scalar readout without changing state dynamics. Literal initial
-conditions and resolved production coefficients remain fixed unless explicitly
-overridden; the server does not reconstruct source initialization or scaling
-formulas. Native initial expressions and algebraic definitions are evaluated
-by the engine. Inspect `source_reconstruction` before using a scaling input to
-represent a different physiology or species.
+Setting an unused parameter gives a warning in the plan and result. A
+static output changes a reported value without changing the simulation. Fixed
+initial conditions and coefficients stay fixed unless you override them
+directly; changing an upstream input does not recompute them. Initial values
+written as expressions are evaluated by the engine with your inputs. Check
+`source_reconstruction` before using a scaling input to represent a different
+physiology or species.
 
-Receipts are bound into the plan hash and retained with complete results for
-simulations, patient initial values and parameter scans, including each regimen
-in a comparison. Scan receipts list the effective point quantities. Scenario
-defaults are excluded unless the caller explicitly overrides them. A large
-receipt can be omitted inline; `override_receipt_notice` gives its entry count
-and `full_result_resource` links the complete receipt and warnings.
+Receipts are part of the plan hash and are saved with full results for
+simulations, patient initial values and parameter scans. Scan receipts list the
+values at each scan point. Scenario defaults appear only if you override them. A
+large receipt may be left out of the response; `override_receipt_notice` gives
+its entry count and `full_result_resource` links the full receipt.
 
 Run this complete synthetic illustration with the same prerequisites:
 
@@ -122,8 +110,7 @@ checks the receipt and warning, confirms that another change to the unused
 scalar leaves trajectories identical, and checks that a changed override is
 refused when it carries the earlier plan hash. Expected output is `Verified
 active and unused override receipts, unchanged inactive trajectories, 301
-analytical samples and changed-input refusal.` This illustrates native
-consumption, without qualifying source reparameterization or physical models.
+analytical samples and changed-input refusal.`
 
 To inspect everything, call `get_model` with
 `{"model_id":"your_model_id","version":"the_card_version","detail":"full"}`.
@@ -133,24 +120,21 @@ compact cards. Read it with `resources/read`. If the returned JSON has
 `kind: utf8_chunk_manifest`, read every listed chunk in order, concatenate the
 UTF-8 text and verify its SHA-256 against `sha256` before parsing it. Complete
 records include native parameters, states, outputs, equations, metadata and
-source text or a separate source resource link. Model resources are served from
-the loaded library rather than the temporary simulation-result cache.
+source text or a separate source resource link.
 
 Fetch a stored request separately with `get_scenario_request`, supplying the
 same `model_id`, `version` and a `scenario_id` from the card. The returned
 `request` is the stored native request; `readable_request` uses the interface
-names. Changing a stored scenario creates a new calculation that needs its own
-qualification. For a large stored request, read
+names. If you change a stored scenario, the model's original checks no longer
+apply to it. For a large stored request, read
 `qspquest://models/{model_id}/scenarios/{scenario_id}` and follow a chunk manifest
 if returned.
 
 A missing executable means the build failed or the path is wrong. Invalid
 `detail` values are rejected; use only `compact` or `full`. A missing model or
-version means the selected library cannot resolve it: inspect the current card
-or select a matching library version. A resource digest mismatch means retrieval
-is incomplete or the library changed during the reads; obtain a fresh card and
-read the complete resource again. Do not interpret a preview or an error as full
-model retrieval.
+version means it is not in the loaded library: check the current card or load a
+matching library version. A checksum mismatch means a read was incomplete or the
+library changed; fetch a fresh card and read the resource again.
 
 ## Inspect execution and declared source families
 
@@ -165,17 +149,14 @@ The example creates two native model archives and one metadata-only record for
 one synthetic source. It verifies search, exact model/version selection, compact
 cards and the digest of the complete family resource. Expected output starts
 with `Verified full, reduced and metadata-only records`. All inputs are created
-locally and removed on exit; these checks qualify the discovery protocol only.
+locally and removed on exit.
 
 Every public-library search row has `execution_available`, `scenario_count` and
-a typed `discovery` record. `discovery.executable_backend` identifies the available
-QSPQuest native projection. `contract.identity.scope` describes the search
-response itself. A metadata-only or source-inspection record has execution
-availability false and a null executable backend. A user-source digest appears
-in the model identity; its discovery record leaves `archive_sha256` null.
-Projection availability still requires validation of the intended request.
-`execution_assessment` is `requires_request_validation` for a native executable
-and `unavailable` when the local record has no executable.
+a `discovery` record. `discovery.executable_backend` says how the model runs,
+or is null for a metadata-only record, which cannot run. A runnable model has
+`execution_assessment: requires_request_validation`, meaning your specific
+request is still checked when you run it; a record that cannot run has
+`unavailable`. User-supplied models have `archive_sha256` null.
 
 For exact selection, call `search_models` with `model_id` and optionally `version`.
 For example, the synthetic family uses
@@ -198,10 +179,9 @@ count and `members_complete`. Read `full_family_resource` for the complete list,
 which has at most 32 model versions. The final URI component is the SHA-256 of
 the complete UTF-8 JSON body. Follow a chunk manifest if returned, then verify
 that digest. `qspquest://schema/model-discovery` and
-`qspquest://schema/source-family` describe the closed records. A stale family URI
-fails explicitly after its catalog membership changes. Family declarations and
-byte digests carry no scientific qualification; use `get_capability` for the
-specific model, scenario, operation and running artifact's evidence scope.
+`qspquest://schema/source-family` describe these records. A family URI stops
+working if the family's membership changes. Use `get_capability` to check what a
+specific model and scenario support.
 Authorized platform results in `platform_models` carry the same closed
 `discovery` fields. Their `representation` is `governed_catalog`. A boolean
 `execution_available` preserves an explicit provider declaration; null means
@@ -234,20 +214,15 @@ cargo test --locked -p qspquest-mcp --features managed --test managed governed_p
 
 The fixture supplies a ready-status record without execution evidence, an
 explicitly available version `1` with three declared scenarios, an unavailable
-record and a tier-locked record. It checks null versus false, the governed route,
-exact identifier/version selection and refusal for a Free scope. It uses a
-synthetic 42-credit preview and verifies stable retries and typed Job/Artifact
-retrieval. Expect the synthetic price line and one passing test. All services
-and inputs are created locally; no account, real credits or provider access is
-required. Invalid provider identifiers, scalar types or access flags produce a
-platform-response error; inspect the provider contract instead of treating
-malformed metadata as an executable model.
+record and a tier-locked record, with a synthetic 42-credit price preview.
+Expect the synthetic price line and one passing test. Everything runs locally;
+no account or real credits are needed. Malformed platform records produce a
+platform-response error.
 
 ## Navigate offline documentation
 
-Use the same Python 3.10+, macOS/Linux and source-build prerequisites as above.
-The server embeds the document contracts and example payloads, so reading them
-requires no network or companion library. Run:
+Use the same prerequisites as above. The documentation is built into the
+server, so reading it needs no network. Run:
 
 ```sh
 cargo build --release -p qspquest-mcp --locked
@@ -260,10 +235,9 @@ resource, verifies each content SHA-256, and follows its embedded resource
 links. The index's topics lead to model, request, unit and error guidance.
 `qspquest://schema/documentation` supplies the index's structural schema.
 The index also links to `qspquest://capability-catalog` and its schema at
-`qspquest://schema/capability-catalog`. This source catalog distinguishes native
-fitting from Python analysis and direct WASM from the Browser Worker. Its records
-describe declared contracts and required features; they retain untested scientific
-status. Use the active capability resource for this server's features and limits.
+`qspquest://schema/capability-catalog`. The catalog lists what each interface
+supports (for example native fitting versus Python analysis). For what this
+particular server supports, use the capability resources below.
 `qspquest://capabilities` supplies the actual `target`, registry URI and
 `capability_query_tool`. Read `qspquest://capability-registry` for this MCP
 target and deployment. The example then calls `get_capability` with:
@@ -287,18 +261,14 @@ Use the target reported by your server in place of the illustrated macOS ARM64
 target. Supply the card's `version` under `model` to select an exact archive.
 The synthetic workflow reports `declared: true`, `active_exposed: true`,
 `assessment: requires_request_validation`, `executable: null` and
-`qualified: false`. Null means an exact request still needs the normal tool's
-admission and execution; a query does not run a solver. A missing model,
-inspection-only scientific workflow, unavailable feature, incompatible analytic
-solver, or unready released fitting contract gives blockers and
-`executable: false`. Another interface, target or deployment remains unassessed.
-Governed operations need an admitted session and configured backend; preview
-their platform model readiness and price before submission.
+`qualified: false`. `executable: null` means the query cannot tell without
+running your exact request; it does not run anything. A missing model, an
+unavailable feature, an incompatible solver or a fitting workflow that is not
+ready gives a list of blockers and `executable: false`. Hosted operations need a
+signed-in session; preview their price before submitting.
 
-The query reports the selected model/archive identity and optional stored request
-digest. It does not assess a modified request or interpret historical archive
-evidence as current qualification. `qspquest://schema/capability-registry` and
-the tool's output schema describe the response contracts.
+`qspquest://schema/capability-registry` and the tool's output schema describe
+the response.
 For oversized resources, read the chunk manifest, concatenate chunks and
 verify its digest before interpreting the document.
 
@@ -306,15 +276,13 @@ It then reads the complete synthetic model and request from resource URIs and
 calls `simulate` with `model.source` and `request`. The 6 mg bolus, 3 L volume
 and 0.3 L/h clearance imply `cp(t) = 2 * exp(-0.1*t)` mg/L. The example checks
 six post-dose samples over 12 h and reports the number of resources and links
-verified. The model contains no drug-specific parameters; the calculation
-does not qualify a clinical model.
+verified.
 
 A heading not present in the installed version returns an invalid-resource
 error. Read a fresh index before following links from another version. A digest
 mismatch indicates incomplete retrieval or changed resource content; fetch the
-complete current resource again. Hosted source execution needs a configured
-sandbox, as reported by `qspquest://capabilities`; reading documents alone
-does not grant execution support.
+complete current resource again. Running user-supplied models on a hosted
+server needs a sandbox, as reported by `qspquest://capabilities`.
 
 ## Export a complete synthetic trajectory
 
@@ -341,8 +309,7 @@ Verified 301 observations; final concentration 0.09957414 mg/L
 Open `study/trajectory.csv` beneath the selected directory. Its columns are
 `time_h,side,cp`; this example requests post-dose observations. Other regimens
 can include both pre-dose and post-dose rows at the same time. The example
-retains the CSV and cleans up its synthetic library when finished. It demonstrates
-file export and numerical correctness for this synthetic model only.
+keeps the CSV and deletes its temporary library when finished.
 
 CSV export is disabled unless a local server has `--output-dir PATH` or
 `QSPQUEST_MCP_OUTPUT_DIR`. Unix output directories must be owned by that server
@@ -350,7 +317,5 @@ user with mode `0700`; Windows uses owner and ACL checks. File and directory
 links, traversal and existing output files are refused. Choose another filename
 or a new directory to rerun this example. Hosted servers refuse CSV export.
 Regimen comparisons apply the same rules and append each sanitized regimen name
-to the CSV filename; completed files remain if a later regimen fails. A CSV
-contains the complete requested trajectory but does not itself establish model
-qualification or carry the model card and effective request. Retain those with
-any scientific interpretation.
+to the CSV filename; completed files remain if a later regimen fails. The CSV
+holds only the trajectory, so keep the model card and request alongside it.

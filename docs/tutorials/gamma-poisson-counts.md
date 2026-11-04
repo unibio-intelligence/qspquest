@@ -22,8 +22,8 @@ cargo run --release -p qspquest-cli -- fit-data docs/examples/gamma-poisson-fit.
 Expect `status = "converged"`, shape approximately `0.772885`, Gamma rate
 approximately `0.128814 h`, and negative log likelihood approximately
 `14.29792892`. The mean latent event intensity is `alpha / beta`, approximately
-`6 /h` in this example. The result includes every count factorial in its
-normalized likelihood.
+`6 /h` in this example. The likelihood is normalized and includes every count
+factorial term.
 
 ## Python and Rust
 
@@ -64,15 +64,15 @@ units and lambda has reciprocal exposure units. Shape is dimensionless. Use
 `unit = "1"` for explicitly normalized exposure coordinates.
 
 Supply positive finite shape and rate bounds containing the starting values.
-The optimizer searches in log coordinates; `gradient_tolerance` applies to its
-projected log-coordinate score. Check `status`, `projected_gradient_norm`,
-`evaluations` and `iterations`. An evaluation or iteration limit reports an
-incomplete fit. `active_bounds` names estimates at a bound.
+The optimizer works on the log scale, and `gradient_tolerance` applies there.
+Check `status`, `projected_gradient_norm`, `evaluations` and `iterations`;
+hitting an evaluation or iteration limit means the fit is incomplete.
+`active_bounds` lists estimates that ended at a bound.
 
 The fit supports 2–4096 rows, at most one million total observed events, and
 at most twenty million operations under
 `(total observed events + number of rows) * max_evaluations`.
 `max_evaluations` and `max_iterations` each support 1–10000.
-The result is a bounded point estimate for one shared Gamma distribution.
-Group effects, shared latent rates across rows and confidence intervals require
-different contracts. The example is synthetic numerical estimation.
+The result is a point estimate for one shared Gamma distribution, without
+confidence intervals. Group effects and rates shared across rows are not
+supported.

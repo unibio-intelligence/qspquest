@@ -65,7 +65,7 @@ fn autonomous_repeated_infusion_sensitivities_match_closed_form() {
         .bind(&req.run.parameters, &req.run.regimen.covariates)
         .unwrap()
         .rhs_depends_on_time());
-    for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+    for solver in [Solver::DiffsolBdf] {
         req.run.solver = solver;
         let result = c.run(&req).unwrap();
         for (time, value) in result
@@ -91,7 +91,7 @@ fn broad_box_noisy_fit_meets_requested_gradient_or_reports_limits() {
     let mut req = request();
     let c = CompiledSensitivityDocument::compile(&model, &req.with_respect_to).unwrap();
     let times = c.run(&req).unwrap().result.times;
-    for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+    for solver in [Solver::DiffsolBdf] {
         req.run.solver = solver;
         let fit = GaussianFitRequest {
             objective: GaussianObjectiveRequest {

@@ -499,46 +499,28 @@ fn left_censored_objective_gradient_matches_finite_difference() {
 }
 
 #[test]
-fn rodas5p_scores_match_independent_likelihood_and_recover_parameters() {
+fn objective_and_individual_fit_reject_unavailable_solvers() {
     use qspquest_core::run::Solver;
-    for (additive, proportional, prior) in [(0.2, 0., false), (0., 0.2, false), (0.1, 0.2, true)] {
-        let (compiled, mut request, times) = fixture(additive, proportional, prior);
-        request.simulation.run.solver = Solver::DiffsolRodas5p;
-        let result = compiled.gaussian_objective(&request).unwrap();
-        assert_eq!(
-            result.identity.algorithm,
-            "rodas5p_forward_gaussian_objective"
-        );
-        assert!((result.objective - oracle(&request, &times, 0.3, 3.)).abs() < 1e-7);
-        for p in 0..2 {
-            let h = 1e-5;
-            let (hc, hv, lc, lv) = if p == 0 {
-                (0.3 + h, 3., 0.3 - h, 3.)
-            } else {
-                (0.3, 3. + h, 0.3, 3. - h)
-            };
-            let expected =
-                (oracle(&request, &times, hc, hv) - oracle(&request, &times, lc, lv)) / (2. * h);
-            assert!((result.gradient[p].value - expected).abs() < 1e-5);
-        }
-    }
-    let (compiled, _, _) = fixture(0.1, 0., false);
+    let (compiled, mut request, _) = fixture(0.1, 0., false);
     let mut fit: FitRequest = serde_json::from_str(include_str!(
         "../../../conformance/requests/synthetic-fit.json"
     ))
     .unwrap();
-    let FitProblem::Individual(individual) = &mut fit.problem else {
-        panic!()
-    };
-    individual.objective.simulation.run.solver = Solver::DiffsolRodas5p;
-    let result = compiled.execute_fit(&fit).unwrap().fit.unwrap();
-    assert_eq!(result.status, FitStatus::Converged);
-    assert!((result.parameters["cl"].value - 0.6).abs() < 1e-5);
-    assert!((result.parameters["v"].value - 4.5).abs() < 1e-5);
-    assert_eq!(
-        result.objective.identity.algorithm,
-        "rodas5p_forward_gaussian_objective"
-    );
+    for solver in [Solver::DiffsolRodas5p, Solver::DiffsolRosenbrock23] {
+        request.simulation.run.solver = solver;
+        assert_eq!(
+            compiled.gaussian_objective(&request).unwrap_err().code,
+            qspquest_core::ErrorCode::Unsupported
+        );
+        let FitProblem::Individual(individual) = &mut fit.problem else {
+            panic!()
+        };
+        individual.objective.simulation.run.solver = solver;
+        assert_eq!(
+            compiled.execute_fit(&fit).unwrap_err().code,
+            qspquest_core::ErrorCode::Unsupported
+        );
+    }
 }
 
 #[test]
@@ -552,23 +534,11 @@ fn pooled_solver_identity_matches_each_subject_and_rejects_seeds() {
     let FitProblem::Individual(individual) = base.problem else {
         panic!()
     };
-    for (primary_solver, secondary_solver, algorithm) in [
-        (
-            Solver::DiffsolBdf,
-            Solver::DiffsolBdf,
-            "bdf_forward_pooled_gaussian_objective",
-        ),
-        (
-            Solver::DiffsolRodas5p,
-            Solver::DiffsolRodas5p,
-            "rodas5p_forward_pooled_gaussian_objective",
-        ),
-        (
-            Solver::DiffsolRodas5p,
-            Solver::DiffsolBdf,
-            "mixed_forward_pooled_gaussian_objective",
-        ),
-    ] {
+    for (primary_solver, secondary_solver, algorithm) in [(
+        Solver::DiffsolBdf,
+        Solver::DiffsolBdf,
+        "bdf_forward_pooled_gaussian_objective",
+    )] {
         let mut primary = individual.clone();
         primary.objective.simulation.run.solver = primary_solver;
         let mut other = primary.objective.clone();
@@ -585,7 +555,7 @@ fn pooled_solver_identity_matches_each_subject_and_rejects_seeds() {
         assert!((result.parameters["v"].value - 4.5).abs() < 1e-5);
     }
     let mut seeded = individual.objective.simulation;
-    seeded.run.solver = Solver::DiffsolRodas5p;
+    seeded.run.solver = Solver::DiffsolBdf;
     seeded.run.seed = Some(17);
     assert_eq!(
         compiled.run(&seeded).unwrap_err().code,

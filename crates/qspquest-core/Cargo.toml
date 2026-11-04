@@ -3,7 +3,12 @@ name = "qspquest-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+publish = ["crates-io"]
+description = "Scientific request, event and result types for QSPQuest"
+repository = "https://github.com/unibio-intelligence/qspquest"
+readme = "README.md"
+rust-version = "1.98"
+include = ["Cargo.toml", "src/**", "test-data/**", "examples/export_schemas.rs", "README.md", "LICENSE"]
 
 [dependencies]
 serde.workspace = true

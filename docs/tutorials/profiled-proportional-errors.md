@@ -6,9 +6,8 @@ for each observed output. The residual model is normal on the output scale:
 `Y_i ~ Normal(mu_i, (s_output * abs(mu_i))^2)`.
 
 For each trial model parameter vector, the exact conditional maximum-likelihood
-scale is `s_output = sqrt(mean((Y_i / mu_i - 1)^2))`. The optimizer profiles these
-scales while retaining the derivative of the complete normal likelihood,
-including its variance and normalization terms.
+scale is `s_output = sqrt(mean((Y_i / mu_i - 1)^2))`, so the optimizer only
+searches over the model parameters.
 
 ## Prerequisites and command
 
@@ -24,14 +23,12 @@ cargo run --release -p qspquest-cli -- fit \
 ```
 
 The model has two constant concentration outputs: `y1 = theta` and
-`y2 = 2 * theta`. Each has four synthetic observations. The unused state supplies
-an independent decay equation; it does not determine either output.
+`y2 = 2 * theta`. Each has four synthetic observations. The model's decay state
+does not affect either output.
 
 The result contains `fit` and `residual_scales`. Expect a `converged` status,
 `theta` close to `2.5 mg/L`, and dimensionless residual scales close to
-`y1 = 0.08944272` and `y2 = 0.14422205`. Each observation group has its own
-fitted scale; the concentration predictions and likelihood use their declared
-output units.
+`y1 = 0.08944272` and `y2 = 0.14422205`, one per output.
 
 ## Python and R
 
@@ -63,10 +60,10 @@ print(result$fit$status)
 print(result$residual_scales)
 ```
 
-The versioned request explicitly selects `problem.kind = "profiled_proportional"`.
-`problem.kind = "individual"` retains the supplied fixed residual errors.
-Planning validates the profiled-row contract without integrating or optimizing;
-zero predictions or a zero residual scale can still prevent execution.
+The request selects `problem.kind = "profiled_proportional"`.
+`problem.kind = "individual"` uses fixed residual errors instead. `plan_fit`
+checks the request without running it; zero predictions or a zero residual
+scale can still make the fit fail.
 
 ## Rust API and inputs
 
@@ -91,9 +88,9 @@ indexes the returned simulation grid. For dosing experiments, explicit regimen
 `observations` select exactly the desired times and pre/post sides; default
 event-inclusive grids can contain additional rows.
 
-On these two profiled methods, every row must declare `additive_sd = 0` in the
-output's units and `proportional_sd = 1`. This declaration selects an estimated
-scale; the result's `residual_scales` supplies its fitted coefficient. Each
+For these profiled fits, every row must set `additive_sd = 0` and
+`proportional_sd = 1`; this tells the engine to estimate the scale, which is
+returned in `residual_scales`. Each
 observed output needs at least two rows. Optional normal priors apply to model
 parameters; scales have no priors. The methods fit one experiment, with scales
 grouped by output name.
@@ -101,20 +98,18 @@ grouped by output name.
 ## Limits and troubleshooting
 
 Censored rows, lognormal errors, combined additive/proportional errors and
-nonzero fixed additive errors are rejected. A zero prediction makes this error
-model undefined. Exact zero residuals give no finite positive scale MLE and are
-rejected. Choose a residual model appropriate to the measured data.
+nonzero fixed additive errors are rejected. Zero predictions, or data that fit
+the model exactly (zero residuals), are also rejected.
 
 Check `fit.status`, `fit.projected_gradient_norm`, `fit.evaluations` and `fit.iterations`.
 An evaluation or iteration limit is an incomplete fit even when parameters look
-plausible. Integration errors can limit gradient accuracy near an optimum;
-compare tighter simulation and derivative tolerances before interpreting a
-small objective change as convergence. The example verifies numerical estimation
-on synthetic data and establishes no biological or clinical validity.
+plausible. Near the optimum, solver error can limit gradient accuracy; rerun
+with tighter simulation and derivative tolerances before treating a small
+objective change as convergence. The example uses synthetic data.
 
 ## MCP
 
 For a user-supplied model, call `fit_individual` with the complete versioned
 request in `fit_request`, including `problem.kind = "profiled_proportional"`.
-The existing `fit_population` route also accepts that native request. Library
-models continue to require their exact published fitting contract.
+`fit_population` also accepts that request. Library models can only be fitted
+with their stored fitting workflow.

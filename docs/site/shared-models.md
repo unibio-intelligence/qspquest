@@ -9,18 +9,14 @@ same catalog and selected archive versions.
 The companion library archive contains `catalog.json`, `models/`, and its
 `qspquest_models` Python loader. The engine image supplies the solver. Models
 are mounted read-only rather than embedded in the image, so the library can be
-updated independently. Keep the exact library archive and its published checksum
-with the image identity when saving an analysis. A mutable directory is not an
-immutable release pin; switching libraries requires checking changed model
-versions and qualification limits.
+updated independently. When saving an analysis, record the library archive and
+its checksum along with the image. If you switch libraries, recheck any changed
+model versions.
 
-The catalog contains 72 model identities, including
-inspection-only versions. `--runnable` restricts CLI discovery to versions with
-executable scenarios. A successful search does not mean a model supports
-simulation or fitting. Read each scenario’s recorded evidence and current-engine qualification status before interpreting a run.
-The loader verifies archive and indexed-member hashes and runs the archived
-native QSPQuest projection. Source numeric coordinates may lack dimensional
-qualification; inspect `dimensional_qualification` and the model card.
+The catalog contains 72 model entries, including some that are inspection-only.
+`--runnable` limits CLI search to versions with runnable scenarios. Some models
+keep their source's numeric scale without verified units; check
+`dimensional_qualification` and the model card before interpreting a run.
 Model-specific licenses apply in addition to the engine license.
 
 ## Native Python
@@ -34,11 +30,10 @@ export QSPQUEST_LIBRARY_DIR=/absolute/path/to/qspquest-models
 qspquest-library --library "$QSPQUEST_LIBRARY_DIR" --search rituximab
 ```
 
-The command and `python -m qspquest_models` use the companion loader's same
-search, options and discovery records. Search includes the catalog summaries,
-such as `B-cell recovery`. With the native engine and companion loader installed,
-these commands return identical JSON records, including availability, unit status,
-fitting support and current-engine qualification:
+`qspquest-library` and `python -m qspquest_models` are equivalent. Search
+includes the catalog summaries, such as `B-cell recovery`. With the native engine
+and companion loader installed, both return the same JSON records, including
+availability, unit status and fitting support:
 
 ```sh
 qspquest-library --search 'B-cell recovery' --format json
@@ -50,13 +45,13 @@ otherwise they look in the loader's package checkout. A package installed withou
 the catalog and archives requires an explicit library directory. `--model` lists
 experiment IDs, `--inputs` inspects a named dynamic preset without executing an
 engine, and `--all-readouts` exports all outputs and states instead of primary
-readouts. Source replays retain their availability label and do not permit
-exploratory dose or initial-state changes.
+readouts. Source-replay scenarios cannot be changed (no dose or initial-state
+edits).
 
 Pin an exact catalog version with `--model-version VERSION` when using `--model`.
 An unavailable pin exits with status 2 and code `model_version_unavailable`
-before execution. JSON errors include bounded migration `details` with requested
-and available versions. The R helper accepts `version = "VERSION"` in both
+before execution. JSON errors list the requested and available versions in
+`details`. The R helper accepts `version = "VERSION"` in both
 `models$scenarios(model, version = "VERSION")` and
 `models$run(model, scenario, version = "VERSION")`. Omitting the pin selects the
 current catalog default; distributed alternate archives use their versioned
@@ -96,9 +91,8 @@ MCP uses the archived native output IDs, such as `source_output_0`; the model's
 Python/R library helpers return those descriptive names.
 
 The [MCP setup](../../bindings/mcp/README.md) supports the same local catalog or
-an immutable HTTPS library archive pinned by an independently trusted SHA-256.
-The engine and library public repositories and assets still need publication;
-a ready-to-use hosted download URL is not yet available. Local Docker workflows
+a pinned HTTPS library archive with its SHA-256. A hosted download URL is not
+yet available. Local Docker workflows
 use the extracted companion archive and run offline after image construction.
 
 ## Explore local versus systemic receptor occupancy
@@ -107,5 +101,5 @@ The [Target-Gated Cargo QSP tutorial](https://github.com/unibio-intelligence/qsp
 uses a synthetic 11-state mechanism, with [Python](https://github.com/unibio-intelligence/qspquest-models/blob/main/tutorials/qsp-gated-cargo.ipynb)
 and [R](https://github.com/unibio-intelligence/qspquest-models/blob/main/tutorials/qsp-gated-cargo.Rmd)
 walkthroughs. Run its existing OMEX presets, compare tumor and central receptor
-occupancy, reconcile the state pools and export the analysis. It requires no
-external dataset and does not add a fitting claim.
+occupancy, reconcile the state pools and export the analysis. It needs no
+external data and does not include fitting.

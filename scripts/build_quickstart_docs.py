@@ -58,7 +58,6 @@ def build(output):
                         "bindings",
                         "conformance",
                         "crates",
-                        "vendor",
                         "scripts",
                     )
                 )
@@ -69,6 +68,7 @@ def build(output):
                     "LICENSE",
                     "LICENSE-APACHE",
                     "NOTICE",
+                    "THIRD-PARTY-NOTICES.txt",
                     "CITATION.cff",
                     "CONTRIBUTING.md",
                     "CHANGELOG.md",

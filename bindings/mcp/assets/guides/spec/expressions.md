@@ -1,10 +1,10 @@
 # Expressions
 
-Expressions form the checked numerical language used by native models.
+Expressions are the checked numerical language used by models.
 Code and tests live in `qspquest-core::expression`, `qspquest_modeling::compile`, and
-`crates/qspquest-modeling/tests/expressions.rs`. Unit checking is implemented in the model compiler. The language parser records
-declaration source locations; full token-level semantic spans remain pending. This API alone does not validate
-a pharmacology model or qualify it for scientific use.
+`crates/qspquest-modeling/tests/expressions.rs`. The model compiler checks units. Errors point to the
+declaration, not yet to the exact token. A valid expression does not by itself make a valid
+pharmacology model.
 
 ## Closed expression nodes
 
@@ -69,11 +69,10 @@ children. Canonical text formatting uses the same nodes. See
 | comparisons / not / and / or | typed booleans, lazy and/or | not numeric derivatives |
 | conditional / ifelse | selected branch only, matching branch types | selected branch when condition is independent of differentiation variable |
 
-Derivatives retain primal domain evaluation even when algebraic simplification
-produces zero. An invalid original model expression cannot become valid merely
-because its derivative is zero. Conservative Jacobian sparsity and ODE runtime integration use these expressions.
-The expression and model tests exercise rebinding, lazy branches, original-domain
-preservation, symbolic derivatives and strict JSON decoding.
+Derivatives still check the original expression's domain even when
+simplification produces zero, so an invalid expression cannot become valid
+because its derivative is zero. Jacobian sparsity and ODE integration use these
+expressions.
 
 ## Output-only guards
 
@@ -87,11 +86,10 @@ the differential equations. State selection still follows the observation's
 pre/post event side, while time comparisons use the exact observation time.
 
 Definitions are checked for size, shape, cycles and units before expansion.
-Their consumers then determine whether dynamic switching is permitted. A guard
-used only in an output is accepted; reusing that definition in dynamics still
-requires a qualified event contract. Dimension checks and finite-value checks
-remain active. Output gradients across guard boundaries are not qualified by
-this readout feature.
+Where a definition is used decides whether switching is allowed: a guard used
+only in an output is accepted, but reusing that definition in dynamics still
+requires a qualified event contract. Dimension and finite-value checks still
+apply. Output gradients across guard boundaries are not validated.
 
 The core `log` function remains strict. An importer may explicitly represent a
 source runtime's alternative behavior as a visible guarded expression, retaining

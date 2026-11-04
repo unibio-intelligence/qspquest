@@ -827,6 +827,7 @@ impl CompiledDocument {
         selected: Option<&[String]>,
     ) -> Result<PreparedRun, Error> {
         use qspquest_core::run::Solver;
+        crate::validate_solver(request.solver)?;
         let indices = selected
             .map(|names| {
                 if names.is_empty() {

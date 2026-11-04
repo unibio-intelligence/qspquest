@@ -128,7 +128,6 @@ def build(out):
                         "bindings",
                         "conformance",
                         "crates",
-                        "vendor",
                         "scripts",
                     )
                 )
@@ -139,6 +138,7 @@ def build(out):
                     "LICENSE",
                     "LICENSE-APACHE",
                     "NOTICE",
+                    "THIRD-PARTY-NOTICES.txt",
                     "CITATION.cff",
                     "CONTRIBUTING.md",
                     "CHANGELOG.md",

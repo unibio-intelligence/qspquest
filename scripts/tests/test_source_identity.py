@@ -11,6 +11,41 @@ spec.loader.exec_module(module)
 
 
 class SourceIdentityTests(unittest.TestCase):
+    def test_locked_backend_reads_only_the_diffsol_package(self):
+        revision = 'a' * 40
+        package = ('[[package]]\nname = "diffsol"\nversion = "0.18.0"\n'
+                   'source = "git+https://github.com/martinjrobins/diffsol?rev='
+                   + revision + '#' + revision + '"\n')
+        lock = ('version = 4\n[[package]]\nname = "application"\nversion = "1.0.0"\n'
+                'dependencies = ["diffsol"]\n' + package +
+                '[[package]]\nname = "diffsol-la"\nversion = "0.3.0"\n')
+        self.assertEqual(module.locked_backend_version(lock), '0.18.0+git:' + revision)
+
+    def test_locked_backend_rejects_missing_duplicate_or_malformed_identity(self):
+        revision = 'a' * 40
+        package = ('[[package]]\nname = "diffsol"\nversion = "0.18.0"\n'
+                   'source = "git+https://github.com/martinjrobins/diffsol?rev='
+                   + revision + '#' + revision + '"\n')
+        malformed = {
+            'missing package': 'version = 4\n',
+            'duplicate package': package + package,
+            'missing source': '\n'.join(line for line in package.splitlines() if not line.startswith('source =')),
+            'unquoted source': package.replace('source = "git+', 'source = git+'),
+            'duplicate source': package + 'source = "invalid"\n',
+            'malformed duplicate source': package + 'source = invalid\n',
+            'duplicate name': package + 'name = "another-package"\n',
+            'missing version': package.replace('version = "0.18.0"\n', ''),
+            'invalid version': package.replace('0.18.0', 'not-a-version'),
+            'registry source': package.replace('git+https://github.com/martinjrobins/diffsol?rev=' + revision + '#' + revision,
+                                               'registry+https://github.com/rust-lang/crates.io-index'),
+            'other repository': package.replace('martinjrobins/diffsol', 'example/another-solver'),
+            'short revision': package.replace(revision, 'abcdef'),
+            'different resolved revision': package.replace('#' + revision, '#' + 'b' * 40),
+        }
+        for case, lock in malformed.items():
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                module.locked_backend_version(lock)
+
     def test_changed_source_and_wrong_artifact_identity_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -18,12 +53,15 @@ class SourceIdentityTests(unittest.TestCase):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'synthetic source fixture\n')
-            for name in [*(directory + '/lib.rs' for directory in module.DIRECTORIES), 'vendor/diffsol/src/lib.rs']:
+            for name in [*(directory + '/lib.rs' for directory in module.DIRECTORIES)]:
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'synthetic source fixture\n')
-            source, vendor = module.source_hashes(root)
-            identity = {'compiler_source_sha256': source, 'backend_version': 'fixture+sha256:' + vendor, 'target': 'fixture-target'}
+            (root / 'Cargo.lock').write_text(
+                '[[package]]\nname = "diffsol"\nversion = "0.18.0"\n'
+                'source = "git+https://github.com/martinjrobins/diffsol?rev=' + 'a' * 40 + '#' + 'a' * 40 + '"\n')
+            source, backend = module.source_hashes(root)
+            identity = {'compiler_source_sha256': source, 'backend_version': backend, 'target': 'fixture-target'}
             report = {'schema': 'qspquest.doctor/v0.1', 'status': 'passed', 'checks': [
                 {'name': 'analytic_simulation', 'status': 'passed', 'detail': {'identity': identity}}]}
             self.assertEqual(module.verify(root, report, 'fixture-target')['status'], 'verified')

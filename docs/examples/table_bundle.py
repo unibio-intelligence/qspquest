@@ -292,7 +292,7 @@ def _scheduled_boundary_receipt(manifest, rows=None):
         raise ValueError('Boundary clock or identity differs from native initialization')
     if receipt['achieved_error_estimate'] is not None or not _text(receipt['observation_convention']) or receipt['observation_convention'] is None:
         raise ValueError('Boundary receipt cannot assert an achieved error estimate')
-    if receipt['requested_solver'] not in ('diffsol_bdf','diffsol_tsit45','diffsol_esdirk34','diffsol_tr_bdf2','diffsol_rosenbrock23','diffsol_rodas5p','analytic_linear_pk') or number(receipt['requested_relative_tolerance'])<=0:
+    if receipt['requested_solver'] not in ('diffsol_bdf','diffsol_tsit45','diffsol_esdirk34','diffsol_tr_bdf2','analytic_linear_pk') or number(receipt['requested_relative_tolerance'])<=0:
         raise ValueError('Invalid requested solver or tolerance')
     for field in ('fixed_switches','dose_relative_switches','boundaries','observations','observation_driver_rows','pointwise_input_overrides','requested_state_absolute_tolerances'):
         if not isinstance(receipt[field],list): raise ValueError('Boundary receipt inventories must be arrays')

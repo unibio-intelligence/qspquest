@@ -235,14 +235,36 @@ format_model(source)
 
 Return canonical text after validating current engine support.
 
+### fit_gamma_poisson
+
+```python
+fit_gamma_poisson(request)
+```
+
+Fit independent count/exposure rows with a shared Gamma shape and rate.
+
+The native bounded likelihood integrates the individual Poisson rates.
+Exposure quantities must be compatible with the Gamma rate parameter unit.
+
+### fit_probit_normal_binomial
+
+```python
+fit_probit_normal_binomial(request)
+```
+
+Fit two groups of independent binomial litters with normal probit effects.
+
+Means and SDs are dimensionless. Native optimization uses variance
+coordinates and includes the full unbounded normal mixture.
+
 ### CompiledSensitivities
 
 Compile one ordered parameter selection; each run binds independent values.
 
 Native compilation/execution release the GIL. Instances can be shared across
 threads; the request's with_respect_to must match the compiled selection.
-Sensitivity requests accept diffsol_bdf (default in run helpers) or explicit
-diffsol_rodas5p, also used throughout individual and population fitting.
+Sensitivity requests accept `diffsol_bdf`, the default in run helpers and
+the supported solver for individual and population fitting.
 
 ### CompiledSensitivities.__init__
 

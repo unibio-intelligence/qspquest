@@ -23,7 +23,7 @@ PACKAGE = Path('bindings/python/python/qspquest')
 SOURCE_PATTERNS = (
     'pyproject.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/config.toml',
     'LICENSE', 'THIRD-PARTY-NOTICES.txt', 'SECURITY.md', 'bindings/python/README.md',
-    'crates/*/Cargo.toml', 'crates/*/build.rs', 'crates/*/src/**/*.rs',
+    'crates/*/Cargo.toml', 'crates/*/README.md', 'crates/*/LICENSE', 'crates/*/test-data/**/*', 'crates/*/build.rs', 'crates/*/src/**/*.rs',
     'crates/*/examples/**/*.rs', 'bindings/*/Cargo.toml', 'bindings/mcp/build.rs',
     'bindings/mcp/assets/**/*', 'bindings/*/src/**/*.rs',
     'bindings/r/src/rust/Cargo.toml', 'bindings/r/src/rust/src/**/*.rs',
@@ -31,8 +31,7 @@ SOURCE_PATTERNS = (
     'bindings/wasm/LICENSE', 'bindings/wasm/LICENSE-APACHE',
     'bindings/python/python/**/*.py', 'bindings/python/python/**/*.pyi',
     'bindings/python/python/**/py.typed', 'bindings/python/python/qspquest/SECURITY.md',
-    'conformance/*.rs', 'conformance/tmdd-cases.json', 'vendor/diffsol/**/*',
-    'vendor/DIFFSOL-PROVENANCE.md',
+    'conformance/*.rs', 'conformance/tmdd-cases.json',
 )
 MAX_MEMBER_BYTES = 256 * 1024 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024 * 1024
@@ -71,14 +70,14 @@ def source_files(root):
                 raise ValueError('symlinked source input: ' + str(path))
             if path.is_file():
                 relative = path.relative_to(root).as_posix()
-                # Vendored build caches are never installation inputs.
+                # Build caches are never installation inputs.
                 if any(part in FORBIDDEN for part in path.relative_to(root).parts) or path.suffix in ('.pyc', '.pyo'):
                     continue
                 expected[relative] = path
     for name in ('Cargo.toml', 'Cargo.lock', '.cargo/config.toml',
                  'bindings/python/README.md', 'SECURITY.md',
                  'bindings/r/src/rust/Cargo.toml',
-                 'bindings/python/python/qspquest/SECURITY.md', 'vendor/diffsol/Cargo.toml'):
+                 'bindings/python/python/qspquest/SECURITY.md'):
         if name not in expected:
             raise ValueError('missing selected source input: ' + name)
     return expected

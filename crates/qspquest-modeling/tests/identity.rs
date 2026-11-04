@@ -39,7 +39,7 @@ fn result_identity_tracks_model_bindings_and_run_but_not_correlation_id() {
     assert_eq!(first.identity.model_content_hash, c.model_content_hash());
     assert_eq!(first.identity.compiler_source_sha256.len(), 71);
     assert_eq!(first.identity.backend, "diffsol");
-    assert!(first.identity.backend_version.starts_with("0.18.0+sha256:"));
+    assert!(first.identity.backend_version.starts_with("0.18.0+git:"));
     let same =
         CompiledDocument::from_json(&serde_json::to_string(&parsed.document).unwrap()).unwrap();
     assert_eq!(same.model_content_hash(), c.model_content_hash());

@@ -41,6 +41,9 @@ include = [
   { path = "bindings/python/README.md", format = "sdist" },
   { path = "bindings/python/python/qspquest/SECURITY.md", format = "sdist" },
   { path = "crates/*/Cargo.toml", format = "sdist" },
+  { path = "crates/*/README.md", format = "sdist" },
+  { path = "crates/*/LICENSE", format = "sdist" },
+  { path = "crates/*/test-data/**/*", format = "sdist" },
   { path = "crates/*/build.rs", format = "sdist" },
   { path = "crates/*/src/**/*.rs", format = "sdist" },
   { path = "crates/*/examples/**/*.rs", format = "sdist" },
@@ -59,9 +62,6 @@ include = [
   { path = "bindings/python/python/**/py.typed", format = "sdist" },
   { path = "conformance/*.rs", format = "sdist" },
   { path = "conformance/tmdd-cases.json", format = "sdist" },
-  { path = "vendor/diffsol/**/*", format = "sdist" },
-  { path = "vendor/diffsol/Cargo.toml", format = "sdist" },
-  { path = "vendor/DIFFSOL-PROVENANCE.md", format = "sdist" },
 ]
 
 # Keep source distributions limited to installation inputs.

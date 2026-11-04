@@ -1,31 +1,29 @@
 # Nonlinear periodic cycle iteration
 
-`steady_state::iterate_periodic_cycle` repeatedly executes the common event
-driver with a fresh model bound to each cycle's initial state. The caller
-supplies the seed, one phase-periodic protocol, per-state absolute convergence
-tolerances, a relative tolerance, maximum cycles and total work budgets.
+`steady_state::iterate_periodic_cycle` finds a periodic steady state by
+simulating one dosing cycle after another, starting each cycle from where the
+last one ended. The caller supplies the starting guess, one periodic protocol,
+per-state absolute convergence tolerances, a relative tolerance, maximum cycles
+and total work budgets.
 
-Two consecutive complete cycle residuals must pass for every state. The result
-contains the verified pre-event initial state, signed residuals, maximum scaled
-residual and completed cycle count. The last cycle independently checks the
-candidate. A solver error or iteration limit returns no partial steady state.
-All cycles receive conservative equal partitions of the total budgets.
+Every state must pass the tolerance check on two consecutive cycles. The result
+contains the pre-dose steady state, signed residuals, maximum scaled residual
+and completed cycle count. A solver error or iteration limit returns no partial
+steady state. The total budgets are split equally across cycles.
 
-The factory must preserve the supplied initial vector and keep equations,
-parameters and dose scaling fixed. Each cycle uses the same phase-time window;
-this is not an assertion that an arbitrary absolute-time model is periodic.
-Infusion carryover, including multi-period overlaps and stop-target resets,
-uses the same bounded normalizer as analytic linear PK.
+The model factory must keep the supplied initial state and keep equations,
+parameters and dose scaling fixed between cycles. Each cycle
+uses the same phase-time window; this does not make a model with explicit
+absolute-time dependence periodic. Infusions that run across cycle boundaries
+are handled the same way as in analytic linear PK.
 
-Convergence from a seed does not prove uniqueness, global attraction, or
-stability. Slowly converging or unstable fixed points can exhaust the limit.
-Convergence tolerances check the numerical cycle map; integration tolerances
-must also be sufficiently strict for the scientific accuracy required.
+Convergence from one starting guess does not prove the steady state is unique
+or stable. Slowly converging or unstable fixed points can exhaust the limit.
+Integration tolerances must also be tight enough for the accuracy you need.
 
-Native evidence covers saturable elimination against integrated closed-form
-bolus and reset results, overlapping-infusion equilibrium, convergence from
-two seeds, overload nonconvergence, invalid state binding, tolerances, budgets
-and failure recovery. The typed operation is described below. CLI/Python/browser entry points and evidence are described below.
+Tests cover saturable elimination against closed-form results, an
+overlapping-infusion equilibrium, convergence from two starting guesses and
+nonconvergence under overload.
 
 ## Typed operation
 
@@ -38,23 +36,19 @@ normal `RunRequest` with these required controls:
 
 Select `diffsol_bdf`. The run's `initial_states` override the model defaults as
 the starting guess. Its regimen solver tolerances control integration and are
-separate from the convergence tolerances above. Per-state integration tolerance
-maps retain their units and reach BDF unchanged after conversion. Samples,
+separate from the convergence tolerances above. Per-state integration
+tolerances keep their units and are converted before reaching BDF. Samples,
 observations, history, switches, varying covariates and checkpoints are rejected
-for this operation. Model and request lag remain supported.
+for this operation. Model and request lag are supported.
 
-The result contains `steady_state` (unit-bearing starting states, signed
-residuals, scaled residual and scientific identity) plus `cycles_completed`.
-Identity binds the starting guess, parameters, phase-time convention and
-convergence controls. A different starting guess can reach a different fixed
-point; it must not share the same bound-value identity. Transport request IDs
-are excluded. Schemas are exported for both request and result.
+The result contains `steady_state` (starting states with units, signed
+residuals, scaled residual and identity) plus `cycles_completed`. A different
+starting guess can reach a different fixed point, so the identity includes the
+starting guess as well as parameters and convergence controls. Schemas are
+exported for both request and result.
 
-Owned JSON examples are `conformance/models/synthetic-saturable-periodic.json`
-and `conformance/requests/synthetic-saturable-periodic.json`. Native tests
-verify the saturable-elimination closed form from two unit-bearing seeds,
-conversion of gram tolerances to milligram state units, identity semantics,
-nonconvergence, wrong units, unsupported controls and failure recovery.
+JSON examples are `conformance/models/synthetic-saturable-periodic.json`
+and `conformance/requests/synthetic-saturable-periodic.json`.
 
 ## Bindings and qualification
 
@@ -65,13 +59,11 @@ nonconvergence, wrong units, unsupported controls and failure recovery.
 
 The installed macOS arm64 wheel passes four cases on CPython 3.11 and 3.12:
 three bolus starting guesses and an overlapping-infusion equilibrium. Results
-agree with the integrated saturable-elimination closed forms within 2e-7 mg.
-Concurrent calls share a compiled model safely; budget, wrong-unit and
-nonconvergence errors preserve later calls. Chrome and Firefox agree with
-native states within 1.560e-10 mg and recover after budget rejection. CLI results
-match the typed library result. Artifact/source hashes and reports are pinned
-in `conformance/evidence/nonlinear-steady-bindings-v1.json`.
+agree with the saturable-elimination closed forms within 2e-7 mg. Concurrent
+calls can share a compiled model, and an error does not affect later calls.
+Chrome and Firefox agree with native states within 1.560e-10 mg. CLI results
+match the library result. Test reports are in
+`conformance/evidence/nonlinear-steady-bindings-v1.json`.
 
-This qualifies the tested fixtures and platforms. Safari, other native
-platforms, broader nonlinear QSP examples, product integration and performance
-remain separate work.
+Only these test cases and platforms have been checked; Safari and other
+platforms have not.

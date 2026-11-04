@@ -55,7 +55,6 @@ COPY --from=builder /out/inventories/ /opt/qspquest/inventories/
 COPY --from=builder /out/qspquest /usr/local/bin/qspquest
 COPY --from=builder /out/build-info.json /out/rust-licenses/ /opt/qspquest/
 COPY LICENSE CITATION.cff /opt/qspquest/licenses/engine/
-COPY vendor/diffsol/LICENSE.txt vendor/DIFFSOL-PROVENANCE.md /opt/qspquest/licenses/diffsol/
 RUN --mount=type=bind,from=builder,source=/out,target=/wheels \
     --mount=type=bind,source=scripts/install_wheel.py,target=/tmp/install_wheel.py \
     --mount=type=bind,source=docker/constraints.txt,target=/tmp/constraints.txt \

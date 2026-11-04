@@ -189,8 +189,6 @@
                 "analytic_linear_pk",
                 "diffsol_bdf",
                 "diffsol_esdirk34",
-                "diffsol_rodas5p",
-                "diffsol_rosenbrock23",
                 "diffsol_tr_bdf2",
                 "diffsol_tsit45",
                 "none"
@@ -323,9 +321,9 @@
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
     },
-    "vendor_source_sha256": {
+    "backend_version": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^0\\.18\\.0\\+git:[a-f0-9]{40}$"
     }
   },
   "required": [
@@ -338,7 +336,7 @@
     "entries",
     "operation_labels",
     "compiler_source_sha256",
-    "vendor_source_sha256"
+    "backend_version"
   ],
   "additionalProperties": false
 }

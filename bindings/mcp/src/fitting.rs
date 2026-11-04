@@ -507,10 +507,7 @@ pub fn validate_archive(
                 || !matches!(legacy.operation, Operation::FitScalar)
                 || legacy.output.is_empty()
                 || legacy.scientific_status.is_empty()
-                || !matches!(
-                    legacy.solver.as_str(),
-                    "diffsol_bdf" | "diffsol_rodas5p" | "analytic_linear_pk"
-                )
+                || !matches!(legacy.solver.as_str(), "diffsol_bdf" | "analytic_linear_pk")
                 || legacy.lower.unit != legacy.upper.unit
                 || parameter["default"]["unit"] != legacy.lower.unit
                 || !legacy.lower.value.is_finite()

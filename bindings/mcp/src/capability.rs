@@ -399,8 +399,10 @@ mod tests {
             answer(&query, &runtime, Some(&record)).executable,
             Some(false)
         );
-        query.key.solver = "diffsol_rosenbrock23".into();
-        assert!(!answer(&query, &runtime, Some(&record)).declared);
+        for solver in ["diffsol_rosenbrock23", "diffsol_rodas5p"] {
+            query.key.solver = solver.into();
+            assert!(!answer(&query, &runtime, Some(&record)).declared);
+        }
         query.key.solver = "diffsol_bdf".into();
         query.key.interface = "python".into();
         query.key.execution_mode = "in_process".into();

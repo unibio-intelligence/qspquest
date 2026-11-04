@@ -25,6 +25,7 @@ impl CompiledSensitivityDocument {
         request: &SensitivityRequest,
     ) -> Result<PreparedSensitivityRun, Error> {
         let run = &request.run;
+        crate::validate_solver(run.solver)?;
         if !run.accuracy_control.is_local() {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -36,11 +37,10 @@ impl CompiledSensitivityDocument {
                 "sensitivity parameter order differs from compiled document",
             ));
         }
-        if !matches!(run.solver, Solver::DiffsolBdf | Solver::DiffsolRodas5p) || run.seed.is_some()
-        {
+        if !matches!(run.solver, Solver::DiffsolBdf) || run.seed.is_some() {
             return Err(Error::new(
                 ErrorCode::Unsupported,
-                "sensitivity runs require deterministic diffsol_bdf or diffsol_rodas5p",
+                "sensitivity runs require diffsol_bdf",
             ));
         }
         if run
@@ -111,11 +111,7 @@ impl CompiledSensitivityDocument {
             )?,
             backend: "diffsol".into(),
             backend_version: crate::DIFFSOL_BACKEND_VERSION.into(),
-            algorithm: match run.solver {
-                Solver::DiffsolRodas5p => "rodas5p_augmented_forward_sensitivity",
-                _ => "bdf_augmented_forward_sensitivity",
-            }
-            .into(),
+            algorithm: "bdf_augmented_forward_sensitivity".into(),
         })
     }
     pub(super) fn execute_prepared_run(

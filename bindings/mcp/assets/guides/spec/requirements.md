@@ -3,8 +3,8 @@
 The optional model `requirements` record states minimum execution capabilities.
 Missing booleans default to false and missing events to an empty list. A false
 value imposes no requirement. The list states capabilities the model needs; it
-is not a whitelist forbidding other supported events in a run request. Actual
-requests still undergo event, domain, unit and budget validation.
+is not a whitelist forbidding other supported events in a run request. Run
+requests are still validated for events, domains, units and budgets.
 
 ```text
 requirements
@@ -36,19 +36,16 @@ and binding. Unsupported requirements return `unsupported` with the requirement
 path; text diagnostics point to the declaration. This is a minimum-capability
 check, not proof that arbitrary stiff models or nonsmooth expressions will solve.
 
-Requirements are serialized as scientific model content and affect its hash.
-The default record is canonicalized explicitly, so existing documents acquire
-new model hashes under this compiler version. Historical execution
-identities remain evidence of the compiler that produced them. No public stable
-schema or cross-revision hash compatibility is claimed.
+Requirements are part of the model content and affect its hash. The default
+record is always written out, so existing documents get new model hashes under
+this compiler version. The schema and hashes are not guaranteed stable across
+versions.
 
-The formatter currently validates engine support before formatting, consistent
-with the rest of the language subset. Unsupported requirements can be parsed
-into the IR and structurally validated, but cannot pass compilation/formatting.
+The formatter checks engine support first. Unsupported requirements can be
+parsed and structurally validated, but cannot be compiled or formatted.
 
-Declared `switches` now support the narrow simulation case where a switch time
-is computed from parameters once per run. They lower to the qualified step
-binding path. The broad `parameter_dependent_time` requirement remains
-unsupported: it includes event-time behavior beyond these declarations, and
-this feature does not qualify moving-time parameter sensitivities or generic
+`switches` support the narrow case where a switch time is computed from
+parameters once per run. The broader `parameter_dependent_time` requirement
+remains unsupported: it covers event-time behavior beyond switches, and
+switches do not provide moving-time parameter sensitivities or general
 parameter-dependent dosing events.

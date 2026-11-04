@@ -1,9 +1,9 @@
 # Oral PK: from observations to a report
 
 Run a complete fitting workflow with **12 synthetic subjects and 96 observations**.
-A seeded independent analytic generator supplies oral doses, varying clearance,
-volume and absorption, and additive/proportional observation noise. No dataset
-or download is needed. The equations and generated data are Apache-2.0.
+The data are generated in the notebook: oral doses, varying clearance, volume and
+absorption, and additive/proportional noise. No download is needed. The equations
+and generated data are Apache-2.0.
 
 Fit each subject independently, inspect predictions and residuals, and save a
 standalone HTML report and a CSV of estimates. These individual fits demonstrate
@@ -77,8 +77,8 @@ plt.show()
 ## Fit the other subjects
 
 Reuse the same model, parameter bounds and error model for each subject.
-The seeded example returns `converged` for all 12 fits. Retain each actual status
-in the exported table when using a different dataset or fitting contract.
+The example returns `converged` for all 12 fits. With other data, check each
+fit's status in the exported table.
 
 ```python
 fits = [individual]
@@ -112,5 +112,5 @@ print(output / 'report.html')
 
 Open `report.html` locally to inspect the first subject's estimates, predictions,
 residuals and fit status. `estimates.csv` contains all 12 subjects; the JSON files
-retain the input observations, known generating parameters and engine identities.
+hold the observations, the true parameters and the full fit results.
 The [Python API](../api/python.md) describes population fitting and other analyses.

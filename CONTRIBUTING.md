@@ -9,7 +9,9 @@ actual output or structured error, environment details from `qspquest-doctor
 
 ## Development
 
-Use the locked Rust toolchain/dependencies declared by the checkout. Python
+Use the locked Rust toolchain/dependencies declared by the checkout. Diffsol is fetched
+from its official repository at the exact revision in `Cargo.lock`. Initial
+builds require network access or an already populated Cargo dependency cache. Python
 bindings require Python 3.10+ and maturin 1.15.0:
 
 ```sh
@@ -27,10 +29,9 @@ python scripts/build_docs.py
 
 Add focused tests for changed behavior. Scientific changes need an independent
 reference, explicit units and event sides, predeclared numerical tolerances, and
-visible negative or unsupported cases. Generated recovery observations must be
-labelled as generated; known model provenance must remain separate from clinical
-validation. Do not report convergence, method support or model qualification
-outside the evidence's declared scope.
+visible negative or unsupported cases. Label generated observations as
+generated, and do not present a model's source as clinical validation. Do not
+claim convergence, method support or model validity beyond what the evidence shows.
 
 Keep JSON serialization stable, document capability changes, and update the
 unreleased changelog. Optional pandas, plotting and analysis dependencies must

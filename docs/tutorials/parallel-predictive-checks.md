@@ -1,10 +1,9 @@
 # Run repeatable predictive checks with bounded workers
 
 This tutorial simulates a synthetic one-compartment bolus cohort and saves a
-complete VPC report. The observations come from a stated analytic model and
-small deterministic perturbations; they are not patient measurements. You need
-the matching complete QSPQuest source archive, CPython 3.10+, and its analysis
-dependencies. For the source installation below, Rust 1.98.1, Cargo and a native
+visual predictive check (VPC) report. The observations are synthetic, not
+patient data. You need the QSPQuest source archive, CPython 3.10+, and its
+analysis dependencies. For the source installation below, Rust 1.98.1, Cargo and a native
 compiler must be on `PATH`.
 
 The [complete runnable example](../examples/parallel_vpc.py) reads the shipped
@@ -25,17 +24,15 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python docs/examples/parallel_vpc.py \
   --workers 2 --output vpc-parallel.json
 ```
 
-Set BLAS thread counts before Python starts to avoid multiplying native library
-threads by analysis workers. The default is one worker; `workers` accepts 1..8.
-Choose two initially and measure your own workload before increasing it.
-No speedup or supported-platform scaling factor is implied by worker support.
+Set the BLAS thread counts as shown so each worker uses one thread. The
+default is one worker; `workers` accepts 1..8. Start with two and measure before
+adding more; speedup depends on your workload.
 
 Both runs should print `status: complete`, 16 successful replicates, zero failed
 replicates and 102 native simulations: six baselines plus 16 six-subject
-replicates. The script exclusively creates the requested JSON file; remove an
-old output deliberately or choose another name before repeating the command.
-Everything executes locally. These commands send no model or result to a job
-gateway; package installation may download its declared dependencies.
+replicates. The script will not overwrite an existing output file; delete it or
+choose another name before rerunning. Everything runs locally; only `pip install`
+downloads anything.
 
 ## Inspect and compare results
 
@@ -44,13 +41,11 @@ The synthetic design uses a 6 mg bolus, volume 3 L and typical clearance
 has units mg/L and follows `2 * exp(-clearance / 3 * time)` before perturbation.
 The VPC varies log clearance with variance 0.09 and adds residual SD 0.02 mg/L.
 The saved `bins` contain observed and simulated concentration quantiles and
-replicate intervals. They describe this predictive experiment, not uncertainty
-in fitted parameter estimates or drug-specific qualification.
+replicate intervals.
 
-The HTML report labels these limits as lower and upper replicate bands. They
-are conditional on the supplied population parameters, variability and residual
-error. When those settings are fitted, the bands do not propagate their
-estimation uncertainty; in-sample agreement does not establish held-out coverage.
+The HTML report shows these as lower and upper replicate bands. They assume the
+supplied population parameters, variability and residual error are exact; if
+those were fitted, the bands do not include their estimation uncertainty.
 
 Check that worker count preserves scientific results and random streams:
 
@@ -67,33 +62,24 @@ print('Scientific results, stream receipts and identity match.')
 PY
 ```
 
-`execution.workers` records the chosen scheduling configuration. The scientific
-identity excludes worker count because the owner assigns random draws in
-replicate order before dispatch. Each `replicate_records` entry retains its
-index, initial RNG-state digest, status and native-call count. Reproducibility
-requires the recorded NumPy, Python, engine and analysis implementations; no
-cross-platform bitwise promise follows.
+Results do not depend on the worker count, because random draws are assigned
+to replicates before work is distributed. `execution.workers` records the count
+used. To reproduce results exactly, use the same NumPy, Python and QSPQuest
+versions; results may differ slightly across platforms.
 
 ## Failures, cancellation and restart
 
-A domain failure remains a failed replicate with its code and message. The
-overall status becomes `incomplete`; confidence intervals are null whenever a
-replicate fails. Successful-draw medians remain descriptive diagnostics and
-must not be presented as a complete scientific result. All requested replicate
-indices remain in the denominator. Budget exhaustion returns an error and no
-partial scientific report.
+A failed replicate is recorded with its error code and message, the overall
+status becomes `incomplete`, and confidence intervals are null. Medians from the
+successful replicates are for diagnosis only, not a final result. Running out of
+budget returns an error and no report.
 
 Use `control=qspquest.AnalysisControl(checkpoint='vpc-checkpoint.json',
-checkpoint_every=1)` when calling the Python API to retain completed work. A
-progress callback can call `control.cancel()`. Running workers drain at native
-call boundaries, and the checkpoint includes their charged calls even when
-their unfinished replicate is discarded. Resume with a new control using
-`resume=True`; the worker count may change. Inputs, code, native identity and
-numerical environment must still match. Revalidation and replayed unfinished
-work count against the original aggregate budget. Leave room for those calls;
-an exhausted checkpoint requires a new analysis with a larger budget.
+checkpoint_every=1)` when calling the Python API to save completed work. A
+progress callback can call `control.cancel()`; running workers stop after their
+current simulation. Resume with a new control using `resume=True`; the worker
+count may change, but inputs, code and software versions must match. Work redone
+on resume counts against the original budget, so leave headroom; if the budget
+is used up, start a new analysis with a larger one.
 
-The dispatcher holds at most the selected number of submitted replicates, and
-only the owner writes progress/checkpoints. VPC observation-draw storage remains
-bounded to two million cells. A failed native call is charged once. This workflow
-parallelizes independent predictions and does not alter population-fit updates.
+VPC observation-draw storage is limited to two million cells.

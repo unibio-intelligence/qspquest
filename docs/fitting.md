@@ -10,8 +10,8 @@ The [proportional-normal fitting workflow](tutorials/profiled-proportional-error
 jointly estimates structural parameters and one proportional residual scale per
 output through the CLI, Python, R or Rust interfaces.
 
-QSPQuest 0.1.0 includes the following bounded fitting contracts. They use
-unit-bearing observations and explicit simulation settings.
+QSPQuest 0.1.0 supports the following fit types. All use observations with
+units and explicit simulation settings.
 
 | Request kind | Supported scope |
 | --- | --- |
@@ -62,13 +62,9 @@ and additive/proportional Gaussian error. The result's `fit` member contains
 status, estimates, objective, evaluation counts, and a request hash.
 
 Scalar fits validate parameter bounds, observation names and units, and the
-starting run before searching. Native scalar preparation diagnostics identify the
-relevant native request field in `expression`, such as `/lower`, `/max_iterations`
-or `/observations/0/error/additive_sd`. These paths are relative to the complete
-native scalar request, including when it is supplied as MCP `fit_request`.
-More specific model/run expression context is retained. Inspect the declared
-units, bounds and statistical contract before correcting and resubmitting; a
-preparation refusal does not evaluate an objective or establish fitting convergence. With explicit `regimen.observations`, a fit
+starting run before searching. Errors name the problem field in `expression`,
+such as `/lower`, `/max_iterations` or `/observations/0/error/additive_sd`,
+relative to the complete scalar request (including MCP `fit_request`). With explicit `regimen.observations`, a fit
 observation's `row` must index that list; invalid rows fail before simulation.
 Without an explicit observation list, event timing can change the trajectory
 grid during fitting, so row validity is checked at each trial. Simulation
@@ -80,15 +76,13 @@ likelihood evaluation. Gaussian likelihoods accept normal or lognormal error
 where the selected fitting contract supports them. Lognormal observations need
 positive measured values, zero additive SD, and a positive dimensionless log SD
 in `proportional_sd`. Scalar fitting and FOCEI reject lognormal observation
-error. Predictions, residual variance and trial schedules still need validation
-during fitting; passing the input checks does not establish convergence.
+error. Passing these input checks does not mean the fit will converge.
 
 ## Run a one-effect population fit
 
 This example fits one lognormal subject effect to synthetic repeated
 measurements of `log(theta)`. The fitted parameter, random effect and observations
-are dimensionless; time labels are in hours. It demonstrates the fitting contract without a
-drug-specific model. Use Python 3.10 or later and the Rust source-installation
+are dimensionless; time labels are in hours. It is not a drug-specific model. Use Python 3.10 or later and the Rust source-installation
 prerequisites in [installation.md](installation.md), then run from the release
 source directory.
 
@@ -158,7 +152,7 @@ save('reference.json', {'theta': math.exp(statistics.mean(means)),
 PY
 ```
 
-Run the bounded fit:
+Run the fit:
 
 ```sh
 cargo run --release --locked -p qspquest-cli -- fit \
@@ -191,7 +185,7 @@ recovery of the population truth.
 
 Inspect the status before interpreting estimates. An `evaluation_limit` result
 is diagnostic; inspect the bounds and consider a larger supported budget.
-This Laplace contract uses one random effect and fixed residual error and does
+This Laplace method uses one random effect and fixed residual error and does
 not report uncertainty intervals. For two effects, use the
 [two-effect walkthrough](SAEM.md#run-a-two-effect-synthetic-example).
 
@@ -212,12 +206,8 @@ the observed outer objective, not an interval calibration. SAEM's
 `saem_diagnostics` reports proposal and stochastic-drift information; it is
 not a convergence certificate.
 
-Two-effect SAEM also checks measured post-burn mixing and admissible marginal
-objective perturbations before reporting convergence. Its local covariance uses
-bounded natural-coordinate steps and step-halving checks. Covariance evaluation
-uses sensitivity scores and stricter integration error ceilings for nested
-derivatives. An unresolved fit or
-covariance can exhaust the same `max_evaluations` budget; inspect the returned
+Two-effect SAEM also checks sampler mixing and objective stability before
+reporting convergence. An unresolved fit or covariance can exhaust the same `max_evaluations` budget; inspect the returned
 status and objective kind, and use `uncertainty: false` when only diagnostic
 point estimates are needed. See [SAEM fitting](SAEM.md#uncertainty-and-limits).
 
@@ -238,7 +228,7 @@ scientific plausibility before using any fitted result.
 
 ### Clamps in constant sensitivity terms
 
-A clamp can be used in native forward sensitivities when its complete subtree is independent of the selected parameters, states, infusion inputs and time. For example, a concentration readout can divide by `max(volume, quantity(1e-12, "L"))` when estimating clearance alone. Requesting a volume derivative for that clamp remains unsupported. State- or time-dependent nonsmooth crossings remain unqualified and are refused.
+A clamp can be used in native forward sensitivities when its complete subtree is independent of the selected parameters, states, infusion inputs and time. For example, a concentration readout can divide by `max(volume, quantity(1e-12, "L"))` when estimating clearance alone. Requesting a volume derivative for that clamp remains unsupported. State- or time-dependent nonsmooth crossings are refused.
 
 ## Run a precise one-effect population fit
 

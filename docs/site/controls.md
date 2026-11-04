@@ -2,8 +2,8 @@
 
 ## Interpret status before estimates
 
-`scientific_status(result)` and `error.explain()` return a plain title, message,
-interpretation boundary and warnings. `fit.summary()` prints them alongside
+`scientific_status(result)` and `error.explain()` return a plain-language title,
+message, caveats and warnings. `fit.summary()` prints them alongside
 estimates. Convergence means the configured numerical checks passed, not that a
 model is biologically valid or a global optimum has been found.
 
@@ -37,8 +37,8 @@ native simulation and after each complete work unit. It cannot interrupt a
 single native call; solver/event/output budgets bound that call. A progress
 callback exception stops the workflow and propagates to its caller.
 
-Checkpointing is optional. It uses atomic regular JSON files with checksum,
-request/model/code/native-build/environment identities and the full RNG state.
+Checkpointing is optional. Checkpoints are plain JSON files that record a
+checksum, the inputs and build they belong to, and the full random-number state.
 No pickle or executable object is loaded. Checkpoints contain user data: keep
 them in an appropriate local directory. Use a new control for each operation.
 
@@ -51,6 +51,5 @@ Resume with the **same** request, seed, iteration target, simulation budget and
 numerical environment. A different input or native build is rejected. Population
 and VPC restarts revalidate their initial trajectories; these calls count toward
 the aggregate budget. Bootstrap resumes after the last complete replicate, so
-an interrupted inner fit is rerun. Work after the last saved boundary is
-intentionally discarded. This is restart support, not a way to change the
-scientific plan or loosen limits mid-run.
+an interrupted inner fit is rerun. Work after the last checkpoint is
+discarded. Resuming cannot change the analysis plan or loosen limits.

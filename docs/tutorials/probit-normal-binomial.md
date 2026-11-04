@@ -21,8 +21,8 @@ cargo run --release -p qspquest-cli -- fit-data docs/examples/probit-normal-bino
 Expect `status = "converged"`, `means` approximately `[0, 0]`, `sds`
 approximately `[1, 1]`, and negative log likelihood approximately `6.59167373`.
 For this synthetic example each group assigns probability one third to each
-of its three possible litter outcomes. The normalized likelihood includes
-binomial coefficients and the unbounded normal mixture.
+of its three possible litter outcomes. The likelihood includes the binomial
+coefficients.
 
 ## Python and Rust
 
@@ -64,24 +64,19 @@ Each litter needs integer `successes` between zero and integer `total`, inclusiv
 and `group` equal to zero or one. Supply at least two litters per group, at most
 128 litters overall, and 1–1000 trials per litter. Means must lie within
 `[-8, 8]`; SDs within `[0, 3]`. Bounds must have positive width and contain the
-starts. Zero SD is supported. The optimizer uses variance coordinates, so
-starting at zero preserves the variance score.
+starts. Zero SD is supported, including as a starting value.
 
-`gradient_tolerance` applies to the projected mean/variance score.
-`active_bounds` uses the same four-coordinate order. Inspect bounds and
-`projected_gradient_norm` when interpreting the result.
+`gradient_tolerance` applies to the projected mean/variance gradient. `active_bounds` uses
+the same four-coordinate order. Check bounds and `projected_gradient_norm`
+before using the result.
 `max_evaluations` and `max_iterations` each support 1–1000. Reaching either
 limit reports an incomplete fit through `status`.
 
-Set `max_quadrature_evaluations` between 1 and 20000000. It bounds conditional
-integrand evaluations across the entire fit, including rejected proposals;
-the actual count is returned as `quadrature_evaluations`. Each litter evaluation
-also has a 65536-evaluation cap. Exhausting a quadrature budget returns a
-`work_budget` error. Integration must satisfy refinement checks and bound
-omitted tails, including derivative moments; it refuses a result when these
-checks fail.
+Set `max_quadrature_evaluations` between 1 and 20000000. It caps the numerical
+integration work for the whole fit; the actual count is returned as
+`quadrature_evaluations`. Each litter evaluation is also capped at 65536.
+Running out returns a `work_budget` error. If the integration cannot reach the
+required accuracy, the fit returns an error rather than an inaccurate result.
 
-This workflow returns bounded point estimates for two group means and two
-litter-effect SDs. It does not calculate confidence intervals or establish
-identifiability. Choose the grouping and observation model for the data being
-analyzed.
+This workflow returns point estimates for two group means and two litter-effect
+SDs, without confidence intervals.

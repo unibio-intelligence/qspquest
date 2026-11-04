@@ -1705,24 +1705,20 @@ fn saem_diagnostics_preserve_exact_gaussian_random_intercept_oracle() {
 }
 
 #[test]
-fn rodas5p_population_dispatch_preserves_objective_and_solver_identity() {
+fn population_dispatch_rejects_unavailable_solvers() {
     let (compiled, mut request) = fixture();
-    // Bounded replay checks both primal likelihood and derivative-bearing population paths.
-    request.max_iterations = 20;
-    request.burn_in_iterations = Some(4);
-    request.uncertainty = false;
-    let bdf = compiled.fit_population_saem(&request).unwrap();
-    for subject in &mut request.subjects {
-        subject.simulation.run.solver = qspquest_core::run::Solver::DiffsolRodas5p;
+    for solver in [
+        qspquest_core::run::Solver::DiffsolRodas5p,
+        qspquest_core::run::Solver::DiffsolRosenbrock23,
+    ] {
+        for subject in &mut request.subjects {
+            subject.simulation.run.solver = solver;
+        }
+        assert_eq!(
+            compiled.fit_population_saem(&request).unwrap_err().code,
+            qspquest_core::ErrorCode::Unsupported
+        );
     }
-    let rodas = compiled.fit_population_saem(&request).unwrap();
-    assert_ne!(bdf.fit_request_hash, rodas.fit_request_hash);
-    assert!(
-        (bdf.objective - rodas.objective).abs() < 1e-4,
-        "{} vs {}",
-        bdf.objective,
-        rodas.objective
-    );
 }
 
 #[test]

@@ -13,8 +13,8 @@ qspquest-doctor --json
 ```
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` and use the Windows
-wheel. QSPQuest 0.1.0 uses source builds and release-file installation;
-package and image registry installation is not available. The [installation guide](installation.md) gives
+wheel. QSPQuest 0.1.0 installs from source or downloaded release files, not
+from package or image registries. The [installation guide](installation.md) gives
 the supported local-file routes and source-build prerequisites.
 
 ## Source builds
@@ -30,9 +30,7 @@ target/release/qspquest run conformance/models/synthetic-one-compartment.qsp \
 ```
 
 The synthetic concentration is 2 mg/L at 0 h and about 0.181436 mg/L at 24 h.
-The output records event sides, units and engine identity. The source build
-fetches locked dependencies on first use. It does not establish clinical or
-general model qualification.
+The source build downloads its pinned dependencies on first use.
 
 Select other workflows explicitly:
 
@@ -46,24 +44,23 @@ Select other workflows explicitly:
 | Standalone R source archive | `python3 scripts/prepare-r-source.py /tmp/qspquest-r-source` | Python 3.10+; R/C/Rust for installation |
 
 The MCP helper installs the wasm32 target only for `sandbox` or `widget`.
-It builds the isolated ABI only for `sandbox` and browser bindings only for
-`widget`. If widget prerequisites are absent or feature syntax is invalid, it
-fails with an actionable error before building. The native MCP executable is
+If widget prerequisites are missing or the feature list is invalid, it stops
+with a clear error before building. The native MCP executable is
 still `target/release/qspquest-mcp`. Follow its
 [connection guide](../bindings/mcp/README.md) to run it against a local library.
 
-Full workspace checks retain every interface:
+To test every interface:
 
 ```sh
 cargo test --workspace --locked
 ```
 
-These checks require the documented Python and R environments. A core CLI
-build does not demonstrate that those interfaces work.
+This needs the Python and R environments set up. A core CLI build does not
+test those interfaces.
 
 ## MCP container feature selection
 
-Prerequisite: Docker with BuildKit. The default public MCP target retains
+Prerequisite: Docker with BuildKit. The default public MCP target includes
 `sandbox,widget`. To build a native MCP image without those assets:
 
 ```sh
@@ -74,12 +71,9 @@ docker build -f bindings/mcp/Dockerfile --target public \
 Use that image's stdio entrypoint for offline work. Native library models are
 available; hosted user-source execution requires `sandbox`, and browser
 bindings require `widget`. Inspect `qspquest://capabilities` for the actual
-features and configuration. The managed image retains its required managed,
-sandbox and widget build independently of a custom public feature selection.
-All targets retain licenses, notices and package inventories.
+features and configuration. All targets include licenses, notices and package
+inventories.
 
 The MCP build caches locked Cargo registry dependencies by architecture.
-Reusing a cache can avoid repeated downloads; it does not remove checksum
-verification or pinning. Cold and warm build/install time, artifact and layer
-sizes, and native feature smoke checks must be measured on each supported
-target. No size or speed reduction is claimed without those measurements.
+Reusing the cache avoids repeat downloads; checksums and pinned versions are
+still verified.

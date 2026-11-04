@@ -218,8 +218,11 @@ fn library_hashes_and_all_model_roundtrips() {
 }
 #[test]
 fn admission_units_and_solver() {
-    let mut r = json!({"schema":"qspquest.run/v0.1","solver":"diffsol_rosenbrock23"});
-    assert!(policy::admit(&mut r, true).is_err());
+    for solver in ["diffsol_rosenbrock23", "diffsol_rodas5p"] {
+        let mut request = json!({"schema":"qspquest.run/v0.1","solver":solver});
+        let failure = policy::admit(&mut request, true).unwrap_err();
+        assert_eq!(failure["error"]["code"], "unsupported_solver");
+    }
     let mut r =
         json!({"schema":"qspquest.run/v0.1","solver":"diffsol_bdf","budgets":{"events":999999}});
     assert!(policy::admit(&mut r, true).is_err());

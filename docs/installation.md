@@ -23,10 +23,9 @@ minutes. Offline builds require those dependencies to be cached already.
 
 ## CLI
 
-The default `cargo build --release --locked` builds shared types, the engine
-and CLI. Python, R, MCP and WASM remain workspace members; select their package
-or documented installation command when needed. `cargo test --workspace
---locked` still covers the complete workspace and its language prerequisites.
+The default `cargo build --release --locked` builds the engine and CLI only.
+Python, R, MCP and WASM have their own install steps. `cargo test --workspace
+--locked` tests the whole workspace and needs every language prerequisite.
 See [building only the workflow you need](build-cost.md) for feature selection.
 
 From the checkout root:
@@ -59,10 +58,9 @@ python -m qspquest.first_run --out developer-results
 ```
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
-`pip` installs the pinned build backend and builds the native extension. The
-first run checks the analytic solution and writes six replay and result files
-in `developer-results/`. Keep that directory together and choose a new name
-for another run. No separate model library or analysis packages are needed.
+`pip` builds the native extension. The first run checks the analytic solution
+and writes six result files to `developer-results/`; use a new directory name for
+each run. No separate model library or analysis packages are needed.
 
 If you already have the matching Python source archive, replace `pip install .`
 with `python -m pip install ./qspquest-0.1.0.tar.gz`.
@@ -172,9 +170,8 @@ needed to run these images. Images are built locally until registry publication.
 
 Python users install a wheel or Python source archive with `pip`. R users install
 the separate R source archive with `R CMD INSTALL` or `install.packages`.
-These commands use files downloaded to your machine. QSPQuest 0.1.0 is not yet
-published to PyPI, CRAN or R-universe; `pip install qspquest` and
-`install.packages("qspquest")` are not the installation routes for QSPQuest 0.1.0.
+These commands use files downloaded to your machine; `pip install qspquest` and
+`install.packages("qspquest")` do not install this release.
 
 | Installation file | Use | Build tools |
 | --- | --- | --- |
@@ -184,9 +181,7 @@ published to PyPI, CRAN or R-universe; `pip install qspquest` and
 
 The hyphenated `.tar.gz` is the Python package; the underscored archive is the R
 package. Neither is the complete project archive `archives/qspquest.tar.gz`.
-Source builds download locked Cargo dependencies on first installation and can
-take several minutes. They require network access unless those dependencies are
-already cached. A matching Python wheel needs neither Rust nor Cargo.
+A matching Python wheel needs neither Rust nor Cargo.
 
 ### Install a Python wheel
 
@@ -204,9 +199,9 @@ python -c "import qspquest; print(qspquest.__version__)"
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`; the macOS
 wheel cannot be installed on Windows or Linux. Use a matching platform wheel
 when one is available, or the source route below. Expected version: `0.1.0`.
-The doctor compiles and simulates an analytic model and reports its checks. From
-the extracted, matching complete QSPQuest project source archive, retain the report and verify the compiler
-source and target using the included stdlib checker:
+The doctor runs a small analytic model and reports its checks. To confirm the
+wheel was built from the matching source, save the report and run the checker
+from the extracted complete QSPQuest source archive:
 
 ```sh
 qspquest-doctor --json > doctor.json
@@ -215,9 +210,8 @@ python3 scripts/check_source_identity.py --doctor doctor.json --target aarch64-a
 
 Use the actual artifact target (`aarch64-unknown-linux-gnu`,
 `x86_64-unknown-linux-gnu` or `x86_64-pc-windows-msvc` for those wheels).
-Expect `status: verified`. The checker binds source bytes and the vendored backend
-source to the installed artifact; changed files, a wrong target or mismatched
-source hash fail. This integrity check does not extend scientific qualification.
+Expect `status: verified`; changed files, a wrong target or a mismatched source
+hash fail.
 
 
 Run the wheel's self-contained example with `python -m qspquest.first_run --out

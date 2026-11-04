@@ -20,8 +20,10 @@ pub enum Solver {
     DiffsolTsit45,
     DiffsolEsdirk34,
     DiffsolTrBdf2,
+    #[cfg_attr(feature = "schema", schemars(skip))]
     #[serde(rename = "diffsol_rosenbrock23")]
     DiffsolRosenbrock23,
+    #[cfg_attr(feature = "schema", schemars(skip))]
     #[serde(rename = "diffsol_rodas5p")]
     DiffsolRodas5p,
     AnalyticLinearPk,

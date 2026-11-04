@@ -369,21 +369,18 @@ fn correlated_two_effect_focei_runs_dosed_pk_and_projects_individual_predictions
 }
 
 #[test]
-fn rodas5p_population_dispatch_preserves_objective_and_solver_identity() {
+fn population_dispatch_rejects_unavailable_solvers() {
     let (compiled, mut request, _) = fixture();
-    // Bounded replay checks both primal likelihood and derivative-bearing population paths.
-    request.max_iterations = 1;
-    request.uncertainty = false;
-    let bdf = compiled.fit_population_focei(&request).unwrap();
-    for subject in &mut request.subjects {
-        subject.simulation.run.solver = qspquest_core::run::Solver::DiffsolRodas5p;
+    for solver in [
+        qspquest_core::run::Solver::DiffsolRodas5p,
+        qspquest_core::run::Solver::DiffsolRosenbrock23,
+    ] {
+        for subject in &mut request.subjects {
+            subject.simulation.run.solver = solver;
+        }
+        assert_eq!(
+            compiled.fit_population_focei(&request).unwrap_err().code,
+            qspquest_core::ErrorCode::Unsupported
+        );
     }
-    let rodas = compiled.fit_population_focei(&request).unwrap();
-    assert_ne!(bdf.fit_request_hash, rodas.fit_request_hash);
-    assert!(
-        (bdf.objective - rodas.objective).abs() < 1e-4,
-        "{} vs {}",
-        bdf.objective,
-        rodas.objective
-    );
 }

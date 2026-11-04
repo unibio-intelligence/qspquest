@@ -18,6 +18,18 @@ parser.add_argument(
     help="Output directory; defaults to the checkout docs directory",
 )
 args = parser.parse_args()
+
+
+def replace_once(text, old, new, source):
+    """Replace one exact pattern; fail loudly when the source guide changed."""
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(
+            f"{source}: expected exactly one match for {old!r}, found {count}"
+        )
+    return text.replace(old, new)
+
+
 root = Path(__file__).resolve().parents[1]
 output_dir = args.output_dir or root / "docs"
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -31,18 +43,23 @@ nb.metadata = {
         "source_guide_sha256": hashlib.sha256(python_md.encode()).hexdigest(),
     },
 }
-python_md = python_md.replace(
-    "Run the Python blocks in order in one session.",
-    "Run the notebook cells from top to bottom with a kernel that has QSPQuest, pandas, and matplotlib installed. Installation commands below are reference instructions and are not executed by the notebook.",
+python_md = replace_once(
+    python_md,
+    "then run the Python blocks in order.",
+    "then run the notebook cells from top to bottom with a kernel that has QSPQuest, pandas, and matplotlib installed. Installation commands are reference instructions and are not executed by the notebook.",
+    "PYTHON-USER-GUIDE.md",
 )
-python_md = python_md.replace(
-    "optional plotting dependencies.",
-    "optional plotting dependencies. This notebook includes the plotting example and keeps its rendered output.",
+python_md = replace_once(
+    python_md,
+    "without plotting dependencies.",
+    "without plotting dependencies. This notebook includes the plotting example.",
+    "PYTHON-USER-GUIDE.md",
 )
 pattern = re.compile(r"```python\n(.*?)\n```", re.S)
 cells = []
 position = 0
 inserted_setup = False
+shown_plots = 0
 for match in pattern.finditer(python_md):
     prose = python_md[position : match.start()].strip()
     if prose:
@@ -61,26 +78,44 @@ for match in pattern.finditer(python_md):
         inserted_setup = True
     code = match.group(1)
     if 'plt.savefig("trajectory.png", dpi=150)' in code:
-        code = code.replace("plt.close()", "plt.show()\nplt.close()")
+        code = replace_once(
+            code, "plt.close()", "plt.show()\nplt.close()", "PYTHON-USER-GUIDE.md plot"
+        )
+        shown_plots += 1
     cells.append(nbformat.v4.new_code_cell(code))
     position = match.end()
+if shown_plots != 1:
+    raise SystemExit(
+        "PYTHON-USER-GUIDE.md: expected one python block with "
+        "'plt.savefig(\"trajectory.png\", dpi=150)', found " + str(shown_plots)
+    )
 remainder = python_md[position:].strip()
 if remainder:
     cells.append(nbformat.v4.new_markdown_cell(remainder))
+if not any(c.cell_type == "code" for c in cells):
+    raise SystemExit("PYTHON-USER-GUIDE.md: no python code blocks found")
 nb.cells = cells
 nbformat.write(nb, output_dir / "PYTHON-USER-GUIDE.ipynb")
 
 r_md = (root / "docs/R-USER-GUIDE.md").read_text()
-r_md = r_md.split("\n", 1)[1].lstrip()
-r_md = r_md.replace(
+title, r_md = r_md.split("\n", 1)
+if not title.startswith("# "):
+    raise SystemExit("R-USER-GUIDE.md: expected a '# ' title on the first line")
+r_md = r_md.lstrip()
+r_md = replace_once(
+    r_md,
     "Run the R blocks in order in one session.",
     "Render this R Markdown file after installing QSPQuest, jsonlite, knitr, and rmarkdown. Installation chunks are displayed but are not executed; all analysis chunks execute in order.",
+    "R-USER-GUIDE.md",
 )
-r_md = r_md.replace("## Contents\n", "## Contents\n", 1)
 # The generated HTML provides a native navigable table of contents.
-r_md = re.sub(
+r_md, removed = re.subn(
     r"## Contents\n.*?(?=## Install and verify)", "", r_md, count=1, flags=re.S
 )
+if removed != 1:
+    raise SystemExit(
+        "R-USER-GUIDE.md: expected a '## Contents' section before '## Install and verify'"
+    )
 index = 0
 
 
@@ -94,6 +129,10 @@ def r_chunk(match):
 
 
 r_md = re.sub(r"```r\n(.*?)\n```", r_chunk, r_md, flags=re.S)
+if index == 0 or "eval=FALSE" not in r_md:
+    raise SystemExit(
+        "R-USER-GUIDE.md: expected r code blocks, including an installation block"
+    )
 header = """---
 title: "QSPQuest quickstart and user guide for R"
 output:

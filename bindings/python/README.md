@@ -7,8 +7,7 @@ No model library is needed for the example below.
 
 ## Install
 
-Use CPython 3.10 or newer in a virtual environment. QSPQuest 0.1.0 is not yet
-published to PyPI. From the complete project checkout or extracted Python source
+Use CPython 3.10 or newer in a virtual environment. Install QSPQuest 0.1.0 using a matching wheel or the source archive. From the complete project checkout or extracted Python source
 archive, create an environment. On macOS or Linux:
 
 ```sh
@@ -50,9 +49,8 @@ Rust 1.98.1, Cargo and a native C/C++ compiler on `PATH`:
 python -m pip install ./qspquest-0.1.0.tar.gz
 ```
 
-The source build installs its pinned build backend and downloads locked Cargo
-dependencies. It needs network access unless those dependencies are cached and
-can take several minutes. This hyphenated archive is the Python distribution;
+The source build downloads its dependencies, so it needs network access (unless
+they are already cached) and can take several minutes. This hyphenated archive is the Python distribution;
 `qspquest_0.1.0.tar.gz` is the separate R package. From an extracted Python source
 archive, `python -m pip install .` is equivalent.
 
@@ -63,12 +61,11 @@ python -c "import qspquest; print(qspquest.__version__)"
 qspquest-doctor --json
 ```
 
-Expect version `0.1.0`. The doctor compiles and simulates an analytical synthetic
-model and reports checks, engine identity and missing optional dependencies.
-An import error usually means the active interpreter differs from the one used
-for installation or the native extension could not load. Use `python -m pip`
-with the same interpreter and inspect the doctor's diagnostics. A wheel platform
-error requires a matching wheel or the source installation route.
+Expect version `0.1.0`. The doctor runs a small synthetic model and reports
+its checks and any missing optional dependencies. An import error usually means
+you installed into a different Python interpreter or the native extension could
+not load; use `python -m pip` with the same interpreter. A wheel platform error
+means you need a matching wheel or the source install.
 
 ## Simulate and save a first result
 
@@ -103,10 +100,7 @@ Replay the exact saved source and request with this complete Python command:
 python -c "import json; from pathlib import Path; from qspquest import CompiledModel; p = Path('first-result'); result = CompiledModel((p / 'model.qsp').read_text()).run(json.loads((p / 'request.json').read_text())); print(json.dumps(result, indent=2))"
 ```
 
-Keep input quantities, output units and event sides when interpreting results.
-This illustrative model and analytical check do not establish clinical validity
-or qualify a drug-specific model. Fit quality also depends on study data, model
-assumptions and the observation error model.
+This is an illustrative synthetic model, not a clinical or drug-specific model.
 
 ## Optional workflows
 

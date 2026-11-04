@@ -1,14 +1,18 @@
 # Numerical qualification
 
-The numerical evidence passes numerical parity for all 47 catalog scenarios. The
-16 Liu and Rajwade scenarios additionally pass an independent ODE accuracy
-check. The other 31 retain their existing absolute regression bounds; this
-work does not add independent biological validation for them. These numerical checks apply only to the declared inputs and methods.
+These results were recorded with an earlier engine build that used a patched
+Diffsol. They have not been re-run with the current upstream Diffsol, so they
+do not qualify it.
+
+With that build, native and WASM results agreed for all 47 catalog scenarios. The 16 Liu and
+Rajwade scenarios also pass an independent ODE accuracy check; the other 31 are
+checked only against their existing absolute regression bounds. These checks
+cover only the recorded inputs and methods, not biological validity.
 
 `output-bounds.json` freezes a bound for every output, with its name, stored
-unit, model hash and request hash. Changed scientific inputs invalidate the
-policy. Bounds are reviewed evidence, rather than values regenerated from a
-new native/WASM mismatch.
+unit, model hash and request hash. Changing the inputs invalidates the bounds.
+The bounds were reviewed and are never regenerated to absorb a new native/WASM
+mismatch.
 
 For Liu and Rajwade, the predeclared numerical target is:
 
@@ -99,7 +103,4 @@ absolute `1e-9` determinism diagnostic is reported separately; it passes 47/47
 in the local ARM64 candidate. It is not substituted for independent accuracy.
 Other architectures must run the same checks before claiming qualification.
 
-Hosted large models continue to route to managed asynchronous execution.
-Interactive execution latency, heavy routing, managed job admission and job
-completion remain distinct measurements. This numerical change retains the
-compiler, sparsity, selected-output and async-routing performance work.
+Large hosted models still run as managed asynchronous jobs.

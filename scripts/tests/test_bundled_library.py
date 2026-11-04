@@ -16,7 +16,7 @@ class BundledLibraryTests(unittest.TestCase):
         availability = json.loads(availability_path.read_text())['records']
         self.assertEqual(catalog['availability_sha256'], hashlib.sha256(availability_path.read_bytes()).hexdigest())
         selected = {row['id']: row['version'] for row in catalog['models']}
-        self.assertEqual(selected['qspquest_diffdose_2026_idr_benchmark'], '0.3.0')
+        self.assertEqual(selected['qspquest_diffdose_2026_idr_benchmark'], '0.3.1')
         self.assertEqual(selected['qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp'], '2.1.2')
         self.assertEqual(sum(len(row['scenario_ids']) for row in catalog['models']), 47)
         for row in catalog['models']:

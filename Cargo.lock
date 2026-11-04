@@ -620,6 +620,7 @@ checksum = "930c7171c8df9fb1782bdf9b918ed9ed2d33d1d22300abb754f9085bc48bf8e8"
 [[package]]
 name = "diffsol"
 version = "0.18.0"
+source = "git+https://github.com/martinjrobins/diffsol?rev=883d9a09238c2e0b465f0f1549c462b8c38ea1b2#883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 dependencies = [
  "diffsol-la",
  "diffsol-nl",
@@ -634,10 +635,10 @@ dependencies = [
 [[package]]
 name = "diffsol-la"
 version = "0.3.0"
+source = "git+https://github.com/martinjrobins/diffsol?rev=883d9a09238c2e0b465f0f1549c462b8c38ea1b2#883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 dependencies = [
  "faer",
  "faer-traits",
- "libm",
  "nalgebra",
  "num-traits",
  "thiserror 2.0.21",
@@ -646,6 +647,7 @@ dependencies = [
 [[package]]
 name = "diffsol-nl"
 version = "0.3.0"
+source = "git+https://github.com/martinjrobins/diffsol?rev=883d9a09238c2e0b465f0f1549c462b8c38ea1b2#883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 dependencies = [
  "diffsol-la",
  "log",

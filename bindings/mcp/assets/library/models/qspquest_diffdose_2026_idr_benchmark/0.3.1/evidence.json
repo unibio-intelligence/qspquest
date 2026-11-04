@@ -1,0 +1,28 @@
+{
+  "schema": "qspquest.models.source-preparation-evidence/v1",
+  "model_id": "qspquest_diffdose_2026_idr_benchmark",
+  "model_version": "0.3.1",
+  "omex_sha256": "e8ecac8677fb6b4685483d9f1063df370869754688d849b30c27aa335d822922",
+  "cases": [],
+  "source_scenarios": [
+    "higher_exposure",
+    "lower_exposure",
+    "untreated"
+  ],
+  "unavailable_scenarios": [],
+  "current_engine_qualification": "not_assessed",
+  "numerical_qualification_accepted": false,
+  "scope": "Versioned execution inputs; scientific source and native equations are unchanged. Complete release qualification is not assessed.",
+  "archive_source_members_preserved": true,
+  "changed_members": [
+    "fitting.json",
+    "fitting/qualification/diffsol_bdf-start-1.json",
+    "fitting/qualification/diffsol_bdf-start-2.json",
+    "fitting/qualification/diffsol_bdf-start-3.json",
+    "fitting/results/diffsol_bdf-start-1.json",
+    "fitting/results/diffsol_bdf-start-2.json",
+    "fitting/results/diffsol_bdf-start-3.json",
+    "index.json",
+    "manifest.xml"
+  ]
+}

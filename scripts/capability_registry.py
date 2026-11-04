@@ -69,8 +69,8 @@ def validate(root, catalog=None):
     version = re.search(r'^version\s*=\s*"([^"]+)"', (root / 'Cargo.toml').read_text(), re.M).group(1)
     if catalog['package_version'] != version:
         raise ValueError('Capability package version is stale')
-    source, vendor = source_hashes(root)
-    if (catalog['compiler_source_sha256'], catalog['vendor_source_sha256']) != (source, vendor):
+    source, backend = source_hashes(root)
+    if (catalog['compiler_source_sha256'], catalog['backend_version']) != (source, backend):
         raise ValueError('Capability compiler/backend source identity is stale')
     for name, sha in catalog['source_snapshot'].items():
         if hashlib.sha256(file(root, name).read_bytes()).hexdigest() != sha:
@@ -91,8 +91,8 @@ def validate(root, catalog=None):
             raise ValueError('Capability binding symbol is absent: ' + entry['api'])
         if set(entry['example_ids']) - examples.keys():
             raise ValueError('Capability advertises an absent example ID')
-        if entry['interface'] == 'mcp' and 'diffsol_rosenbrock23' in entry['solvers']:
-            raise ValueError('MCP withholds Rosenbrock23')
+        if {'diffsol_rosenbrock23', 'diffsol_rodas5p'}.intersection(entry['solvers']):
+            raise ValueError('Capability advertises an unavailable solver')
         if entry['interface'] == 'wasm_worker' and (entry['operation'] != 'simulate' or entry['solvers'] != ['diffsol_bdf']):
             raise ValueError('Public Worker contract exposes BDF simulation only')
         if entry['interface'] == 'wasm_direct' and entry['operation'] in ('sensitivities', 'fit_individual', 'fit_population') and 'm0-conformance' not in entry['required_features']:
@@ -126,12 +126,14 @@ def expand(catalog):
 def matrix(catalog):
     interfaces = ['rust', 'python', 'r', 'cli', 'wasm_direct', 'wasm_worker', 'wasm_sandbox', 'mcp']
     titles = ['Rust', 'Python', 'R', 'CLI', 'Direct WASM', 'Browser Worker', 'Sandbox ABI', 'MCP']
-    operations = sorted({e['operation'] for e in catalog['entries']})
+    labels = catalog['operation_labels']
+    operations = sorted({e['operation'] for e in catalog['entries']}, key=lambda op: labels[op].lower())
     lines = ['# Supported interfaces', '',
-             'This matrix is generated from the [capability catalog](../../spec/capabilities.json).',
-             'It lists declared interface contracts. Build features, deployment configuration,',
-             'model requirements and request admission determine whether a workflow can execute.',
-             'Source declarations do not establish scientific qualification for a release.', '',
+             'This table is generated from the [capability catalog](../../spec/capabilities.json).',
+             '"Declared" means the interface exposes the workflow, "Requires" names the build',
+             'feature it needs, and a dash means it is not exposed. Whether a run succeeds still',
+             'depends on the build, deployment, model and request. Nothing here is a scientific',
+             'qualification.', '',
              '| Workflow | ' + ' | '.join(titles) + ' |',
              '| --- | ' + ' | '.join('---' for _ in interfaces) + ' |']
     for operation in operations:
@@ -141,36 +143,30 @@ def matrix(catalog):
                         (e['interface'] == interface or interface == 'python' and e['interface'].startswith('python_'))]
             cells.append('; '.join(('Requires ' + ', '.join('`' + f + '`' for f in e['required_features']))
                                    if e['required_features'] else 'Declared' for e in matching) or '—')
-        lines.append('| ' + catalog['operation_labels'][operation] + ' | ' + ' | '.join(cells) + ' |')
-    lines.extend(['', 'A dash means the declared interface does not expose that workflow.',
-                  '`python_analysis` uses the optional analysis dependencies; it is distinct from',
-                  'native Python sensitivity-based fitting. Native and Python SAEM have different',
-                  'estimator contracts. `wasm_direct` browser classes are absent with `sandbox-abi`.',
-                  'The public Worker contract declares BDF simulation; direct bindings expose their',
-                  'documented additional operations and solvers.', '',
-                  '## Solvers, estimators and execution modes', '',
-                  'The catalog keys each expanded record by operation, interface, estimator, solver,',
-                  'target and execution mode. Native simulation has seven explicit solver choices.',
-                  'Sensitivities and native sensitivity-based fits accept BDF or Rodas5P.',
-                  'Periodic linear steady state requires `analytic_linear_pk`; bounded cycle',
-                  'iteration requires BDF. MCP withholds Rosenbrock23. Analytic execution requires',
-                  'a compatible `linear_pk` declaration; availability does not validate a model.', '',
-                  'Read the [fitting solver guide](fitting-solvers.md), [Python guide](../PYTHON-USER-GUIDE.md)',
-                  'and [MCP guide](../../bindings/mcp/README.md) for their complete input contracts.',
-                  'MCP hosted user-source execution requires a configured sandbox. Effective limits',
-                  'and active tools are reported by `qspquest://capabilities`.', '',
-                  'Read `qspquest://capability-registry` for the active MCP target and mode.',
-                  'Use `get_capability` with the six key fields and an optional native model/version',
-                  'and stored scenario to inspect blockers. `executable: null` means the exact request',
-                  'still needs normal tool admission and execution. Other interfaces and targets',
-                  'remain unassessed by this server. Governed records describe the transport build;',
-                  'platform model readiness and execution target require an authorized preview.', '',
+        lines.append('| ' + labels[operation] + ' | ' + ' | '.join(cells) + ' |')
+    lines.extend(['', 'The Python column combines the native binding and the optional analysis helpers',
+                  '(`python_analysis`, installed with the `analysis` extra). Native and Python SAEM',
+                  'are different estimators. Direct WASM browser classes are absent in `sandbox-abi`',
+                  'builds, and the browser Worker runs BDF simulation only.', '',
+                  '## Solvers', '',
+                  'Native simulation offers BDF, TSIT45, ESDIRK34, TR-BDF2 and analytic linear PK.',
+                  'Sensitivities and sensitivity-based fits accept BDF. Periodic linear steady state requires `analytic_linear_pk`',
+                  'and a compatible `linear_pk` declaration; bounded cycle iteration requires BDF.',
+                  'See the [fitting solver guide](fitting-solvers.md),',
+                  '[Python guide](../PYTHON-USER-GUIDE.md) and [MCP guide](../../bindings/mcp/README.md)',
+                  'for inputs.', '',
+                  '## Check a workflow in MCP', '',
+                  '`qspquest://capabilities` reports the active tools and limits, and',
+                  '`qspquest://capability-registry` the server\'s target and mode. `get_capability`',
+                  'takes the six key fields (operation, interface, estimator, solver, target and',
+                  'execution mode), optionally with a model, version and scenario, and lists',
+                  'blockers. `executable: null` means the request still needs normal admission.',
+                  'Hosted MCP runs user-supplied models only with a sandbox build. Governed records',
+                  'describe the transport; platform readiness needs an authorized preview.', '',
                   '## Qualification', '',
-                  'Catalog records carry `untested` scientific status. They describe implementation',
-                  'and interface exposure; they do not qualify the current artifact, clinical model',
-                  'or study design. Scientific claims require matching release, operation, solver,',
-                  'target, model and evidence scope. A successful synthetic example is limited to',
-                  'its tested numerical contract. Model unit and fitting readiness remain separate.', ''])
+                  'Catalog records have scientific status `untested`. They describe what is',
+                  'implemented and exposed, not whether a release, model or study is qualified. A',
+                  'passing synthetic example covers only its tested numerical check.', ''])
     return '\n'.join(lines)
 
 

@@ -1,25 +1,22 @@
 # Native-backed analysis workflows
 
-Install `qspquest[analysis]` from this checkout. The optional NumPy/SciPy layer
-adds reproducible scientific workflows using `CompiledModel.run` for every
-model evaluation. It does not replace the existing Rust fitting contracts or
-change the released Ubi platform routes. The numerical workflows are Python
-APIs; they are not currently exposed through CLI, R or WASM bindings.
+Install `qspquest[analysis]` from this checkout. This optional NumPy/SciPy layer
+adds analysis workflows that run every simulation through `CompiledModel.run`.
+They are Python-only; the CLI, R and WASM bindings do not offer them.
 
 ## Typed requests and result helpers
 
 Python 3.10 or later can use `RunRequest`, `Quantity`, `ParameterSpec`,
 `AnalysisObservation` and `AnalysisSubject` from `qspquest`. These are
-`TypedDict` contracts: their values remain ordinary dictionaries and serialize
-with `json.dumps`. Native request/result definitions in `qspquest.types` are
-generated from the shipped JSON schemas. Analysis records live in
-`qspquest.analysis_types`.
+`TypedDict` types, so values are plain dictionaries that serialize with
+`json.dumps`. Request and result types are in `qspquest.types` (generated from
+the JSON schemas); analysis records are in `qspquest.analysis_types`.
 
 `CompiledModel.run`, the analysis methods on `CompiledModel`,
 `CompiledSensitivities.run` and the dataset's `fit` method return
 `AnalysisResult`. Call `.summary()` or `.rows()` without extra dependencies.
 `.to_frame()` needs the notebook extra, and `.plot()` needs Matplotlib.
-The standalone analysis functions retain their dictionary return contracts.
+Standalone analysis functions still return plain dictionaries.
 
 Run the complete [typed synthetic example](examples/python_typed.py) from the
 release source directory after installing the released wheel into a fresh
@@ -36,9 +33,8 @@ On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell. The
 example requires only the core package and uses a synthetic model embedded in
 the file. A 6 mg bolus into a 3 L compartment with clearance 0.3 L/h produces
 `cp(t) = 2 * exp(-0.1*t)` mg/L. It checks six post-dose samples from 0 to 12 h,
-prints a completion summary, and reports six verified analytical samples.
-This verifies the synthetic numerical workflow, without qualifying a clinical
-model. To print the optional DataFrame:
+prints a summary, and reports six samples that match the analytical solution.
+It is a synthetic check, not a clinical model. To print the optional DataFrame:
 
 ```sh
 python -m pip install 'qspquest[notebook]'
@@ -50,17 +46,15 @@ With a Python type checker, annotate requests explicitly or use the typed
 helpers `quantity`, `bolus`, `infusion` and `run_request`. For example,
 `Quantity(value=6.0, unti="mg")` has a misspelled key, and
 `run_request(end=12.0, times=[0.0], solver_callbacks="many")` supplies a string
-where an integer is required. Both violate the declared contracts. Stable
-analysis options are explicit keyword arguments, including integer
-`max_simulations`, boolean `prediction_corrected`, and supported solver or
-optimizer names expressed as literals.
+where an integer is required; a type checker flags both. Analysis options are
+typed keyword arguments, such as integer `max_simulations`, boolean
+`prediction_corrected`, and literal solver or optimizer names.
 
-Dynamic JSON strings and unannotated dictionaries remain accepted; they rely
-on runtime validation. Static types do not verify unit dimensions, finite
-values, parameter bounds, budget limits or scientific qualification. The
-native binder and analysis validators enforce those input constraints. Frame
-and plot return values use `Any` to keep optional pandas/Matplotlib type
-packages out of the core installation.
+Plain JSON strings and unannotated dictionaries also work; they are checked
+when the request runs. Type checking does not cover units, finite values,
+parameter bounds or budgets; QSPQuest checks those at run time. Frame and plot
+results are typed `Any` so the core package does not depend on pandas or
+Matplotlib.
 
 ## Run a complete Python population workflow
 
@@ -82,23 +76,22 @@ python docs/examples/python_population.py --restart-demo population-restart-demo
 ```
 
 On Windows, activate with `.venv-analysis\Scripts\Activate.ps1`. The optional
-restart demonstration requires a new directory. It cancels at iteration 100,
-resumes the saved state, and compares estimates, the full trace and diagnostics
-with the uninterrupted fit. Revalidation simulations remain in the work count.
+restart demo needs a new directory. It cancels at iteration 100, resumes from
+the saved state, and checks that the result matches an uninterrupted fit.
 
 The fixed seed gives a population parameter near 4.36 and log-effect variance
 near 0.17; the generated data's Gaussian reference is printed alongside them.
-The example checks numerical agreement on this synthetic dataset. It does not
-establish sampling-design performance or uncertainty coverage. Iteration counts
-can vary across numerical environments. Read the reported status before using
-estimates; a limit or failed mixing screen leaves them diagnostic. The returned
-objective is a complete-data surrogate, so it cannot supply likelihood ratios.
+This is a numerical check on synthetic data only. Iteration counts can vary
+between machines. Check the reported status before using the estimates: if a
+limit was hit or the mixing check failed, treat them as diagnostic only. The
+returned objective is a complete-data surrogate, not a likelihood, so do not
+use it for likelihood-ratio tests.
 
 Use variance, rather than standard deviation, in `omega`. Observation values
 and additive SD use the output's units, here `1`; observation `row` indexes the
-requested time grid. Restart with the same inputs, controls, code, native build
-and numerical environment. Changed inputs or older algorithm checkpoints are
-rejected; start a new analysis in a new directory.
+requested time grid. Resume only with the same inputs, controls, code, build and
+numerical environment; otherwise the checkpoint is rejected and you should
+start a new analysis in a new directory.
 
 ## Run an individual likelihood profile
 
@@ -161,22 +154,20 @@ PY
 ```
 
 The output reports a complete profile, a positive estimate near 4, and two
-finite interval endpoints. The independent Gaussian mean check verifies the
-point estimate on these generated observations. The 95% interval uses a
-chi-square likelihood-ratio approximation with grid interpolation; it does not
-establish biological validity or general interval coverage.
+finite interval endpoints. The script checks the estimate against the mean of
+the generated data. The 95% interval uses a chi-square likelihood-ratio
+approximation with grid interpolation; it does not guarantee coverage.
 
-Structural optimization uses a bounded preliminary fit followed by Powell
-refinement. `initial_fit` and `unrestricted_fit` retain both records; their
-combined iterations respect `max_iterations`. Each structural nuisance fit
-uses Powell. All simulations share `max_simulations`, including initialization
-and refinement. `fit_data(method="Powell")` applies `tolerance` to both function
-and parameter stopping criteria.
+The fit runs in two stages: a bounded first fit, then Powell refinement. The
+result keeps both as `initial_fit` and `unrestricted_fit`; together they stay
+within `max_iterations`. Each nuisance refit also uses Powell. All simulations
+count toward `max_simulations`. `fit_data(method="Powell")` applies `tolerance`
+to both function and parameter stopping criteria.
 
 Check the profile status and every grid-point status. A failed nuisance fit
-makes the profile incomplete even when it lies outside the interval. An open
-endpoint remains null: widen the parameter bounds or grid only when justified
-by the intended analysis. Do not treat a boundary as a confidence endpoint.
+makes the profile incomplete even when it lies outside the interval. An
+endpoint the grid cannot resolve stays null; widen the bounds or grid only if
+your analysis justifies it. Never read a bound as a confidence endpoint.
 
 
 ## Operations
@@ -186,25 +177,25 @@ by the intended analysis. Do not treat a boundary as a confidence endpoint.
   normal error, lognormal error, M3 left censoring, fitted SDs, and request-time
   event controls. Combined normal errors add independent variances.
 - `CompiledModel.fit_population(subjects, parameters, omega, error, ...)`:
-  native-simulation SAEM for 1–8 positive lognormal random effects (one per
-  selected fitted parameter), diagonal/full covariance, up to eight bounded
-  exponential subject-constant covariate coefficients, and fixed/fitted
-  additive/proportional/combined normal or lognormal residual error. M3 rows
-  use their probability for conditional sampling and conditional latent draws
-  for the residual-error M step. Each subject retains its native regimen.
+  SAEM for 1–8 positive lognormal random effects (one per fitted parameter),
+  diagonal/full covariance, up to eight bounded exponential subject-constant
+  covariate coefficients, and fixed/fitted additive/proportional/combined
+  normal or lognormal residual error. M3 rows use their probability for
+  conditional sampling and conditional latent draws for the residual-error M
+  step. Each subject keeps its own regimen.
 - `fit_diagnostics(fit)`: plotting rows for observed versus population/individual
   predictions, conditional standardized residuals, traces, eta variance
   shrinkage, acceptance, lag-one correlations and boundary warnings. Censored
-  rows retain null residuals. These residuals are not CWRES or NPDE.
+  rows have null residuals. These residuals are not CWRES or NPDE.
 - `CompiledModel.visual_predictive_check(...)`: seeded joint-IIV and residual
   simulation on the observed design, explicit/automatic time bins, one/two
   subject stratifiers, prediction correction, BLQ fractions, and replicate
   confidence intervals for quantiles. Supply `lloq` on every observation for
   complete BLQ-aware checks. Concentration quantiles use quantifiable rows in
   both real and simulated data, with BLQ fractions reported separately.
-  `workers=1` is the default; 1..8 bounded workers preserve ordered random
-  streams and scientific results. Every failed replicate remains in the
-  denominator, and any failure suppresses confidence intervals. See the
+  `workers=1` is the default; any count from 1..8 gives the same results.
+  Failed replicates still count in the denominator, and any failure
+  suppresses confidence intervals. See the
   [parallel predictive-check tutorial](tutorials/parallel-predictive-checks.md).
 - `CompiledModel.profile_likelihood(...)`: fix each grid value and refit all
   structural/error nuisance parameters. The likelihood-ratio interval uses
@@ -212,13 +203,13 @@ by the intended analysis. Do not treat a boundary as a confidence endpoint.
   null rather than substituted search bounds.
 - `CompiledModel.bootstrap_population(...)`: resample complete subjects,
   including event histories and covariates; give each replicate an independent
-  recorded seed; retain failed, nonconverged and boundary replicates. Percentile
-  intervals for structural effects, Omega, covariates and residual errors
-  require the declared minimum fraction of successful fits.
+  recorded seed; keep failed, nonconverged and boundary replicates in the
+  result. Percentile intervals for structural effects, Omega, covariates and
+  residual errors require a minimum fraction of successful fits.
 - `exposure_summary(result, output, threshold=...)`: sampled-grid AUC, Cmax,
   Tmax, Cmin, endpoint value and time above a threshold. Integrates each
-  piecewise-linear segment and respects pre/post dose jumps. No terminal
-  extrapolation or clinical NCA claim. Refine the observation grid and check
+  piecewise-linear segment and respects pre/post dose jumps. There is no
+  terminal extrapolation, and this is not a clinical NCA. Refine the observation grid and check
   convergence for each intended use. Endpoint is a trough only when sampled
   at the appropriate pre-dose boundary.
 - `CompiledModel.compare_regimens(...)`: pair the same virtual subjects across
@@ -237,9 +228,9 @@ by the intended analysis. Do not treat a boundary as a confidence endpoint.
 ## Inputs and work limits
 
 Parameter specifications contain numeric `initial`, `lower`, `upper`, and a
-native unit string. Values are expressed in that unit; the native binder checks
-model units. Observation records contain `row`, `output`, and a quantity-valued
-`value`. The row selects the exact native result grid and side. Observation
+unit string. Values are in that unit; QSPQuest checks it against the model.
+Observation records contain `row`, `output`, and a quantity-valued `value`.
+The row selects a point (time and pre/post side) on the result grid. Observation
 units must equal the output units; conversion must be explicit before fitting.
 A censored row adds `censoring: "left"` and uses its quantification limit as
 `value`; VPC records may supply a quantity-valued `lloq` on uncensored rows too.
@@ -250,77 +241,73 @@ numeric, subject-constant `covariates`. Covariate specifications contain
 `theta_subject = theta_reference * exp(sum(beta*(x-reference)) + eta)`.
 Coefficients on time-varying inputs, alternative covariate forms, fixed-effect
 parameters without a random effect, interoccasion effects, mixture/count/
-survival likelihoods, and priors are not included in this population contract.
-Native step-covariate inputs may still occur in each subject's run.
+survival likelihoods, and priors are not supported. Each subject's run may
+still contain step-covariate inputs.
 
 Normal error supplies numeric SDs in `additive` (observation units) and
 `proportional` (dimensionless), or a fitted `{initial, lower, upper}` record.
 `model: "lognormal"` uses zero additive SD and proportional SD on log output.
-One analysis uses one observed output and one shared residual-error contract.
+Each analysis fits one observed output with one residual-error model.
 
 A request-time event parameter adds a `path`, for example
 `["regimen", "administrations", 0, "lag"]`. Supported paths are administration
-time, lag, infusion duration and repeat interval. Selected model parameters
-without a path are rebound normally, including model-authored lag parameters.
+time, lag, infusion duration and repeat interval. Model parameters without a
+path, including lag parameters defined in the model, are set as usual.
 Central sensitivities require interior bounds and fixed observation times away
 from moving discontinuities.
 
-`max_simulations` is an aggregate budget, including all native evaluations;
-bootstrap/profile workflows share it across subfits. Every native run also
-retains its own solver/event/output budget. Deterministic and population fits
-report evaluation limits explicitly. VPC, comparisons and derivative operations
-return no partial scientific output after exhaustion. Population expectation
-and VPC storage are bounded to two million observation-draw cells.
+`max_simulations` caps the total number of simulations; bootstrap and profile
+workflows share it across their subfits. Each simulation also has its own
+solver, event and output budgets. Deterministic and population fits report
+when they hit a limit. VPC, comparison and derivative operations return no
+partial results once the budget runs out. Population and VPC storage is capped
+at two million observation-draw cells.
 
 ## Scientific scope
 
-Python SAEM compares parameter history over at least 50 post-burn samples
-spanning one unit of cumulative stochastic-approximation gain. Its mixing
-and drift screen is not proof of population optimality or design-specific
-recovery. A limit or unresolved screen keeps a nonconverged result diagnostic.
-Population checkpoints bind this convergence rule; a checkpoint from a
-different rule cannot resume the current algorithm.
-The first half of burn-in equilibrates individual chains under the initial
-population parameters before population sufficient-statistic updates begin.
+Python SAEM checks convergence by comparing parameter history over at least 50
+post-burn-in samples spanning one unit of cumulative stochastic-approximation
+gain. The first half of burn-in lets individual chains settle under the initial
+population parameters before population updates begin. Checkpoints saved under
+a different convergence rule cannot be resumed.
 
-The general SAEM fitter returns a **complete-data surrogate**, not a marginal
-objective or a likelihood-ratio comparison statistic. Convergence is a bounded
-stationarity/mixing screen; it is not proof of a global optimum, accurate
-variance recovery or calibrated uncertainty. Singular covariance fails; no
-ridge is silently substituted. Bounds, residual/covariate/variance boundaries,
-seeds, traces, exact native execution identity and a normalized analysis hash
-are retained in results. Python/SciPy arithmetic is distinct from the existing
-Rust SAEM implementation; deterministic seeds are reproducible within the
-recorded environment, not a cross-platform bitwise guarantee.
+The fitter returns a **complete-data surrogate**, not a marginal likelihood, so
+it cannot be used for likelihood-ratio comparisons. Passing the convergence
+check does not prove a global optimum, accurate variance recovery or calibrated
+uncertainty; if a limit is hit or the check fails, treat the result as
+diagnostic. A singular covariance fails rather than being silently regularized.
+Results record bounds, boundary hits, seeds, traces, the native run's identity
+record and an analysis hash. This Python SAEM is separate from the Rust SAEM
+implementation. Seeded runs repeat exactly on the same environment, but not
+necessarily bit-for-bit across platforms.
 
 Tests compare the synthetic compartment examples with an analytic oral solution,
-independent matrix exponential and independent nonlinear integrator. Generated
-recovery observations remain explicitly generated numerical fixtures. They
-check parameter recovery, combined/M3 likelihoods, three-effect full covariance,
-joint covariate/residual inference, repeated-seed determinism, event derivatives,
-bootstrap failure accounting and successful intervals, paired dose scaling,
-units and budgets. They do not establish broad sampling-design performance or
-bootstrap/profile interval coverage. Product/image qualification and a
-production capability release are separate work.
+independent matrix exponential and independent nonlinear integrator. Recovery
+tests use generated data and check parameter recovery, combined/M3
+likelihoods, three-effect full covariance, joint covariate/residual inference,
+repeated-seed determinism, event derivatives, bootstrap failure accounting and
+successful intervals, paired dose scaling, units and budgets. They do not show
+performance for other study designs or bootstrap/profile interval coverage.
 
 External benchmark results and source-derived examples are maintained in [QSPQuest validation](https://github.com/unibio-intelligence/qspquest-validation). The engine includes an independently authored synthetic OMEX tutorial.
 
 ## Friendly interfaces and long analyses
 
-`bolus`, `infusion`, `quantity` and `run_request` construct explicit native
-requests. New `CompiledModel` results are dict-compatible `AnalysisResult`
-objects with `rows`, `to_frame`, `plot` and `summary` helpers. Dataset adapters
-can call `to_subjects` or `fit` with an explicitly chosen residual contract.
-`scientific_status` and `QSPQuestError.explain` state interpretation limits.
+`bolus`, `infusion`, `quantity` and `run_request` build run requests.
+`CompiledModel` results are dict-compatible `AnalysisResult` objects with
+`rows`, `to_frame`, `plot` and `summary` helpers. Dataset adapters can call
+`to_subjects` or `fit` with a residual-error model you choose.
+`scientific_status` and `QSPQuestError.explain` say what a result or error
+does and does not tell you.
 
 Population fitting, VPCs and subject bootstraps accept `control=AnalysisControl`
-for progress, cooperative cancellation and atomic JSON restart checkpoints.
-Inputs, code, model, native build and numerical environment must match on
-restart. Revalidation calls count toward the work budget. No partial scientific
-result is returned on cancellation. See [controls](site/controls.md) and the
+for progress, cancellation and JSON restart checkpoints. Restart needs the same
+inputs, code, model, build and numerical environment. Simulations rerun to
+check a checkpoint count toward the budget. Cancelling returns no partial
+results. See [controls](site/controls.md) and the
 [synthetic OMEX tutorial](site/interchange.md).
 
-VPC workers may change on resume. Running work drains before a cancellation
-checkpoint is sealed; charged calls from unfinished replicates remain in its
-aggregate budget. Their random draws are replayed from the last complete
-ordered prefix. Allocate enough budget for revalidation and discarded work.
+You can change the VPC worker count when resuming. On cancellation, running
+work finishes before the checkpoint is saved; simulations from unfinished
+replicates still count toward the budget, and those replicates rerun with the
+same random draws on resume. Leave budget headroom for this extra work.

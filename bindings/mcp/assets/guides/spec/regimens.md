@@ -1,6 +1,6 @@
 # Fixed administration requests
 
-Status: implemented M1 event subset, not the complete event contract.
+Status: a supported subset of fixed events, not the complete event model.
 
 A text-model worker accepts exactly one `protocol` (the existing numeric form)
 or `regimen`. A regimen contains unit-bearing `end`, `samples`, and
@@ -66,8 +66,7 @@ This is a unit-bearing administration/time request, not the final full run
 schema. Named administration channels
 beyond the current state mappings and steady state
 are not implemented. Explicit observation-side selection is described below. Dynamic event
-expressions are not accepted by this schema. Solver requirements, complete
-result identity and managed product integration remain separate work.
+expressions are not accepted by this schema.
 
 ## State resets
 
@@ -111,9 +110,8 @@ early. They do not deliver additional drug. The solver is reinitialized at reset
 boundaries, as at the existing dosing discontinuities.
 
 No occasion label causes an implicit reset. No model-wide nonnegative reset
-constraint is inferred: the implemented reset check enforces finite values and
-units. General model invariants and reset sensitivity jump qualification remain
-separate outstanding work.
+constraint is inferred: reset values are checked only for being finite and
+having compatible units. Sensitivities across reset jumps are not yet validated.
 
 ## Explicit observation times and sides
 
@@ -157,7 +155,7 @@ check outputs at every returned trajectory point.
 Memory checks cover retained state rows plus selected output values. Event and
 solver-work budgets remain in effect. The current observation result has all
 declared deterministic output columns; per-endpoint selection, measured data,
-censoring and likelihood evaluation remain outside this implemented slice.
+censoring and likelihood evaluation are not part of this request.
 
 ## Covariate steps
 
@@ -197,7 +195,7 @@ uses the full regimen path.
 Each request supplies exactly one of:
 
 - `atol`: a finite positive scalar interpreted in each state's declared numeric
-  unit, retained for existing conformance clients;
+  unit, kept for backward compatibility;
 - `absolute_tolerances`: an object naming every state, with a finite positive
   quantity in compatible units, for example
   `{"bulk":{"value":0.01,"unit":"mg"},"trace":{"value":1e-15,"unit":"mol"}}`.
@@ -257,14 +255,11 @@ and post observations. Every in-window switch change consumes an event budget
 entry before simultaneous times are merged, alongside other declared events.
 
 Use `execute` or `simulate_regimen`. Raw protocol simulation of a bound switch
-model fails explicitly because it cannot carry the owned schedule. Existing
-models with no switch declarations retain their serialized model identity.
+model fails explicitly because it cannot carry the owned schedule. Models
+without switch declarations keep their existing hash.
 
-Native analytic tests cover integration across switches, observation sides,
-start-time initialization, parameter/unit rebinding, simultaneous switch/reset/
-dose ordering, independent repeated execution, name and time restrictions,
-forbidden overrides, event budgets and text round trips. Browser and Python
-package qualification for this feature is pending. Plain phase declarations
+This feature has not yet been validated in the browser and Python packages.
+Plain phase declarations
 retain the side-based semantics above. Explicit time predicates use the
 additional pointwise-readout contract below.
 
@@ -283,7 +278,7 @@ switches
 
 JSON stores the threshold in `time` and the operator in `comparison`. The
 threshold still depends only on parameters and must have time dimensions.
-Equality and inequality (`eq`, `ne`) predicates are not qualified.
+Equality and inequality (`eq`, `ne`) comparisons are rejected.
 
 Integration uses the constant truth value on each open interval, with a
 restart at every threshold. Outputs evaluate the predicate at the exact
@@ -294,13 +289,11 @@ expressions use the exact predicate at the run start, then integration enters
 the right-hand interval. No epsilon shift or smoothed approximation is used.
 
 Predicate-dependent dose scales, including dependencies through definitions or
-individual parameters, are rejected until their event-time semantics qualify.
+individual parameters, are rejected.
 Plain phase switch dose scales retain the earlier step-binding contract.
 Parameter sensitivities through event times remain unsupported.
 
-Native tests cover all four predicates, analytic trajectories, exact pre/post
-readouts, initial values at a threshold, text round trips, and unsupported
-predicate uses. The legacy adapter explicitly lowers comparisons between `t`
+The legacy adapter explicitly lowers comparisons between `t`
 and parameter-only thresholds (including reversed comparisons), retains their
 source trees and deduplicates identical predicates. Unsupported time expressions
 and state-dependent thresholds remain compiler errors.
@@ -324,12 +317,9 @@ retain their original expressions and input quantities.
 Use `execute` or bound `simulate_regimen`. Raw event/protocol APIs reject models
 with lag because they cannot bind its expression. Text authoring uses
 `lag(central) = delay` in the dosing block; formatting preserves the expression.
-Duplicate declarations and targets that do not accept dosing are rejected. Browser/Python package qualification for this
-new feature is pending; previous packaged builds do not include it.
-
-Native tests cover unit conversion, additive administration lag, repeated
-boluses, parameter rebinding, exact boundary sides, analytic trajectories,
-negative lag, state dependencies and dimension errors.
+Duplicate declarations and targets that do not accept dosing are rejected. This
+feature has not yet been validated in the browser and Python packages; older
+packaged builds do not include it.
 
 ## Administration metadata for history consumers
 
@@ -346,7 +336,7 @@ ordering and infusion-duration calculations. In particular, F = 0 does not erase
 the original amount from the metadata record.
 
 The model bindings below use these records. Reset history and nullable
-observation representations still require separate contracts.
+observations are not yet supported.
 
 ## Immutable history lookup
 
@@ -364,10 +354,10 @@ probes select `First`, including when the two original records are reversed.
 Times one representable value apart remain distinct.
 
 Infusion entries start history at delivery; stopping an infusion does not erase
-that history. This concerns history readouts only and does not establish source
-runtime equivalence for infusion delivery/F conventions. Reset entries are
-rejected pending an explicit history policy. Model-visible bindings are described below. Dose-relative switching and
-nullable result columns remain unfinished.
+that history. This affects history readouts only; it does not mean infusion
+delivery and F conventions match the source software. Reset entries are
+rejected. Model-visible bindings are described below. Nullable result columns
+are not yet supported.
 
 
 ## Model history bindings
@@ -403,10 +393,10 @@ dose_history
 ```
 
 All four quantities and both policies round-trip through the parser and
-formatter without changing the model content identity. Units come from the
+formatter without changing the model content. Units come from the
 selected target and model time unit; this block does not redeclare them.
-Dose-relative predicates remain to be implemented. Infusion-history readouts
-do not establish matching source-runtime F/duration conventions.
+For comparisons on elapsed time, see
+[Dose-relative model switches](qspquest://guide/regimens#dose-relative-model-switches-json).
 
 ## Dose-relative predicate scheduling API
 
@@ -424,10 +414,10 @@ point readouts. This matters at decimal boundaries: native R reports
 `1.1 - 1 > 0.1` as true, while an exactly representable elapsed value of 1
 remains false under a strict `> 1` comparison. Integration phases use the
 scheduled crossing and do not approximate one-sided behavior by nudging time.
-The distinction between point values and integration phases is explicit.
 
 Non-finite offsets, negative offsets, collapsed/overflowed crossing times,
-equality/inequality predicates and invalid windows are rejected. The model declarations below use these planning APIs for execution.
+equality/inequality predicates and invalid windows are rejected. The model
+declarations below use these planning APIs for execution.
 
 
 ## Dose-relative model switches (JSON)
@@ -442,7 +432,7 @@ since a delivery. For example:
 
 The offset is a time-valued expression of model parameters. The target must
 accept dosing, the simultaneous policy is explicit, and comparisons support
-`lt`, `le`, `gt`, and `ge`. Named predicates evaluate to 0 or 1; querying one
+`lt`, `le`, `gt`, and `ge` (`eq` and `ne` are rejected). Named predicates evaluate to 0 or 1; querying one
 before any dose produces a domain error unless a lazy `has_dose` guard avoids
 that read. Negative, non-finite and unrepresentable offsets are rejected.
 
@@ -453,7 +443,7 @@ exact predicate from history and the requested pre/post side. Parameters may
 be rebound without changing the compiled model. Generated changes and storage
 consume existing event/output budgets; internal bindings cannot be supplied by
 requests. Reset requests and predicate-dependent initial conditions or dose
-scales are not qualified and fail explicitly.
+scales are not supported and fail explicitly.
 
 Text models use a dedicated block with an explicit simultaneous-dose policy:
 
@@ -465,5 +455,3 @@ dose_switches
 The offset accepts the same parameter expressions as JSON, including arithmetic
 and parentheses. Supported operators are `<`, `<=`, `>`, and `>=`; the policy
 must be `first` or `last`. Formatting preserves declarations and comparisons.
-Native simulation tests qualify the implemented boundary behavior; browser,
-Python-wheel and source-runtime infusion equivalence are separate checks.

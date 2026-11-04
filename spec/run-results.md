@@ -56,11 +56,11 @@ counts, elapsed time or prices. A scan plan reports every point's actual equally
 partitioned budget and merged explicit parameter map. It validates all points
 before returning. No trajectory is included.
 
-The `prospective_identity` is computed by execution's identity function. It does
-not establish that a calculation occurred, that future domains/convergence will
-pass, or that the model is scientifically qualified. `deferred_checks` states
-these remaining limits. Execution validates its current inputs again. Retain
-the original model, request, target and build when comparing identities.
+`prospective_identity` is computed by the same identity function as execution.
+It does not mean a calculation occurred or that the run will succeed.
+`deferred_checks` lists the checks left for execution, which validates its
+inputs again. Keep the original model, request, target and build when comparing
+identities.
 
 ### Plan and run the synthetic example
 
@@ -97,8 +97,7 @@ three ordered clearance points described in the [scan tutorial](../docs/PARAMETE
 Changing inputs or the model requires a new plan. Invalid units, unknown targets,
 unsupported solver contracts and storage-budget failures return structured
 errors; a valid plan can still fail later when its equations or readouts are
-evaluated. These examples establish synthetic execution consistency, not
-physical-model or clinical qualification.
+evaluated. These are synthetic examples, not clinical models.
 
 ### Sensitivities and Gaussian-objective preparation
 
@@ -136,8 +135,8 @@ It retains the time-zero pre-dose row, so there are five output rows. Derivative
 units are output-unit divided by parameter-unit; they are not concentrations.
 Use `derivatives[*].parameter` and the exact unit record rather than inferring a
 unit from an array position. Wrong derivative tolerance units and mismatched
-parameter order are structured preflight errors. A valid plan does not establish
-future trajectory/readout domains or numerical convergence.
+parameter order are structured preflight errors. A valid plan can still fail
+during integration or readout.
 
 `CompiledSensitivityDocument.plan_gaussian_objective(request)` uses the actual
 observation/prior admission and its reduced sensitivity storage budget. The
@@ -174,9 +173,8 @@ requested observations and event sides. Value and additive SD convert to the
 output's declared units. Normal proportional SD is dimensionless relative error;
 lognormal proportional SD is dimensionless log error. A left-censored value is a
 quantification limit. Invalid units, rows, error coefficients or priors fail
-before integration. Planning an objective does not validate optimizer/population
-controls, identify parameters, estimate uncertainty or qualify a fitting model.
-These remain distinct fitting and scientific checks.
+before integration. Planning an objective does not check optimizer or
+population controls, parameter identifiability or uncertainty.
 
 ## Request
 
@@ -188,15 +186,14 @@ The ID, when provided, is 1–128 bytes. Native and WASM execution share unsigne
 32-bit budget limits for callback counts, output values and events.
 
 The implemented ODE solvers are `diffsol_bdf`, `diffsol_tsit45`,
-`diffsol_esdirk34`, `diffsol_tr_bdf2`, `diffsol_rosenbrock23`, and
-`diffsol_rodas5p`. The last two use locally vendored Diffsol source and accept
-identity-mass ODEs. Sensitivities and sensitivity-based fitting accept
-`diffsol_bdf` (the default in helpers) or explicit `diffsol_rodas5p`. The selected
-solver is used throughout objective evaluations, including population subjects.
-Other solvers remain unsupported on this path; there is no solver fallback.
-Unknown names fail decoding and do not select a fallback. The optional seed field reserves the stochastic contract,
-but every non-null seed is currently rejected as unsupported. No stochastic
-behavior or implicit random seed is implemented.
+`diffsol_esdirk34` and `diffsol_tr_bdf2`. Sensitivities and sensitivity-based
+fitting accept `diffsol_bdf`, which is the default in helpers and is used
+throughout objective evaluations, including population subjects. The selectors
+`diffsol_rosenbrock23` and `diffsol_rodas5p` return an explicit unsupported error;
+choose a supported solver rather than relying on a fallback.
+Unknown names fail decoding and do not select a fallback. The optional seed field is reserved for
+future stochastic runs; every non-null seed is currently rejected as
+unsupported, and no implicit random seed is used.
 
 Set `"accuracy_control": "sampled"` on a primal numerical run to check convergence
 at every requested state observation and interval endpoint. Each pass restarts
@@ -205,16 +202,14 @@ finer result is returned only when successive trajectories change by at most
 0.25 of `atol_i + rtol * max(abs(coarse_i), abs(fine_i))`; eight complete passes
 are allowed. Dose events run once outside refinement. All passes consume the
 same callback budget. Unresolved convergence or an exhausted budget returns a
-structured error without a partial result. This is numerical convergence
-checking, not a universal certificate of true global error, and can cost many
-more steps. The analytic linear solver remains exact for its supported class.
-Sensitivity, fitting and numerical cycle-iteration requests reject sampled
-control until those contracts are qualified.
+structured error without a partial result. This checks numerical convergence;
+it does not guarantee the true global error and can cost many more steps. The
+analytic linear solver remains exact for its supported class. Sensitivity,
+fitting and numerical cycle-iteration requests reject sampled control.
 
 The omitted/default `"accuracy_control": "local"` uses ordinary local tolerances;
-TR-BDF2 retains its existing six-pass, one-unit sampled check. Rodas5P retains
-the published fourth-order continuous extension in either mode. Adaptive step
-histories need not match another implementation to produce accurate samples.
+TR-BDF2 uses a six-pass, one-unit sampled check. Adaptive step histories need
+not match another implementation to produce accurate samples.
 
 `CompiledDocument.execute` returns a result only after the complete scientific
 operation succeeds. Failure is the existing typed error with no partial result.
@@ -240,8 +235,8 @@ numeric arrays and returns the same metadata and identity, with `names`,
 additional legacy protocol/regimen/override/callback fields outside the request
 envelope to avoid conflicting settings.
 
-Legacy conformance `kind: "text"` payloads remain available; they do not acquire
-a scientific execution identity merely because the new envelope exists.
+Legacy conformance `kind: "text"` payloads remain available but do not return
+a scientific execution identity.
 
 ## Canonical hashes
 
@@ -259,7 +254,7 @@ strings. Scientific binary64 values use the JCS number representation.
 - `bound_value_hash`: the complete numeric binding buffer, including defaults,
   converted covariates and derived individual parameters, plus the resolved initial
   state vector in declared state units and compiled order.
-  Its interpretation is bound to the model content hash.
+  It is meaningful only together with the model content hash.
 - `run_request_hash`: schema, regimen, solver, budgets and seed, plus explicit sampled accuracy control. Correlation IDs
   are excluded. Parameter and initial-state override spelling is excluded because the
   complete resolved bindings and initial vector are recorded by `bound_value_hash`. Covariate changes and their
@@ -274,14 +269,14 @@ backend/version and algorithm. Native and WASM can share the scientific content
 hashes while correctly recording different build targets.
 
 The current workspace build script hashes ordered relative paths, lengths and
-bytes for Rust core/engine/WASM sources, build script, workspace/crate manifests,
-lockfile, Cargo configuration, and the complete vendored Diffsol source. This distinguishes development source changes
-under the same package version. It is a source/build fingerprint, not a binary
-signature, OCI attestation or proof of installed dependencies. Standalone crate
-packaging and release attestation remain unfinished. The backend pins Diffsol
-0.18.0 with the included solver configuration; `backend_version` includes the exact
-vendored-source SHA-256. Matching these fields identifies the numerical backend
-inputs; it does not establish qualification for another model, method or target.
+bytes for Rust core/engine/WASM sources, the build script, workspace/crate
+manifests, lockfile and Cargo configuration. This distinguishes development
+source changes under the same package version. It is a source/build fingerprint,
+not a binary signature, OCI attestation or proof of installed dependencies.
+The backend uses upstream Diffsol 0.18.0 at a pinned Git revision;
+`backend_version` has the form `0.18.0+git:<full revision>`. Matching these fields
+identifies the numerical backend inputs; it says nothing about validity for
+another model, method or target.
 Required copyright and license notices accompany the distribution.
 
 References: [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785),
@@ -309,11 +304,10 @@ value. Native `bind_with_initial_states(parameters, covariates, initial_states)`
 and subsequent parameter `rebind` preserve explicit initial overrides; creating a
 new binding/run with an empty map restores default initial expressions.
 
-The bound-value hash now includes resolved initial values. Initial quantities that resolve to the same numeric vector, including explicit
+The bound-value hash includes resolved initial values. Initial quantities that resolve to the same numeric vector, including explicit
 values equal to defaults, share the same scientific identity for otherwise
-identical runs. This intentionally changes historical
-bound hashes from earlier compiler versions; recorded build fingerprints remain
-distinct. Rebind inputs after changing the compiler version.
+identical runs. Bound hashes therefore differ from earlier compiler versions.
+Rebind inputs after changing the compiler version.
 
 ## Absolute simulation start
 
@@ -351,7 +345,6 @@ their domain checks. Arbitrary state-dependent conditionals remain unsupported.
 
 Native tests check multiple arguments, ties, invalid unselected primal domains,
 and BDF integration across a branch boundary against analytic integrals.
-Browser qualification and trajectory comparisons are recorded separately.
 
 ## Hill state Jacobian
 
@@ -364,7 +357,7 @@ applies to the BDF state Jacobian and does not modify the evaluated RHS.
 
 The expression-only parameter derivative API rejects zero-boundary x
 derivatives for n<=1 because it cannot validate a model's nonnegative
-invariant. End-to-end parameter sensitivity remains a separate M3 capability.
+invariant. End-to-end parameter sensitivity is a separate feature.
 
 ## Fitting admission plans
 
@@ -374,7 +367,7 @@ support individual, pooled, Laplace, FOCEI and SAEM requests in the
 [fit plan contract](schema/fit-plan.schema.json) describes admission at initial
 inputs, including converted bounds, units, search coordinates, subject rows and
 numerical budget ceilings. It performs no objective integration, optimization,
-random draws, covariance estimation or scientific qualification.
+random draws or covariance estimation.
 
 Each estimator applies its execution admission rules. Individual and pooled
 plans contain augmented Gaussian-objective preparations; pooled priors appear
@@ -486,7 +479,6 @@ Each population plan contains two admitted subjects. Inspect `population.omega`,
 `coordinates`, `subjects` and `deferred_checks`; SAEM also reports its effective
 burn-in count. A fitted additive residual uses standard-deviation coordinates
 in FOCEI and variance coordinates in SAEM, with observable units recorded.
-These numerical preparations do not qualify population estimates scientifically.
 
 `CompiledDocument.plan_scalar_fit(request)` and CLI scalar planning return the
 [scalar fit plan](schema/scalar-fit-plan.schema.json). `admission` describes the
@@ -528,9 +520,8 @@ MORRIS
 The plan records six points, two trajectories, converted range units, the selected
 output row and signed normalized steps. All point units, schedules, budgets and
 time/side grids must be admitted before any point executes. Invalid rows and
-unequal grids fail before integration. Planning can succeed for a future numerical
-domain failure; it computes no elementary effects or statistics and establishes
-no scientific qualification. Generated designs retain the deterministic generator,
+unequal grids fail before integration. A plan can succeed even if a point later
+fails numerically; planning computes no elementary effects or statistics. Generated designs retain the deterministic generator,
 seed and design hash. Explicit designs retain their supplied point order and geometry.
 
 ## Periodic preparation
@@ -580,8 +571,8 @@ integration. Each affine solve reserves `state_count + 2` cycle executions;
 iteration divides its total budget by `maximum_cycles`. A large iteration ceiling
 can leave too little budget for each cycle. Increase total ceilings when that
 partition fails, and keep events in the half-open phase interval. Requests do
-not accept trajectory observations. Convergence, future trajectory domains and
-fixed-point existence remain numerical execution checks. A successful plan does
-not prove execution, uniqueness, stability or scientific qualification. BDF
+not accept trajectory observations. Convergence, trajectory domains and
+fixed-point existence are checked only during execution. A successful plan does
+not prove the solve will succeed or that the fixed point is unique or stable. BDF
 convergence depends on the supplied seed and requires two consecutive passing
 cycle residuals. Failed solves return no partial fixed point.

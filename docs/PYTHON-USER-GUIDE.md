@@ -8,8 +8,8 @@ values and data in this guide are synthetic.
 This guide uses the 0.1.0 API and CPython 3.10+. Follow the
 [installation guide](installation.md), then run the Python blocks in order.
 The [example script](examples/python_quickstart.py) runs the same workflow
-without plotting dependencies. Examples teach the stated simulation and fitting
-contracts; check fit status and model assumptions before interpreting estimates.
+without plotting dependencies. Check fit status and model assumptions before
+interpreting estimates.
 
 For typed dictionary requests and `.summary()`, `.rows()` or `.to_frame()`
 result helpers, see the [typed workflow](ANALYSIS.md#typed-requests-and-result-helpers)
@@ -127,11 +127,11 @@ print(list(zip(result["times"], cp["values"])))
 ```
 
 Expected concentrations include 2.000000 mg/L at 0 h, 1.340640 mg/L at 4 h,
-and 0.602388 mg/L at 12 h. These checks compare against the analytic solution,
-so they verify more than successful execution.
+and 0.602388 mg/L at 12 h. The asserts check them against the analytic
+solution.
 
-Compile once and reuse `model`. Each call binds an independent request; it
-does not continue the state from the preceding call. A supplied `initial_states`
+Compile once and reuse `model`. Each call starts fresh; it does not continue
+from the previous call. A supplied `initial_states`
 map overrides initial conditions explicitly.
 
 ## Read and plot results
@@ -175,8 +175,8 @@ plt.savefig("trajectory.png", dpi=150)
 plt.close()
 ```
 
-CSV preserves the tabular values, but not the full scientific identity. Save
-the JSON result as well. Missing values, if present in a serialized result,
+CSV keeps the values but not the result's `identity` record, so save the JSON
+result as well. Missing values, if present in a serialized result,
 are not zero; preserve them when preparing tables.
 
 ## Change parameters and dosing
@@ -219,13 +219,13 @@ For covariates, declare them in the model and supply quantities through
 `regimen.covariates`; step covariates can also use `covariate_changes`.
 Override base parameters rather than derived `individual` expressions.
 Constant and step numeric covariates are supported; categorical covariates and
-linear interpolation are outside the current model contract.
+linear interpolation are not.
 
 ### Build an oral two compartment model
 
 For first-order absorption and central/peripheral distribution, add a depot,
-an intercompartmental clearance, and a peripheral volume. This independently
-written synthetic model exposes amounts as well as concentration so you can
+an intercompartmental clearance, and a peripheral volume. This synthetic model
+exposes amounts as well as concentration so you can
 inspect where the drug resides.
 
 ```python
@@ -298,9 +298,8 @@ numbers from the samples list. Do not combine nonempty `samples` with
 `observations`, or send an explicitly empty observation plan.
 
 The quickstart uses BDF. Simulation also supports `diffsol_tsit45`,
-`diffsol_esdirk34`, `diffsol_tr_bdf2`, `diffsol_rosenbrock23`, and
-`diffsol_rodas5p` for their supported ODE scope. Select a method appropriate
-to the model and verify tolerance convergence; no unknown solver selects a
+`diffsol_esdirk34`, and `diffsol_tr_bdf2`. Pick a method suited to the model and check that results
+hold as you tighten tolerances. An unknown solver name is an error; there is no
 fallback. Sensitivities and sensitivity-based fitting currently require BDF.
 `analytic_linear_pk` requires a model with a `linear_pk` declaration; it does
 not automatically recognize arbitrary ODE text as linear PK.
@@ -460,8 +459,8 @@ assert abs(scalar["parameters"]["cl"]["value"] - 0.6) < 1e-4
 
 The scalar result stores `status` at the top level, whereas the preceding
 individual result stores it under `fit`. The search tolerance is expressed on
-the selected parameter's numeric scale. This contract fits independent additive
-normal observations; it does not support priors, censoring, proportional error,
+the selected parameter's numeric scale. It fits independent additive normal
+observations; it does not support priors, censoring, proportional error,
 or a joint multi-parameter search.
 
 ## Fit population data
@@ -571,8 +570,8 @@ values are not interchangeable. Fitted observation rows can be absent in an
 incomplete SAEM result; inspect the field instead of assuming a diagnostics
 table exists. The [SAEM guide](SAEM.md) describes one- and two-effect scope,
 estimated additive error, normal/lognormal and left-censored observations,
-bounded fitted covariates, and local uncertainty. Those advanced contracts
-require explicit native request fields; the row adapter does not infer them.
+bounded fitted covariates, and local uncertainty. Set those fields in the
+request yourself; the row adapter does not infer them.
 Record the seed, repeat seeds when assessing stability, and verify recovery
 for your own equation class and cohort design.
 
@@ -600,25 +599,21 @@ for filename, value in artifacts.items():
 print(result["identity"])
 ```
 
-Identity records model content, resolved binding, run request, compiler source
-and backend/build information. It identifies the executed inputs and engine;
-it does not certify the scientific suitability of the model. Native build
-targets can differ while sharing scientific content hashes.
+`identity` records the model, resolved inputs, request and software build. It
+tells you exactly what ran, not whether the model is scientifically suitable.
 
 Compiled objects belong to a live process. Recompile from saved source in a
 new process rather than treating a serialized object as a portable model.
-Compiled Python models can serve independent threads; native work releases
-the GIL. Returned values are ordinary Python lists and dictionaries, not a
-zero-copy NumPy interface. Limit concurrency explicitly. Cancelling a Python
-future does not interrupt an active native solve; hard deadlines require a
-supervising process.
+Compiled models can be shared across threads; runs release the GIL. Results
+are plain Python lists and dictionaries, not NumPy arrays. Limit concurrency
+yourself. Cancelling a Python future does not stop a solve already running; use
+a separate process for hard deadlines.
 
 ## Handle errors and troubleshoot
 
-Catch structured scientific errors at the operation boundary. The full
-diagnostic can contain a code, scientific time, expression, and source location.
-Some diagnostics use a fallback location; do not assume every line/column is
-an exact expression span.
+Catch `QSPQuestError` around each call. Its diagnostic can include a code,
+simulation time, expression, and source location. Line and column can be
+approximate.
 
 ```python
 invalid = copy.deepcopy(request)
@@ -641,13 +636,13 @@ assert model.run(request) == result  # The failed request did not alter the mode
 | Unit or unknown-symbol error | Compare declarations and quantity units; use `input_<state>` only in supported contexts. |
 | Wrong value at a dose time | Inspect `sides` and explicitly request `pre` or `post`. |
 | Fit has a row mismatch | Index the actual result grid from zero; prefer an explicit observation plan. |
-| Sensitivity request rejected | Match the compiled ordered parameter selection and derivative tolerance dimensions; use BDF. |
-| Work budget exceeded | Inspect event expansion and output count, then choose a bounded budget justified by the task. |
+| Sensitivity request rejected | Use the same parameters, in the same order, as at compile time; check derivative tolerance units; use BDF. |
+| Work budget exceeded | Check how many events and outputs the run produces, then raise the budget only as far as the task needs. |
 | Domain or numerical error | Check equation domains and scales, then compare methods and tighter tolerances against a reference. |
 | Fit reaches a limit or a bound | Review starting values, bounds, residual error and sampling information before extending work limits. |
 | Dataset rejected | Check MDV, included finite DV, explicit CMT mappings, RATE units and unsupported columns. |
 
-A failed scientific operation returns no partial result. Plain argument-type
+A failed call returns no partial result. Plain argument-type
 mistakes can raise Python `TypeError`; catch them separately when appropriate.
 Unknown fields and unsupported operations are rejected rather than silently
 ignored.
@@ -664,13 +659,13 @@ ignored.
 | Forward derivatives | `CompiledSensitivities(source, names).run(request)` | Result and derivative columns |
 | Individual, pooled or population fit | `CompiledSensitivities.fit(request)` | Inspect `fit` or `population` status |
 | One-parameter fit | `CompiledModel.fit_scalar(request)` | Top-level scalar fit status |
-| Prepare population rows | `population_fit_dataset(...)` | Request and row provenance |
+| Prepare population rows | `population_fit_dataset(...)` | Request and row mapping |
 | Fit prepared population rows | `CompiledSensitivities.fit_population_data(dataset)` | Result and mapped observations |
-| Linear periodic state | `CompiledModel.periodic_steady_state(request)` | Qualified-scope periodic state result |
-| Nonlinear periodic iteration | `CompiledModel.iterate_periodic_state(request)` | Verified cycle state or failure |
+| Linear periodic state | `CompiledModel.periodic_steady_state(request)` | Periodic steady-state result |
+| Nonlinear periodic iteration | `CompiledModel.iterate_periodic_state(request)` | Periodic cycle state or failure |
 
-Steady-state operations have separate versioned requests and restricted scopes;
-they are not achieved by adding SS records to the dataset adapter. Read
+Steady-state operations have their own requests and a limited scope; they are
+not achieved by adding SS records to the dataset adapter. Read
 [linear PK kernels](LINEAR-PK-KERNELS.md),
 [nonlinear periodic iteration](NONLINEAR-STEADY-STATE.md),
 [model language](../spec/language.md), [regimens](../spec/regimens.md),

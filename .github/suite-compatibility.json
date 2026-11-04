@@ -4,14 +4,14 @@
   "components": {
     "models": {
       "repository": "unibio-intelligence/qspquest-models",
-      "commit": "65ad8c61c8db11f82009d1ba0b4ca5d5275eece9",
-      "catalog_sha256": "124070815f0a8b526b874feee8ebaf0d507a78bf6ad8b0c2967cf7157ae112e8",
+      "commit": "9d7bd228202fdec4892a7acf63f7bddd65a583db",
+      "catalog_sha256": "673b9ead5c8ef4114a4f728de45dae90e3185ed1c0ce330373be083ac5a159a2",
       "version": "0.1.0"
     },
     "validation": {
       "repository": "unibio-intelligence/qspquest-validation",
-      "commit": "cea7cb81aea44b922741ac4fcdd633e5b1404b89",
-      "manifest_sha256": "3a0ef1a74c72a79217765ba1803a12a8a7064a25fb29a833d557acbe6b26d5b4"
+      "commit": "a2dfda52bd6981f2b5016e49a867f7b0799c94c5",
+      "manifest_sha256": "5f119f3a57a32222cd9706d19aab3355755ea6d9470bd77c972b12f7d760f0c6"
     }
   },
   "required_engine_files": [
@@ -26,8 +26,7 @@
     "model_version": "0.1.0",
     "scenario": "higher_exposure",
     "solvers": [
-      "diffsol_bdf",
-      "diffsol_rodas5p"
+      "diffsol_bdf"
     ],
     "absolute_tolerance": 1e-08,
     "relative_tolerance": 0.0001

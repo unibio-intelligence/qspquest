@@ -22,12 +22,11 @@ The default 6 mg dose, 3 L volume and 0.3 L/h clearance give concentrations
 of 2, 1.637462, 0.898658 and 0.181436 mg/L at 0, 2, 8 and 24 hours. Doubling the
 dose doubles concentration. Increasing clearance makes the curve decline faster.
 The model, complete request, client and legal notices are included in the bundle.
-Stop the server with Ctrl+C. No Rust installation or remote execution service is
-needed for the prepared bundle. A bundle must be prepared using the source build
-below; these instructions do not assume that a downloadable release exists.
+Stop the server with Ctrl+C. The bundle needs no Rust installation or remote
+service. Bundles are built from source as described below.
 
 Use the documented default values for your first run. The controls accept positive
-finite values within their displayed HTML bounds. Invalid values are rejected.
+finite values within the displayed limits. Invalid values are rejected.
 A changed input clears the previous result; run again to update it. **Cancel**
 terminates the active worker, and a later run creates a fresh worker. A missing
 asset reports an error; serve the complete extracted bundle over HTTP rather
@@ -71,8 +70,8 @@ same relative asset layout; no backend is needed for simulation.
 
 The worker accepts model sources up to 3,000,000 UTF-8 bytes and requests up to
 1,000,000 bytes. The quickstart editor applies its own smaller input limit.
-Solver, event and output budgets still apply. Completed runs retain one compiled
-model: parameter and dosing changes reuse it, while a changed source replaces it.
+Solver, event and output budgets still apply. The worker keeps the last compiled
+model, so parameter and dosing changes run without recompiling.
 Cancellation discards the worker and its compiled model.
 
 Save the following complete example as `browser-example.html` in the source root:
@@ -154,8 +153,7 @@ explicitly before offering browser-based fitting.
 For the supplied worker, model source and simulation requests are sent from
 the page to its local Worker and processed by WASM on the user's device. The
 worker does not upload them or the resulting trajectories to a QSPQuest
-service. This allows a browser application to keep a user's model and data
-local during simulation.
+service.
 
 The browser still fetches the JavaScript and WASM assets. The embedding
 application controls where those assets come from and whether it uploads
@@ -183,8 +181,7 @@ appears as a dashed line when model identity, time range, output and units match
 The input files are read into browser memory rather than uploaded. Changes are
 not saved back to the files. Copy edited source/request text if you need to keep
 it. The request must use `qspquest.run/v0.1`; JSON models use the native
-`qspquest.model/v0.1` schema. These versioned schema names remain supported
-wire identifiers. A model file alone does not specify a dosing/sampling experiment.
+`qspquest.model/v0.1` schema. A model file alone does not specify a dosing/sampling experiment.
 Provide compatible states, parameter names and units in the request.
 
 The browser page allows at most 20,000 output values, 1,000,000 solver callbacks,
@@ -209,10 +206,8 @@ python3 scripts/build_browser_quickstart.py \
   --output qspquest-browser-bispecific.zip
 ```
 
-The packager verifies archive and member checksums, checks that catalog, archive
-and native model identities agree, and requires the selected scenario in both
-the catalog and archive index. It extracts the native simulation projection and
-request and includes the model's legal notices. The browser output budget is
+The packager verifies the library's checksums and that the scenario exists,
+then includes the model, its scenario request and the model's legal notices. The browser output budget is
 reduced to 20,000, the event budget to 10,000 and callback budget to 1,000,000;
 all model coordinates and scenario
 values are preserved. A scenario exceeding those limits reports an error.

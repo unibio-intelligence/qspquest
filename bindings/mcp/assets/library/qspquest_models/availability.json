@@ -122,11 +122,11 @@
       "evidence_id": "sha256:5f5bc66430a82d7cea07d98b478e372826dfa03de77ae380e76eb164ad6cb1f3",
       "current_engine_qualification": "not_assessed"
     },
-    "qspquest_diffdose_2026_idr_benchmark/0.3.0": {
+    "qspquest_diffdose_2026_idr_benchmark/0.3.1": {
       "model_id": "qspquest_diffdose_2026_idr_benchmark",
-      "archive_version": "0.3.0",
-      "selected_version": "0.3.0",
-      "archive_sha256": "34dd0d01af9ef951fa84969ce4d008c860ac7abe55ae701b0866b80a8be426c0",
+      "archive_version": "0.3.1",
+      "selected_version": "0.3.1",
+      "archive_sha256": "e8ecac8677fb6b4685483d9f1063df370869754688d849b30c27aa335d822922",
       "availability": "dynamic",
       "publication_review": "pending",
       "preset_ids": [
@@ -137,7 +137,7 @@
       "unit_status": "source_scale_unqualified",
       "fitting_supported": true,
       "fit_ready": true,
-      "evidence_id": "sha256:15d79cb03f9116b5270cf2f2563178e8f9b1a5c453873c4cb2201ca152d084c2",
+      "evidence_id": "sha256:073dfdb95834cd7032f388fd4ea04c7aa7770a86b2c98f6608988463bb32376b",
       "current_engine_qualification": "not_assessed"
     },
     "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2": {

@@ -125,7 +125,7 @@ def prepare(output):
     records = [{'row': row, 'endpoint': name, 'value': values[i]}
         for row, values in enumerate(fine) for i, name in enumerate(endpoints)]
     requests, mappings, plans = {}, {}, {}
-    for solver in ['diffsol_bdf', 'diffsol_rodas5p']:
+    for solver in ['diffsol_bdf']:
         for index, start in enumerate(STARTS):
             name = solver + '_start_' + str(index)
             dataset = qsp.individual_fit_dataset(records, template(solver, start), endpoints=endpoints)
@@ -165,7 +165,7 @@ def run(prepared_path, expected_sha256, output):
     native_path = Path(_native.__file__)
     native_sha = sha256(native_path.read_bytes()).hexdigest()
     archive = import_omex(prepared_path.with_name('paired-fit.omex'), expected_sha256=prepared['archive_sha256'])
-    if archive.fits != prepared['requests'] or len(archive.fits) != 6:
+    if archive.fits != prepared['requests'] or len(archive.fits) != 3:
         raise ValueError('Registered fit inventory changed')
     cases = []
     for name, request in sorted(archive.fits.items()):
@@ -266,7 +266,7 @@ def run(prepared_path, expected_sha256, output):
         controls.append({'case': 'nonconvergence', 'passed': error.code == 'budget', 'diagnostic': error.diagnostic})
     unchanged = sha256(native_path.read_bytes()).hexdigest() == native_sha
     report = {'passed': all(c['passed'] for c in cases+controls) and unchanged,
-        'registered_fit_denominator': 6, 'registered_control_denominator': 5,
+        'registered_fit_denominator': 3, 'registered_control_denominator': 5,
         'cases': cases, 'controls': controls, 'prepared_sha256': expected_sha256,
         'native_extension_sha256': native_sha, 'native_extension_unchanged': unchanged,
         'scientific_scope': prepared['qualification']}

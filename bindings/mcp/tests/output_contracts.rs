@@ -86,6 +86,11 @@ async fn discovery_schemas_capabilities_and_failure_variants_use_structured_cont
         ),
         (
             "simulate",
+            json!({"model":{"scenario":{"model_id":"qspquest_diffdose_2026_idr_benchmark","scenario_id":"higher_exposure"}},"solver":"diffsol_rodas5p"}),
+            "unsupported",
+        ),
+        (
+            "simulate",
             json!({"model":{"source":"model synthetic_output_domain\ntime_unit = h\nparameters\n  k = 1 [1/h]\nstates\n  x = 0 [1]\ndynamics\n  d/dt(x) = (-k * x)\noutputs\n  inverse = (1 / x) [1]\nend\n"},"end":{"value":1,"unit":"h"}}),
             "scientific_failure",
         ),

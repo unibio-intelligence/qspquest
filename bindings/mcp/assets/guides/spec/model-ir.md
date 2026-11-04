@@ -26,15 +26,15 @@ The complete [synthetic model](qspquest://examples/synthetic-model)
 has no drug-specific parameters.
 The compiler validates units and defaults before returning a `CompiledDocument`.
 Bindings contain parameter overrides as quantities. Missing overrides restore
-model defaults; rebinding is a replacement binding, not a patch operation.
+model defaults; each rebinding replaces the previous one rather than patching it.
 Derived parameters, initial expressions and dose conversions are recomputed for each binding.
 Outputs evaluate from the same binding, state vector, and time as the model.
 
 Identity/log/logit/probit transforms currently constrain parameter domains.
 They do not imply an implemented estimation transform. Logit/probit require a
 compatible dimensionless quantity strictly between zero and one after unit
-conversion; 50 percent is accepted. `fixed` is retained for estimation and does
-not prevent a simulation parameter edit.
+conversion; 50 percent is accepted. `fixed` only affects estimation; you can
+still override the parameter in a simulation.
 
 The compiler reserves `time` and the `input_` prefix for expression bindings.
 Identifiers are bounded ASCII snake_case. Parameters, covariates, individual
@@ -49,8 +49,8 @@ Named administration channels remain a planned extension.
 The JSON decoder rejects unknown fields and unknown schema versions. The
 JSON entry point has a one-million-byte limit. Current state/binding limits and
 expression budgets also apply. Output count is 1–1024, with at most one million
-compiled output instructions. Derived output projection checks its result
-value budget and returns no partial result if any output fails.
+compiled output instructions. Output evaluation checks its value budget and
+returns no partial result if any output fails.
 
 `CompiledSimulation` is a WASM wrapper behind `m0-conformance`, not a released
 browser product API. It accepts a model document once, then quantity overrides

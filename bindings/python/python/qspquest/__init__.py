@@ -220,8 +220,8 @@ class CompiledSensitivities:
 
     Native compilation/execution release the GIL. Instances can be shared across
     threads; the request's with_respect_to must match the compiled selection.
-    Sensitivity requests accept diffsol_bdf (default in run helpers) or explicit
-    diffsol_rodas5p, also used throughout individual and population fitting.
+    Sensitivity requests accept `diffsol_bdf`, the default in run helpers and
+    the supported solver for individual and population fitting.
     """
 
     __slots__ = ("_model",)

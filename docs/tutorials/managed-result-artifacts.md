@@ -1,19 +1,17 @@
 # Retrieve a complete governed result artifact
 
-Use this workflow to retrieve every byte of an artifact produced by a governed
-Job, including results larger than 4 MB. It checks transport integrity and
-retention. It does not establish native execution, statistical convergence or
-scientific qualification; inspect those separately in the retained result.
+Use this workflow to download a complete result file from a hosted Job,
+including results larger than 4 MB. It checks that the download is complete and
+intact. It does not check whether the fit converged or the science is sound;
+check that in the result itself.
 
 ## Prerequisites
 
 You need Python 3.10+, a managed QSPQuest JSON HTTP endpoint built with `managed`,
-a verified admitted session with access to the destination Project, and an
-artifact ID returned by that Project's Job. The configured platform must support
-the explicit retained-byte contract below. A successful metadata lookup or
-download link alone does not promise complete MCP retrieval. Public HTTP and
-offline stdio do not provide managed sessions. Offline retained results use the
-[local result-artifact workflow](mcp-result-resources.md).
+a signed-in session with access to the Project, and an artifact ID returned by
+that Project's Job. The platform must support the byte-download requirements
+below. Public HTTP and offline stdio have no managed sessions; for local results
+use the [local result-artifact workflow](mcp-result-resources.md).
 
 The [complete client](../examples/managed_artifact_download.py) uses only the
 Python standard library. Run it from the source distribution. Set the endpoint
@@ -29,18 +27,16 @@ python3 docs/examples/managed_artifact_download.py \
   --out governed-result
 ```
 
-Choose a new directory whose parent exists. On POSIX systems the client creates
-a private directory and files. It initializes the endpoint, calls `get_artifact`
-and requires `artifact_retrieval.state: available`. It saves `descriptor.json`,
-streams checked chunks into `artifact.partial`, and verifies the complete byte
-count and SHA-256 before renaming the payload to `artifact.bin`. `checks.json`
-records the outcome. On failure it retains a labeled partial file and failure
-receipt; do not interpret partial bytes as a complete result. Existing files are
-never replaced. The client disables redirects and environment proxy forwarding.
+Choose a new directory whose parent exists. The client calls `get_artifact`,
+requires `artifact_retrieval.state: available`, and saves `descriptor.json`. It
+downloads the file in chunks to `artifact.partial`, checks the total size and
+SHA-256, then renames it to `artifact.bin`. `checks.json` records the outcome. If
+a download fails, the partial file is kept and labeled; do not use it as a
+result. Existing files are never replaced. The client ignores proxy environment
+variables and does not follow redirects.
 
-The command prints `status: passed`, the exact byte count, SHA-256 and number of
-chunks. `scientific_qualification` remains `not_assessed`. If the descriptor's
-media type is JSON, parse the verified file with:
+The command prints `status: passed`, the byte count, SHA-256 and number of
+chunks. If the descriptor's media type is JSON, parse the file with:
 
 ```sh
 python3 - <<'PY'
@@ -54,44 +50,35 @@ print('Declared result schema:', manifest['result_schema'])
 PY
 ```
 
-The client treats content as opaque bytes. Parsing it does not validate its
-scientific schema or infer units from labels. Keep the descriptor and checks
-with the payload when interpreting every row, event side, selected output and
-execution identity inside that result.
+The client does not inspect the content. Keep `descriptor.json` and
+`checks.json` together with `artifact.bin`.
 
 ## Agent contract and limits
 
-`get_artifact` returns authorized `managed_artifact` metadata and an explicit
-`artifact_retrieval` state: `available`, `unavailable`, or `expired`. An available
-state includes the immutable descriptor and `full_result_resource`. Its URI
-contains both the artifact ID and complete SHA-256. Read it with `resources/read`
-using the same verified session, then read `chunk_uri_prefix + index` for every
-index from zero through `chunk_count - 1`.
+`get_artifact` returns `managed_artifact` metadata and an
+`artifact_retrieval` state: `available`, `unavailable`, or `expired`. When
+available, it includes the descriptor and `full_result_resource`, whose URI
+contains the artifact ID and SHA-256. Read it with `resources/read` using the
+same session, then read `chunk_uri_prefix + index` for every index from zero
+through `chunk_count - 1`.
 
 Each JSON chunk contains its index, byte offset, byte length, artifact URI,
 artifact SHA-256, chunk SHA-256 and base64 data. Decode bytes before joining;
 UTF-8 characters may span ranges. Verify every field and the final whole-file
 digest. Schemas are available at `qspquest://schema/managed-result-artifact` and
-`qspquest://schema/managed-artifact-chunk` in managed builds. Resources require
-fresh authorization for every request; knowing a URI does not grant access.
-Oversized unused upstream metadata is explicitly omitted with its digest under
-`platform_response`; the typed artifact, retrieval state and complete-byte URI
-remain available within the response budget.
+`qspquest://schema/managed-artifact-chunk` in managed builds. Every read is
+authorized separately; knowing a URI does not grant access.
 
-The adapter limits artifacts to 128,000,000 bytes, chunks to 48,000 bytes and
-declared retention to seven days. The actual descriptor supplies creation and
-expiration times and the retention duration. Each resource read has a 15-second
-server deadline and shares the global and two-per-tenant compute/retrieval
-slots. Retry the unchanged URI after a transient busy or timeout response and
-before expiration. The client makes no automatic retries or partial resumption.
+Artifacts are limited to 128,000,000 bytes, chunks to 48,000 bytes and
+retention to seven days; the descriptor gives the actual creation and expiry
+times. Each read has a 15-second timeout, and each tenant can run two reads or
+computations at once. After a busy or timeout response, retry the same URI
+before it expires. The client does not retry or resume automatically.
 
-`managed_artifact_expired` explicitly reports expiration. A changed digest,
-ETag, range, media type, truncated response or oversized response fails. A
-missing upstream record remains a metadata lookup failure; it is not fabricated
-as an expired or successful artifact. Legacy descriptors report
-`managed_artifact_bytes_unavailable`. Select the governed platform's supported
-route or use a supported local workflow; the adapter does not fetch an arbitrary
-external download link or forward session credentials to another host.
+`managed_artifact_expired` means the file has expired. Any mismatch in digest,
+ETag, range, media type or size fails the download. Older artifacts report
+`managed_artifact_bytes_unavailable`. The MCP server never follows external
+download links or sends your session token to another host.
 
 ## Platform byte contract
 

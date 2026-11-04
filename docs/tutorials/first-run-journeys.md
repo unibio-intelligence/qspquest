@@ -1,19 +1,15 @@
 # Save your first QSPQuest result
 
-Run a synthetic one-compartment model and save a table you can interpret and
-replay. Choose a CLI, Python or local MCP route below. Each route uses the same
-6 mg bolus, clearance 0.3 L/h, volume 3 L and four post-dose observations.
-It checks `cp(t) = 2 * exp(-0.1 * t)` within 1e-8 mg/L.
-This check covers this synthetic case. Named models and fitting need separate
-qualification.
+Run a synthetic one-compartment model and save a table you can read and
+rerun. Choose the CLI, Python or local MCP route below. Each uses the same
+6 mg bolus, clearance 0.3 L/h, volume 3 L and four post-dose observations,
+and checks the result against `cp(t) = 2 * exp(-0.1 * t)` within 1e-8 mg/L.
 
 Use source builds until matching downloads are available on the release page.
-Obtain the complete matching release artifact and its trusted publisher checksum
-file. Verify the archive or wheel before using it. Choose macOS ARM64, Linux
-ARM64, Linux x86_64 or Windows x86_64 to match your machine; a Windows wheel or
-executable cannot run on macOS or Linux. The native executables need no Rust
-compiler. The guided clients need Python 3.10+ and only its standard library;
-the Python route additionally installs the matching QSPQuest wheel.
+Download the release file for your machine (macOS ARM64, Linux ARM64, Linux
+x86_64 or Windows x86_64) and verify it against the published checksum file.
+The executables need no Rust compiler. The helper scripts need Python 3.10+
+and nothing else; the Python route also installs the QSPQuest wheel.
 
 ## Scientist: use the CLI download
 
@@ -31,12 +27,11 @@ On Windows PowerShell:
 python first_run.py --out scientist-results
 ```
 
-The script runs the included `qspquest` executable with the included source and
-request, checks all four observations and saves six files. For direct JSON output
-without the Python helper, run `./qspquest run synthetic-one-compartment.qsp
+The script runs the model, checks all four observations and saves six files.
+To get the JSON result without the helper, run `./qspquest run synthetic-one-compartment.qsp
 first-run.json > simulation.json` on macOS/Linux, or
 `.\qspquest.exe run synthetic-one-compartment.qsp first-run.json > simulation.json`
-on Windows. Direct execution returns the complete JSON result.
+on Windows.
 
 ## Developer: use an installed wheel
 
@@ -59,8 +54,8 @@ python -m pip install --no-deps .\qspquest-0.1.0-cp310-abi3-win_amd64.whl
 python -m qspquest.first_run --out developer-results
 ```
 
-On Linux, use the matching wheel's exact filename in the `pip` command; retain
-the other macOS/Linux commands. To execute through the Python API:
+On Linux, use your wheel's exact filename in the `pip` command. To run the
+model from Python directly:
 
 ```python
 from qspquest import CompiledModel
@@ -75,8 +70,7 @@ print(next(column for column in result["outputs"] if column["name"] == "cp"))
 ## Agent: use the local MCP download
 
 Extract `qspquest-mcp-0.1.0-TARGET.zip` and open a terminal in its extracted
-directory. It includes the executable, `models/`, bounded stdio client and bundle
-writer. On macOS/Linux:
+directory. It includes the server, `models/` and the helper scripts. On macOS/Linux:
 
 ```sh
 python3 first_run.py --out agent-results > agent-first-run.json
@@ -88,13 +82,9 @@ On Windows PowerShell:
 python first_run.py --out agent-results > agent-first-run.json
 ```
 
-The client initializes local stdio, reads capabilities and tool contracts,
-discovers the model, reads its complete card and stored request, validates its
-source and checks the actionable error for a missing model. It inspects
-`plan_run`, then executes the same arguments with `expected_plan_hash`. It accepts
-a complete inline result or retrieves every linked chunk and verifies its
-checksum before interpreting the trajectory. `agent-first-run.json` retains the
-plan, complete result, capabilities, checks and bundle file hashes.
+The script starts the local server, finds the model, previews the run with
+`plan_run`, runs it with `expected_plan_hash`, and downloads the full result.
+`agent-first-run.json` keeps the plan, result, checks and file hashes.
 
 For a conversational MCP client, configure absolute paths:
 
@@ -105,11 +95,9 @@ For a conversational MCP client, configure absolute paths:
 Use `qspquest-mcp.exe` on Windows. Ask the agent to inspect capabilities, search
 for `synthetic_one_compartment`, read its full card and default scenario, inspect
 a simulation plan, and simulate with `detail: full`, `outputs: ["cp"]` and the
-returned plan hash. Require complete linked resources before interpreting data.
-The packaged script provides the repeatable check without a provider account.
-It sends only local stdio requests. A conversational client may send model
-metadata, source, requests and responses to its configured model provider;
-configure that client according to your data requirements.
+returned plan hash. The packaged script runs entirely locally. A chat client,
+by contrast, may send the model, requests and results to its AI provider;
+configure it to match your data requirements.
 
 ## Interpret and retain the output
 
@@ -124,35 +112,30 @@ time_h,side,cp_mg_per_L
 ```
 
 `post` means after the bolus at time zero. Time is in hours and `cp` is in mg/L.
-The concentration falls as drug leaves the compartment. Keep all six files:
+Keep all six files:
 
 | File | Purpose |
 | --- | --- |
 | `model.qsp` | Exact synthetic model source |
 | `request.json` | Dosing, solver, tolerances, budgets and observations |
-| `result.json` | Complete native result, units, sides and engine identity |
+| `result.json` | Full result, including units and run identity |
 | `first-run.csv` | Four numerical observations |
-| `first-run.csv.manifest.json` | Column meanings, units, identity and input/result byte hashes |
-| `checks.json` | Independent analytical comparison and its limited scope |
+| `first-run.csv.manifest.json` | Column meanings, units and file hashes |
+| `checks.json` | Comparison against the exact analytical answer |
 
 The manifest uses `qspquest.table-manifest/v1`, with `producer` equal to `cli`,
-`python` or `mcp`. Its qualification remains `not_assessed` with `qualified: false`:
-passing this numerical check does not qualify an arbitrary model or establish
-clinical suitability. Checksums detect changed bytes; they do not authenticate
-a producer. Retain the downloaded artifact checksum and trusted release identity
-alongside the bundle.
+`python` or `mcp`. It records `not_assessed` and `qualified: false`: passing this
+check does not validate other models or clinical use. Checksums detect changed
+files; they do not prove who produced them.
 
-Choose a new output directory for each run. Existing directories, files and
-links are refused. Its parent must exist. If installation fails, check the OS,
-CPU, Python version and wheel tag; do not rename a wheel to force installation.
-An executable-format error means the wrong native archive. On macOS/Linux,
-`chmod +x qspquest` or `chmod +x qspquest-mcp` resolves a missing execute bit.
-For MCP, retain the entire `models/` directory and both client helpers. A numerical
-or identity error should be investigated using the complete inputs and diagnostic;
-do not relax the analytical limit merely to obtain a passing run.
+Choose a new output directory for each run; its parent must exist. If
+installation fails, check the OS, CPU, Python version and wheel tag; do not
+rename a wheel to force installation. An executable-format error means you
+downloaded the wrong archive. On macOS/Linux, `chmod +x qspquest` or
+`chmod +x qspquest-mcp` fixes a missing execute permission. For MCP, keep the
+whole `models/` directory and both helper scripts. Do not loosen the analytical
+limit to make a failing check pass.
 
-To explore a named companion model, install its separately approved model-library
-artifact and follow the [shared-model workflow](../site/shared-models.md).
-Inspect its operation availability, units, stored scenario and qualification
-limits before running it. The synthetic check here establishes none of that
-model's scientific or fitting claims.
+To try a named model, install the model library and follow the
+[shared-model workflow](../site/shared-models.md). Check the model's units,
+default scenario and limitations before running it.

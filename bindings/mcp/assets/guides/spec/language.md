@@ -113,13 +113,13 @@ Arithmetic precedence, from lower to higher:
 Thus `-2^2` means `-(2^2)`, `2^3^2` means `2^(3^2)`, and `2^-2` is valid.
 Comparisons do not chain: use `a < b && b < c`, not `a < b < c`. Booleans are
 `true` and `false`; they are not numbers. Parentheses override precedence.
-The ternary conditional and `ifelse` retain the VM's lazy branch semantics.
+The ternary conditional and `ifelse` evaluate only the selected branch.
 
 Function names are the closed expression enum from [expressions](qspquest://guide/expressions); there is
 no member access, array indexing, assignment, user-defined function, host
 lookup, or dynamic evaluation. Function arity, numeric/boolean types, units,
-domains and allowed switching behavior are validated by the shared compiler.
-The syntax parser alone does not prove a scientifically executable expression.
+domains and allowed switching behavior are checked by the compiler, not the
+parser.
 
 Numbers use finite decimal `f64`, optionally with a decimal point and exponent.
 An expression may use `quantity(1, "mL")` for a finite constant with explicit
@@ -144,14 +144,13 @@ Formatter tests cover idempotence and exact document round trips for the
 supported fixtures, including initial expression kind and initial quantity
 units. The formatter reparses its output, so text that would exceed parser
 limits is rejected rather than emitted as an unreadable canonical document.
-More exhaustive property testing is still required before a format-stability
-promise.
+The canonical text format is not yet guaranteed stable.
 
 Diagnostics contain one-based line and UTF-8 byte column, stable code, message,
 and fix hint. Parser errors identify the current token or declaration.
 Expression checks with a mapped model path identify the declaration's expression
-start. Token-level semantic spans, imported-model source maps and runtime VM
-path-to-source mapping remain outstanding. Errors without a mapped path use
+start. Token-level locations, source maps for imported models and source
+locations for runtime errors are not yet available. Errors without a mapped path use
 line 1, column 1; callers must not present that fallback as an exact location.
 
 Limits: model source one million bytes; expression source 2,000 bytes; expression
@@ -164,8 +163,7 @@ The conformance-gated `CompiledSimulation.from_text(source)` compiles this same
 path. `CompiledSimulation.format_text(source)` returns canonical text. Errors
 are encoded with the diagnostic fields above. Simulation still uses the current
 quantity overrides and raw protocol described in [the model document](qspquest://guide/model); browser editor
-integration, VM worker lifecycle qualification and the full run/result schema
-remain outstanding.
+integration and the full run/result schema are not yet available.
 
 ## Derived individual parameters
 
@@ -173,9 +171,8 @@ An optional `individual` block declares deterministic derived parameters, e.g.
 `cl = tv_cl * (wt / wt_ref)^0.75`. Dependencies may appear in any declaration
 order. The compiler rejects cycles, unknown names and state/time dependencies.
 An optional `[unit]` suffix specifies numeric storage units. Without it, the
-compiler infers dimensions and uses canonical SI scale one internally. Every
-consumer receives the corresponding unit conversion; no unit is guessed from a
-name. Base and derived parameters share the 4,096-binding limit.
+compiler infers dimensions and stores the value in SI base units; each use
+gets the matching unit conversion. No unit is guessed from a name. Base and derived parameters share the 4,096-binding limit.
 
 Each bind recomputes the dependency graph, then initial states, dose scales and
 outputs. Derived parameters cannot be overridden directly. Failed rebinding
@@ -222,15 +219,15 @@ units. For example, `concentration = central / v [ug/L]` can feed an output in
 Initial and dosing-scale expressions may use definitions only when their
 expanded expression uses bindings available in those contexts. Individual
 parameter expressions cannot refer to definitions. Outputs cannot access RHS
-inputs, even indirectly. Dynamic branches and nonsmooth crossings retain the
-existing restrictions after expansion; hidden aliases do not bypass them.
-Lazy branches remain lazy when evaluated.
+inputs, even indirectly. The usual restrictions on dynamic branches and
+nonsmooth crossings still apply after expansion; a definition cannot be used to
+bypass them. Lazy branches stay lazy.
 
 Source expressions retain the 256-node/32-depth limit. Each expanded expression
 is limited to 16,384 nodes and depth 128; aggregate expansion work is limited to
 one million copied nodes, with at most 4,096 definitions. Expansion duplicates
-subexpressions rather than caching their runtime values. This bounded initial
-implementation does not promise common-subexpression optimization.
+subexpressions rather than caching their runtime values. There is no
+common-subexpression optimization.
 
 ## Allowed delivery modes
 
@@ -337,7 +334,7 @@ than one depot are rejected. Extra ODE states or separately written dynamics
 cannot override the generated mechanism.
 
 Formatting preserves the declaration rather than expanding it into equations.
-JSON and text therefore share the same scientific model content identity.
+JSON and text therefore describe the same model content.
 The run request selects `analytic_linear_pk` or `diffsol_bdf`; backend selection
 is an execution choice, not model text. See [linear PK kernels](qspquest://documentation/files/docs/LINEAR-PK-KERNELS.md) for the
 numerical method and validation limits.

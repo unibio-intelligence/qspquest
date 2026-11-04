@@ -1,55 +1,49 @@
 # Discover and run an archived synthetic fitting workflow
 
-Use local MCP to inspect an exact model version, select its declared fitting
-workflow, inspect a preparation plan, run it and retain diagnostics. Fitting
-readiness is separate from simulation availability. An archive that provides
-simulation scenarios does not thereby support fitting.
+Use local MCP to pick a model version, choose one of its fitting workflows,
+preview the plan, run it and save the diagnostics. A model that can be simulated
+cannot necessarily be fitted; only models with a ready fitting workflow can.
 
-You need Python 3.10+, a matching QSPQuest MCP executable, an extracted approved
-model-library artifact containing a ready fitting workflow, and the client below.
-The client uses only the standard library. Execution is local; no model provider
-account is required. A conversational agent may forward its prompts and tool
-responses to its configured provider, including model metadata and observations.
+You need Python 3.10+, a matching QSPQuest MCP executable, an extracted model
+library that includes a ready fitting workflow, and the client below (standard
+library only). Everything runs locally. If you drive this from a chat client
+instead, it may send prompts and results, including observations, to its AI
+provider.
 
-The model library includes six exact synthetic workflows for each of
+The model library includes synthetic fitting workflows for each of
 `qspquest_diffdose_2026_idr_benchmark` (scalar recovery) and
 `qspquest_serkland_2025_rituximab_ms_pkpd` (individual recovery), at version `0.3.0`.
-IDs are `diffsol_bdf-start-1` through `diffsol_bdf-start-3` and
-`diffsol_rodas5p-start-1` through `diffsol_rodas5p-start-3`. The latter preserves
-mass/cell units and the explicit ODE-inferred coupling annotation; fitting evidence
-qualifies only the archived synthetic recovery cases.
+Use the supported `diffsol_bdf-start-1` through `diffsol_bdf-start-3` workflows.
+Each is a synthetic
+recovery test: fit known simulated data and check the true values come back.
 
 ## Inspect first
 
 Use `search_models` and `get_model` with an exact `model_id` and `version`.
-Read the complete `fitting` object, units, coordinate status, operation availability
-and qualification limits. For `qspquest.library-fitting/v1`, each workflow has:
+Read the `fitting` object, units and limitations. For
+`qspquest.library-fitting/v1`, each workflow has:
 
 | Field | Meaning |
 | --- | --- |
-| `id` and `operation` | Exact workflow ID and supported scalar or individual tool |
-| `parameters` | Native names, declared units, bounds, starters, synthetic truth and recovery limits |
-| `native_request` | Complete observations, residual errors, solver, regimen, priors and estimator controls |
-| `synthetic_observations` | Hash-indexed observation JSON in the same archive |
-| `qualification` | Recorded independent method, status, evidence and diagnostic interpretation |
-| `limitations` | Scope that must accompany interpretation |
+| `id` and `operation` | Workflow ID and the fitting tool it uses (scalar or individual) |
+| `parameters` | Names, units, bounds, starting values, true values and recovery tolerances |
+| `native_request` | Observations, residual errors, solver, dosing, priors and estimator settings |
+| `synthetic_observations` | Observation data stored in the same archive |
+| `qualification` | How the workflow was checked, and the result |
+| `limitations` | What the workflow does not cover |
 
-A draft has `qualification.status: not_assessed` and does not enable fitting.
+A draft has `qualification.status: not_assessed` and cannot be fitted.
 V1 workflows cover uncensored normal errors with fixed additive/proportional
 components, using scalar or individual estimation. Censoring, lognormal errors,
-priors and population estimators require a separate supported contract.
-A ready declaration must retain hash-bound observations, numerical results and
-evidence matching its model and request. Its scope is the exact synthetic recovery
-fixture. It does not reproduce a source population analysis. Unit `1` retains
-source numeric coordinates; do not label such estimates as physically qualified
-clearance, volume or concentrations merely from a descriptive source name.
+priors and population fitting are not supported here. These workflows do not
+reproduce the original paper's population analysis. Unit `1` means no physical
+unit is attached (the value is on the source's numeric scale); do not report it
+as a clearance or volume in physical units just because of the parameter's name.
 
-Read `qspquest://schema/library-fitting` for the declaration schema and the
-native scalar/individual request schemas for `native_request`. The complete
-request fixes observed values, residual model, bounds, starters, priors, solver,
-events and work budgets. Modifying any of those fields requires separate
-qualification. For exploratory fitting, use an explicitly labeled user-authored
-model and its supported native fitting interface.
+Read `qspquest://schema/library-fitting` for the full schema. The workflow
+fixes the data, error model, bounds, starting values, solver and limits; it runs
+only as stored. To fit your own variations, write your own model and use the
+regular fitting tools.
 
 ## Execute and retain the result
 
@@ -67,9 +61,9 @@ python3 library_fit.py ./qspquest-mcp \
   --out library-fit-results
 ```
 
-On Windows PowerShell use `python`, `.\qspquest-mcp.exe`, and the actual absolute
-library path on one line. The selected library must contain `catalog.json`, its
-archives and required availability records; retain the complete download.
+On Windows PowerShell use `python`, `.\qspquest-mcp.exe`, and the absolute
+library path on one line. Keep the library download intact; it must contain
+`catalog.json` and its archives.
 
 For the normalized scalar example included in the complete source archive,
 from that archive's root with a matching built or downloaded native executable:
@@ -77,57 +71,47 @@ from that archive's root with a matching built or downloaded native executable:
 ```sh
 python3 docs/examples/mcp_library_fit.py /absolute/path/to/qspquest-mcp \
   --library bindings/mcp/assets/library \
-  --model qspquest_diffdose_2026_idr_benchmark --version 0.3.0 \
+  --model qspquest_diffdose_2026_idr_benchmark --version 0.3.1 \
   --workflow diffsol_bdf-start-1 \
   --out normalized-scalar-fit
 ```
 
 This selects the archive's `diffsol_bdf-start-1` workflow. It estimates
 `source_symbol_5`, the normalized elimination parameter, with BDF and bounds
-0.2–1.2 in declared unit `1`. Its synthetic truth is 0.7 with an absolute recovery
-limit of 1e-5. The archive supplies the complete observations, native request and
-recovery declaration. The same request is available through
-`qspquest://examples/fit/library-scalar`. It supplies no clinical observations,
-physical-unit qualification or reproduction of a source population fit.
+0.2–1.2 in unit `1`. The true value is 0.7 and the fit must recover it within
+1e-5. The same request is available through
+`qspquest://examples/fit/library-scalar`.
 
-The client refuses unavailable fitting before numerical work. For a supported
-workflow it obtains the complete plan, binds execution to `expected_plan_hash`,
-retrieves the complete result and saves:
+The client stops early if the model has no ready fitting workflow. Otherwise it
+previews the plan, runs it with `expected_plan_hash`, downloads the result and
+saves:
 
 | File | Purpose |
 | --- | --- |
-| `model-card.json` | Complete fitting declaration, archive identity and scope |
-| `arguments.json` | Exact execution inputs and plan guard |
-| `plan.json` | Complete prospective preparation and qualification limits |
-| `result.json` | Complete native result, estimates and engine identity |
+| `model-card.json` | The model's fitting workflow and limitations |
+| `arguments.json` | Exact inputs, including the plan hash |
+| `plan.json` | The previewed plan |
+| `result.json` | Full result, including estimates and run identity |
 | `checks.json` | Convergence, parameter recovery and diagnostic summary |
 
-Choose a new output directory whose parent exists; existing paths and links are
-refused. The JSON printed on stdout reports file hashes and parameter checks.
-Keep the original library archive, its trusted checksum and executable identity
-alongside these files. Byte checksums do not authenticate a producer or establish
-scientific qualification.
+Choose a new output directory whose parent exists. The JSON printed on stdout
+reports file hashes and parameter checks.
 
 ## Interpret status and recover
 
-A passing synthetic example has `fit_status: converged` and every declared
-parameter-recovery check passing. Inspect evaluation/iteration counts, active
-bounds and, for individual fitting, the projected-gradient norm. A parameter near
-a bound or a nonconverged estimate is a diagnostic candidate. Do not report it as
-an accepted fit or qualified uncertainty estimate.
+A passing run has `fit_status: converged` and every parameter-recovery check
+passing. Also check evaluation/iteration counts, parameters at their bounds and,
+for individual fitting, the projected-gradient norm. Do not report a parameter
+stuck at a bound or a non-converged estimate as a final result.
 
-The client retains returned failed/nonconverged results and exits with status 1.
-An admission error or transport timeout cannot supply a completed numerical fit;
-inspect its diagnostic before retrying. A simulation-only model returns a specific
-`fitting_unsupported` reason. A changed native request returns `fitting_contract`:
-restore the declared fixture or qualify a separate exploratory analysis. Never
-flip readiness flags or relax recovery tolerances simply to obtain success.
+The client saves failed or non-converged results and exits with status 1.
+After an input error or timeout, read the error message before retrying. A
+simulation-only model returns `fitting_unsupported`. A modified request returns
+`fitting_contract`: use the stored request unchanged. Do not relax recovery
+tolerances to make a run pass.
 
-Recorded archive recovery applies to its stated source, request, targets and
-engine identities. Every current result retains its own identity and current-run
-qualification remains unassessed unless applicable independent evidence is
-separately bound to it. This workflow grants no claim about clinical suitability,
-source population estimation, real-world data or other endpoints/estimators.
+These are synthetic tests. They say nothing about clinical use, real-world data
+or the original study's population estimates.
 
 ## Select an exact model version
 
@@ -135,10 +119,8 @@ Inspect the catalog before choosing a model. In Python, call
 `library.load(model_id, version=version)`; in MCP, provide both `model_id` and
 `version`. The library CLI accepts `--model-version VERSION` alongside
 `--model MODEL_ID`. Omitting the version selects the catalog's current version.
-An unavailable version fails before execution; it is never replaced automatically.
+A missing version fails with an error; another version is never substituted.
 
-Before changing versions, check the model card, bindings, scenario, units and
-operation availability. Reapply overrides using the declared names and units,
-then compare results under the scientific tolerances your workflow requires.
-Archive integrity and simulation availability alone do not establish fitting
-support or physical-unit qualification.
+Before changing versions, check the new model card, scenario and units. Reapply
+any overrides using the new version's parameter names and units, then compare
+results.

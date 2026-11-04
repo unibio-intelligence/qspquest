@@ -31,11 +31,9 @@ docker build --file bindings/mcp/Dockerfile --target public \
   --tag qspquest-mcp:local .
 ```
 
-The first source build downloads and compiles locked dependencies. It can take
-tens of minutes and is a preparation step; subsequent runs use the built image.
-The image contains the server, isolated WASM engine, browser assets, license
-notices and a small synthetic model. No model-library download is needed for
-this first run.
+The first build downloads and compiles dependencies and can take tens of
+minutes; later runs reuse the image. The image includes a small synthetic model,
+so no model library is needed for this first run.
 
 ## Connect over HTTP
 
@@ -50,11 +48,9 @@ docker run --detach --name qspquest-mcp --init \
 
 In your agent client's MCP settings, add a server named `qspquest`, choose
 **Streamable HTTP**, and set its URL to **`http://127.0.0.1:8080/mcp`**.
-No bearer token is required for this local example. The listener is published
-only on your computer's loopback address. Inputs and results travel between your
-agent client and the container; your client controls what it sends to its AI
-provider. This local setup does not accept connections from a hosted client
-running on another machine.
+No token is needed for this local example. The server is reachable only from
+your own computer, so a hosted client on another machine cannot connect. Your
+agent client decides what it sends to its AI provider.
 
 A client that supports the `mcpServers` URL configuration can use:
 
@@ -80,8 +76,7 @@ python3 bindings/mcp/scripts/quickstart.py --url http://127.0.0.1:8080/mcp
 ```
 
 Expect `checks_passed: true`, four sample times and the concentrations below.
-This checks the actual server connection and numerical result without an AI
-client.
+This checks the connection and the result without an AI client.
 
 ## Ask your agent for the first simulation
 
@@ -94,9 +89,8 @@ Paste this prompt into the connected agent:
 > the model's assumptions.
 
 The agent should call `search_models`, `get_model`, then `simulate`.
-The complete simulation arguments below explicitly request post-dose observations,
-so the time-zero value is 2 mg/L. The native request schema retains its versioned
-identifier:
+The full simulation arguments below request post-dose observations, so the
+time-zero value is 2 mg/L:
 
 ```json
 {
@@ -184,11 +178,10 @@ identifier:
 | 24 | 0.181436 |
 
 This synthetic model has volume 3 L and clearance 0.3 L/h, giving
-`cp(t) = 2 * exp(-0.1 * t)`. It illustrates linear elimination from one
-well-mixed compartment and supplies no clinical dosing recommendation.
-Check `structuredContent.contract.status`, the returned units and event sides
-before interpreting a result. A failed calculation is not a completed answer.
-For a changed dose or parameter, ask the agent to call the tools again.
+`cp(t) = 2 * exp(-0.1 * t)`. It is a teaching example, not a dosing
+recommendation. Check `structuredContent.contract.status` and the returned units
+before using a result. To change the dose or a parameter, ask the agent to call
+the tools again.
 
 ## Connect through stdio instead
 
@@ -252,6 +245,6 @@ docker rm --force qspquest-mcp
 If port 8080 is in use, publish `127.0.0.1:8081:8080` and change the client's
 URL to `http://127.0.0.1:8081/mcp`. For startup errors, run
 `docker logs qspquest-mcp`. Docker must be running and the image architecture
-must match the host. Keep the server on loopback for this workflow; remote
-clients need an operator-configured HTTPS deployment and access policy, as
-described in [deployment profiles](mcp-deployment-profiles.md).
+must match the host. Keep the server on loopback (`127.0.0.1`) for this
+workflow; serving remote clients needs HTTPS and access control, as described in
+[deployment profiles](mcp-deployment-profiles.md).

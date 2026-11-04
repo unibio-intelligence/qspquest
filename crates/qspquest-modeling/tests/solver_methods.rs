@@ -54,8 +54,6 @@ fn all_diffsol_methods_follow_bolus_and_infusion_boundaries() {
         (Solver::DiffsolTsit45, "tsit45"),
         (Solver::DiffsolEsdirk34, "esdirk34"),
         (Solver::DiffsolTrBdf2, "tr_bdf2"),
-        (Solver::DiffsolRosenbrock23, "rosenbrock23"),
-        (Solver::DiffsolRodas5p, "rodas5p"),
     ];
     let mut hashes = std::collections::BTreeSet::new();
     for accuracy in [AccuracyControl::Local, AccuracyControl::Sampled] {
@@ -64,10 +62,7 @@ fn all_diffsol_methods_follow_bolus_and_infusion_boundaries() {
             request.solver = solver;
             let result = compiled.execute(&request).unwrap();
             assert_eq!(result.identity.backend, "diffsol");
-            assert!(result
-                .identity
-                .backend_version
-                .starts_with("0.18.0+sha256:"));
+            assert!(result.identity.backend_version.starts_with("0.18.0+git:"));
             assert_eq!(result.identity.algorithm, algorithm);
             assert!(hashes.insert(result.identity.run_request_hash));
             for (i, &time) in result.times.iter().enumerate() {
@@ -115,8 +110,6 @@ fn implicit_runge_kutta_methods_resolve_stiff_dose_response() {
         Solver::DiffsolBdf,
         Solver::DiffsolEsdirk34,
         Solver::DiffsolTrBdf2,
-        Solver::DiffsolRosenbrock23,
-        Solver::DiffsolRodas5p,
     ] {
         request.solver = solver;
         let result = compiled.execute(&request).unwrap();
@@ -173,6 +166,7 @@ fn unsupported_requests_do_not_fall_back_to_bdf_for_fit_or_sensitivity() {
         CompiledSensitivityDocument::compile(&model, &sensitivity.with_respect_to).unwrap();
     for solver in [
         Solver::DiffsolRosenbrock23,
+        Solver::DiffsolRodas5p,
         Solver::DiffsolTsit45,
         Solver::DiffsolEsdirk34,
         Solver::DiffsolTrBdf2,
@@ -197,7 +191,7 @@ fn unsupported_requests_do_not_fall_back_to_bdf_for_fit_or_sensitivity() {
 }
 
 #[test]
-fn rodas5p_event_sensitivities_match_closed_form_and_preserve_sides() {
+fn bdf_event_sensitivities_match_closed_form_and_preserve_sides() {
     let model: ModelDocument = serde_json::from_str(include_str!(
         "../../../conformance/models/synthetic-one-compartment.json"
     ))
@@ -207,7 +201,7 @@ fn rodas5p_event_sensitivities_match_closed_form_and_preserve_sides() {
     ))
     .unwrap();
     sensitivity.run = request();
-    sensitivity.run.solver = Solver::DiffsolRodas5p;
+    sensitivity.run.solver = Solver::DiffsolBdf;
     sensitivity.run.regimen.rtol = 1e-10;
     sensitivity.run.regimen.atol = Some(1e-12);
     let compiled =
@@ -215,7 +209,7 @@ fn rodas5p_event_sensitivities_match_closed_form_and_preserve_sides() {
     let result = compiled.run(&sensitivity).unwrap();
     assert_eq!(
         result.result.identity.algorithm,
-        "rodas5p_augmented_forward_sensitivity"
+        "bdf_augmented_forward_sensitivity"
     );
     for (row, time) in result.result.times.iter().copied().enumerate() {
         if time == 0. && result.result.sides[row] == ObservationSide::Pre {
@@ -265,8 +259,6 @@ fn stiff_robertson_sampled_outputs_agree_with_independent_radau() {
                 Solver::DiffsolBdf,
                 Solver::DiffsolEsdirk34,
                 Solver::DiffsolTrBdf2,
-                Solver::DiffsolRosenbrock23,
-                Solver::DiffsolRodas5p,
             ] {
                 let request: RunRequest = serde_json::from_value(json!({
                 "schema":"qspquest.run/v0.1", "solver":solver, "accuracy_control":accuracy,
@@ -312,7 +304,7 @@ fn stiff_robertson_sampled_outputs_agree_with_independent_radau() {
 fn sampled_refinement_shares_the_callback_budget_and_changes_run_identity() {
     let compiled = language::parse(MODEL).unwrap().compile().unwrap();
     let mut run = request();
-    run.solver = Solver::DiffsolRodas5p;
+    run.solver = Solver::DiffsolBdf;
     let local = compiled.execute(&run).unwrap();
     run.accuracy_control = AccuracyControl::Sampled;
     let sampled = compiled.execute(&run).unwrap();
@@ -356,4 +348,16 @@ fn sampled_refinement_shares_the_callback_budget_and_changes_run_identity() {
         compiled.run(&sensitivity).unwrap_err().code,
         ErrorCode::Unsupported
     );
+}
+
+#[test]
+fn unavailable_solvers_fail_explicitly_without_fallback() {
+    let compiled = language::parse(MODEL).unwrap().compile().unwrap();
+    let mut run = request();
+    for solver in [Solver::DiffsolRosenbrock23, Solver::DiffsolRodas5p] {
+        run.solver = solver;
+        let error = compiled.execute(&run).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert!(error.message.contains("diffsol_bdf"), "{error}");
+    }
 }

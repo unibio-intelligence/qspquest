@@ -1,11 +1,9 @@
 # Python binding
 
 The implemented `qspquest-python` crate builds the Python package `qspquest`
-with PyO3 0.29.2 and maturin 1.15.0. It calls the existing model compiler and
-scientific execution API. The extension is configured for CPython's 3.10+
-stable ABI; verification currently covers CPython 3.11 on macOS arm64 only.
-Other Python versions, operating systems, free-threaded interpreters and
-subinterpreters remain unqualified.
+with PyO3 0.29.2 and maturin 1.15.0. It targets CPython's 3.10+ stable ABI,
+but has only been tested on CPython 3.11 on macOS arm64. Other Python versions,
+operating systems, free-threaded interpreters and subinterpreters are untested.
 
 ## Use
 
@@ -29,7 +27,7 @@ Type hints and `py.typed` are included.
 
 ## Population data fits
 
-`population_fit_dataset` converts a bounded subset of NONMEM-style `ID`,
+`population_fit_dataset` converts a subset of NONMEM-style `ID`,
 `TIME`, `EVID`, `DV`, `MDV`, `AMT`, `CMT`, `RATE`, `ADDL`, `II`, and `SS` rows into
 a FOCEI or SAEM request. Supply a `qspquest.fit/v0.1` template whose
 `problem.kind` is `focei` or `saem`, with one subject objective containing a
@@ -63,7 +61,7 @@ dose fields are rejected. `MDV = 1` omits
 the row from fitting, including a missing `DV`. Same-time dose/observation
 semantics come from the explicit `observation_side`, never row order.
 
-`dataset.request` is the complete native request. `dataset.mapping` links each
+`dataset.request` is the complete fit request. `dataset.mapping` links each
 zero-based source row to its subject and zero-based result row. The fit result
 retains that mapping and subject IDs. For FOCEI, `fitted_observations` adds
 `subject_id` and `source_row` to the engine's PRED/IPRED rows for both FOCEI
@@ -71,43 +69,37 @@ and SAEM. A one-effect SAEM request may estimate a common additive residual
 SD with `additive_error_fit`; its observations must share one output, zero
 proportional error, and the declared starting SD. Two-effect SAEM can also
 estimate this SD. Fixed normal additive/proportional and
-lognormal residual errors are available in the native observation contract;
-left-censored observations use `censoring: "left"` and place the quantification
+lognormal residual errors can be set on each observation; left-censored observations use `censoring: "left"` and place the quantification
 limit in `value`. A fitted additive SD can use left-censored normal rows.
 One-effect native SAEM can estimate up to four bounded exponential,
 subject-constant covariate effects. One- and two-effect SAEM can report local
 marginal-objective uncertainty under the
-limits in the [SAEM guide](SAEM.md). The dataset convenience adapter still
-requires explicit native request construction for these fields.
+limits in the [SAEM guide](SAEM.md). The dataset adapter does not set these
+fields; add them to `dataset.request` yourself.
 `burn_in_iterations` can set the SAEM
 exploration length independently of `max_iterations`. Inspect
-`population["status"]` before treating estimates as converged. Native
-scientific errors and conversion errors are `QSPQuestError` with structured
-codes. This adapter does not infer covariates, censoring, units, or missing
-values beyond explicit `MDV`.
+`population["status"]` before treating estimates as converged. Model, run and
+conversion errors raise `QSPQuestError` with a structured code. This adapter
+does not infer covariates, censoring, units, or missing values beyond explicit
+`MDV`.
 
-`QSPQuestError` preserves `code`, `time`, `expression`, `line`, `column` and the
-complete `diagnostic` where supplied by the compiler/engine. A failure returns
-no partial result and does not replace the compiled model or retain request
-bindings. Plain Python argument-type errors still use Python `TypeError`.
-Non-finite dict values are rejected before serialization; Rust validates the
-scientific request, quantities and budgets.
+`QSPQuestError` carries `code`, `time`, `expression`, `line`, `column` and the
+full `diagnostic` when available. A failed run returns no partial result and
+leaves the compiled model unchanged. Wrong Python argument types still raise
+`TypeError`. Non-finite values are rejected before the request is sent; the
+engine then checks the request, quantities and budgets.
 
 ## Concurrency and ownership
 
-The native compiled model is immutable and shared through `Arc`; each run
-creates independent parameter/covariate bindings and solver scratch state.
-Compilation, execution and result serialization release the Python GIL using
-`Python::detach`. The same model can serve independent `ThreadPoolExecutor`
-requests. Dict encoding and decoding run in Python; this is not a zero-copy
-NumPy interface. Returned arrays are ordinary independent Python lists.
-There is no implicit Rust thread pool or change to the single-threaded WASM
-build. Concurrency limits belong to the caller.
+A compiled model is immutable, and each run gets its own parameter values and
+solver state. Compilation, runs and result serialization release the Python
+GIL, so one model can serve concurrent `ThreadPoolExecutor` requests. Results
+are plain Python lists, not zero-copy NumPy arrays. The native extension starts
+no threads of its own; you control concurrency.
 
-Scientific callback/output/event budgets apply unchanged. Thread cancellation
-does not interrupt an active native solve; use a supervising process when a hard
-wall-clock deadline is required. Backend worker integration and managed
-operation qualification remain outstanding.
+Callback, output and event budgets still apply. Cancelling a thread does not
+stop a solve already running; use a separate process if you need a hard
+wall-clock deadline.
 
 ## Build and test
 
@@ -122,16 +114,14 @@ QSPQUEST_TEST_CLI="$PWD/target/release/qspquest" python bindings/python/tests/te
 ```
 
 Wheel builds after dependency fetch can run with `--offline`. Python build
-metadata lives in the workspace-root `pyproject.toml`. `maturin sdist` preserves
-the workspace manifests, lockfile, compiler-fingerprint sources, and declared
-example inputs. Build an extracted archive with the same `maturin build` command
-from its root. Rust dependencies must already be cached for `--offline`.
+metadata lives in the workspace-root `pyproject.toml`. `maturin sdist` produces
+a source archive with everything needed to build. Build an extracted archive
+with the same `maturin build` command from its root. Rust dependencies must
+already be cached for `--offline`.
 
-An independently extracted archive passes a locked offline release build and
-all six installed-wheel integration tests on CPython 3.11 macOS arm64. See
-the separately retained packaging evidence.
-This verifies standalone buildability and source identity; it does not establish
-byte-identical rebuilds or other platforms. The package is not published.
+The source archive builds offline and passes all six installed-wheel tests on
+CPython 3.11 macOS arm64. Rebuilds are not guaranteed byte-identical, and other
+platforms are untested. The package is not published.
 
 References: [PyO3 parallelism](https://pyo3.rs/v0.29.2/parallelism) and
 [maturin mixed-project configuration](https://www.maturin.rs/config).

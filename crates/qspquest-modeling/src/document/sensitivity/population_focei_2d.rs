@@ -271,6 +271,7 @@ impl Evaluator2<'_> {
         }
         let subject = &self.subjects[index];
         let run = &subject.simulation.run;
+        crate::validate_solver(run.solver)?;
         let mut parameters = run.parameters.clone();
         for axis in 0..2 {
             parameters.insert(
@@ -613,8 +614,9 @@ fn prepare_population_focei_2d_observed(
     }
     let subjects = request.subjects.iter().enumerate().map(|(index, subject)| {
         let run = &subject.simulation.run;
-        if !matches!(run.solver, Solver::DiffsolBdf | Solver::DiffsolRodas5p) || run.seed.is_some() {
-            return Err(Error::new(ErrorCode::Unsupported, "sensitivity runs require deterministic diffsol_bdf or diffsol_rodas5p"));
+            crate::validate_solver(run.solver)?;
+        if !matches!(run.solver, Solver::DiffsolBdf) || run.seed.is_some() {
+            return Err(Error::new(ErrorCode::Unsupported, "sensitivity runs require diffsol_bdf"));
         }
         if run.request_id.as_ref().is_some_and(|id| id.is_empty() || id.len() > 128)
             || run.budgets.solver_callbacks > u32::MAX as u64

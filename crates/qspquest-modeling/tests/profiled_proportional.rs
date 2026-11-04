@@ -283,7 +283,7 @@ fn profiled_objective_matches_independent_likelihood_and_score() {
 #[test]
 fn native_joint_fit_matches_closed_form_at_multiple_starts_and_solvers() {
     let (compiled, request) = fixture();
-    for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+    for solver in [Solver::DiffsolBdf] {
         for start in [1.3, 1.8, 3.5] {
             let mut current = request.clone();
             current.objective.simulation.run.solver = solver;

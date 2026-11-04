@@ -95,8 +95,8 @@ impl Failure {
             Reason::InputLimit => ("input_limit", "Tool arguments exceed 1 MB".to_owned(),
                 "Reduce the submitted request to at most 1000000 serialized UTF-8 bytes.".to_owned()),
             Reason::WithheldSolver => ("unsupported_solver",
-                "Rosenbrock23 is withheld pending dense interpolation qualification; choose BDF or Rodas5P".to_owned(),
-                "Choose diffsol_bdf or diffsol_rodas5p where the requested native operation supports it.".to_owned()),
+                "Rosenbrock23 and Rodas5P are unavailable; choose a supported standard Diffsol solver".to_owned(),
+                "Choose diffsol_bdf for simulation, sensitivities or fitting.".to_owned()),
             Reason::Object(field) => ("invalid_input", format!("{field} must be an object"),
                 format!("Supply {field} as an object with solver_callbacks, events and output_values integer fields.")),
             Reason::Array(field) => ("invalid_input", format!("{field} must be an array"),
@@ -185,7 +185,10 @@ fn validate(
             )
         });
         let saem_evaluation_path = declared_path.as_deref().or(saem_evaluation_path);
-        if object.get("solver").and_then(Value::as_str) == Some("diffsol_rosenbrock23") {
+        if matches!(
+            object.get("solver").and_then(Value::as_str),
+            Some("diffsol_rosenbrock23" | "diffsol_rodas5p")
+        ) {
             return Err(Failure::at(child(path, "solver"), Reason::WithheldSolver));
         }
         if object.get("schema").and_then(Value::as_str) == Some("qspquest.run/v0.1") {
@@ -464,13 +467,14 @@ mod tests {
 
     #[test]
     fn withheld_solver_and_effect_limits_are_explicit() {
-        let mut request =
-            json!({"nested":{"schema":"qspquest.run/v0.1","solver":"diffsol_rosenbrock23"}});
-        let failure = admit(&mut request, Profile::Local)
-            .unwrap_err()
-            .into_value();
-        assert_eq!(failure["error"]["code"], "unsupported_solver");
-        assert_eq!(failure["error"]["expression"], "/nested/solver");
+        for solver in ["diffsol_rosenbrock23", "diffsol_rodas5p"] {
+            let mut request = json!({"nested":{"schema":"qspquest.run/v0.1","solver":solver}});
+            let failure = admit(&mut request, Profile::Local)
+                .unwrap_err()
+                .into_value();
+            assert_eq!(failure["error"]["code"], "unsupported_solver");
+            assert_eq!(failure["error"]["expression"], "/nested/solver");
+        }
         let mut effects = json!({"random_effects":[{},{},{}]});
         assert_eq!(
             admit(&mut effects, Profile::Local)

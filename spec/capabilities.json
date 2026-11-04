@@ -11,27 +11,27 @@
     "execution_mode"
   ],
   "source_snapshot": {
-    "Cargo.toml": "08cd393b6d5bf35ddcf28e63261425483d374802b705fd328b4b8e15f0e52ac1",
+    "Cargo.toml": "4112fb671681be3de978964d858dcc2fe97f05f7066d4f978d3a4828652c0c4f",
     "bindings/cli/src/main.rs": "9f356bb0f8af4c90bb36f04c6554a3e0c749fcc2084b8678675948f2ae9ff64c",
     "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
     "bindings/mcp/Dockerfile": "152ef1530703f75e39f4b26058582669200fc6f243e2fd8b561f2393d3fa338e",
-    "bindings/mcp/assets/library/catalog.json": "da147cf9db14c23e0ea6a6dc185946d8b58951582600d7e094e08cff36f08a13",
+    "bindings/mcp/assets/library/catalog.json": "7191e3d583bf096e463b8be73d99914a8f3cc345c4d9b134f461ced0e110748c",
     "bindings/mcp/assets/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/evidence.json": "f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
-    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.0/evidence.json": "15d79cb03f9116b5270cf2f2563178e8f9b1a5c453873c4cb2201ca152d084c2",
+    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.1/evidence.json": "073dfdb95834cd7032f388fd4ea04c7aa7770a86b2c98f6608988463bb32376b",
     "bindings/mcp/assets/library/models/qspquest_diffdose_2026_tgi_benchmark/0.1.0/evidence.json": "52235f1405b414c11e7b4431a60ccc41bbf8517ccdc1afc1140a9ad7f72c76d9",
     "bindings/mcp/assets/library/models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/evidence.json": "7764e94f911a805d0fb542fb1daf5a8c4f607a4b22d07c486509c815e1b1c7e0",
     "bindings/mcp/assets/library/models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/evidence.json": "55055efe1971a2bfbda6d23c1b9c496ef322937f5ecbf2f779e8544f85c733d6",
     "bindings/mcp/assets/library/models/qspquest_ubi_2026_membrane_ternary_binding/0.1.2/evidence.json": "05955b89248690dbae9560d9394c50fe2887da64ab51b3e5f3d2faee59f5c473",
     "bindings/mcp/assets/library/models/qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0/evidence.json": "1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
     "bindings/mcp/assets/library/models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1/evidence.json": "5f5bc66430a82d7cea07d98b478e372826dfa03de77ae380e76eb164ad6cb1f3",
-    "bindings/mcp/assets/library/qspquest_models/availability.json": "1b39fc34c69ccf6e568c095f06cd8f2959f3c76a34c63e6ffa825fbdf7dc4bb0",
+    "bindings/mcp/assets/library/qspquest_models/availability.json": "10886be6187392a97553740dc1eaabb06f81b7d51c348f815c06c865d5af42c2",
     "bindings/mcp/build.rs": "5099dc2d9f1b7a2ab2d0c9fa753a9e2fc748cd1718f91acd7b011c6e037a54a0",
     "bindings/mcp/src/artifacts.rs": "418274f5db950a267c40fa3e75a16793672f6235550532b20273ad81145d1cc2",
     "bindings/mcp/src/availability.rs": "4f99322470089705d04e34ab2fbb7eaa73cf978a0c9afcaf3acf0bdf466df149",
-    "bindings/mcp/src/boundaries.rs": "878b79e050f6f9fdc7021d3102e828b827569b306a7b629a290c6b8905c2a9bf",
+    "bindings/mcp/src/boundaries.rs": "328552536b5501161291491b9e44d36d5af5079260aa812963be881e0690defb",
     "bindings/mcp/src/cache.rs": "4f2ea6a171e625c51623b177eb818c6155cc6f075d9050b578c2df121e1a3759",
     "bindings/mcp/src/cache_fs.rs": "0822929008c4a72fc1ad0c3c86a1b385fcccd5c8e2a6f02155e529b65d17085d",
-    "bindings/mcp/src/capability.rs": "6ee9679d4bcba78e700c6a6fcea53c98bf2c4d5008c8ce2e2e1cecdd5e6680e3",
+    "bindings/mcp/src/capability.rs": "824e22a8348eddf9156b1307f98107dca73c478af8c417cba6a827458597cf7c",
     "bindings/mcp/src/contract.rs": "e82b2968747cc3303c048a1e555515d580c2a0e44996f082fa77ea59c90069c1",
     "bindings/mcp/src/core/analysis_request.rs": "7720752a5c9e3dd9183fd02af63ee0dcd1e3d01a1e4b30ca1bd7eb277889dde3",
     "bindings/mcp/src/core/compute.rs": "f3b9d7d05ce737d0a43b3701ee50982360a858ddd86dff9e92a2ae6d8f92cb8c",
@@ -48,9 +48,9 @@
     "bindings/mcp/src/core/time_validation.rs": "8c8841dd3f1cb54191bea70ef9e9e6364e57d38e4ea537e99ca278eaa81852ce",
     "bindings/mcp/src/core/usability.rs": "43263f0a337599d2c92727d00be922258052d7a9fdad74e7b78af38d86a83924",
     "bindings/mcp/src/discovery.rs": "57899689ce5d53530464d3c349b8ae8325ee74ebd5a3f58aa999e23654a85840",
-    "bindings/mcp/src/execution_policy.rs": "f1dd18c68810a11222e807ef739ed7f665f407cd907c6d256eceedb6be21f9b8",
+    "bindings/mcp/src/execution_policy.rs": "5b87485d3d370db3e4747b6bca02b9a7d654ead1f20a1dfba3d574386eb1b957",
     "bindings/mcp/src/export.rs": "7b741cfb80669c32b11145650cbf23575f37d8e068e70b53474998a9e6b77c68",
-    "bindings/mcp/src/fitting.rs": "21b561535b9862378a8cdccfec307d8737a8ad16ca3e3c6935ef0162be5b36fb",
+    "bindings/mcp/src/fitting.rs": "c8a8f814efc3132fab9ab27f02d591a8e80b6f8d099ff6167564c4f51e9404df",
     "bindings/mcp/src/initialization.rs": "bce5578bb1648f4fbea596c3abdf8a3693c0b5d9a48f6bb03e97fce4ae3a6f1d",
     "bindings/mcp/src/inspection.rs": "152b1e9a75f67a57da69089f6ce6d4c4d37cce3030f7be70945f989139a27c40",
     "bindings/mcp/src/interpretations.rs": "15228f2454d0decb86787ead18e243ba3cc53960392534637d1a57e8d55f4c8f",
@@ -73,14 +73,14 @@
     "bindings/mcp/src/server/local_jobs.rs": "da220964cac1d101da9a8c51a4e785b9a4176aa2e06580ddebc444bdbae3a74b",
     "bindings/mcp/src/server/managed.rs": "843eea426555537afa0d5089a94a54cf5a054de9fe0d7087f955d5ef7f06c7f9",
     "bindings/mcp/src/table.rs": "b1e613bdca4a993cd9ebc817cc964ec55c1554f332fa3ad215c5a9371c94c758",
-    "bindings/python/python/qspquest/__init__.py": "be1078747c8944c722dc5da3f09fdb2cbd9ac6a2da239ea03fdf31c9c118572a",
+    "bindings/python/python/qspquest/__init__.py": "c92aac11783e663dc87c09cc0f4919a1e6e2c95232a966e2397ab128e798fda1",
     "bindings/python/python/qspquest/control.py": "62dd5d60c4693e7a9c7773c7f1a35d5f3abdcc1d1ff663e7e4fb4e3c436f9d94",
     "bindings/python/python/qspquest/derivatives.py": "66934b42a97abe9e056862493f9e1601331c95caf9334a1324d5ddcf8d6e5936",
     "bindings/python/python/qspquest/diagnostics.py": "1bfa6628c895923f144feed054e3a1fc6ab411a3c1af72523b05e22306b9c924",
     "bindings/python/python/qspquest/estimation.py": "d1580c912f1d0bdb353e4d6abc3c8d10dd03cd97deb9aa88acacfe5c46064056",
     "bindings/python/python/qspquest/exposure.py": "62829d7ea4c688d505d6f72fc28ae8300432e54750794e4ea5679de7a61a406c",
     "bindings/python/python/qspquest/individual.py": "0abbbee768ef7963ce50e2d5642edca810d338f16e2b237f7bd10ff2780f15b9",
-    "bindings/python/python/qspquest/interchange.py": "5ac4895c9a5a7c460cc8fa7789b53e75fafc69a89c514374435a5243912e53a2",
+    "bindings/python/python/qspquest/interchange.py": "e4d5283b64b0456b4e69087d94f792bf5a4dabd318de11a66707077060062988",
     "bindings/python/python/qspquest/population.py": "006e23aa4830a9498a9e5996b831b623f3b842e6b07a78c94154880f835a999d",
     "bindings/python/python/qspquest/uncertainty.py": "31e0d3d76f5722761196e3cc31a75084be203297907a558da9a36e945cd6ca2c",
     "bindings/python/src/lib.rs": "49135ed91d45ba12fbeb1cd0e1aff3db8a7c5dcf3d4d8391eb211dac504b8a59",
@@ -96,9 +96,9 @@
     "crates/qspquest-core/src/fit.rs": "f10f06a80435cffcf817c7b77ac61cfdfec326fc4d3f7450776123becc12571d",
     "crates/qspquest-core/src/initial_values.rs": "c5ae57ba3ecde7abb84585f82dcda7622fdc6604aa63e50941424251abca5fc4",
     "crates/qspquest-core/src/planning.rs": "0e4a26b86e55c49b6588ab3308526def9464b1615e0901730ca2e02bcb32898b",
-    "crates/qspquest-core/src/run.rs": "24f35dfc57a1ccba27df0d4279f229d31bddc8520de5456b243aa0c2c19c3bfd",
+    "crates/qspquest-core/src/run.rs": "259bc00a07c67403b4b6601f952033b829f54275dda1a28344a1abd175f3b96a",
     "crates/qspquest-core/src/units/mod.rs": "5941d1ef0e6a49a030702eb7852bcf811d597708748e7072e6e0c8a61f920be5",
-    "crates/qspquest-modeling/src/document.rs": "6c3cd8eca6cdac8717079d1dae2efa3beac6d7a7322a1a34426e3ff0958e3015",
+    "crates/qspquest-modeling/src/document.rs": "63f83628d524d2efa8003119ff418d7eef62c5a0b30cb2b6c3d47d216042084c",
     "crates/qspquest-modeling/src/document/initial_values.rs": "08237056590c3c188d6047fafb463189c97f26c3767eebaa34b57151be9aa1d5",
     "crates/qspquest-modeling/src/document/morris.rs": "89109bb9eb8dcf7dccb89f3afc0f18d3fb149d83751e43cfde992100e59b9e8c",
     "crates/qspquest-modeling/src/document/planning.rs": "0ecd9a3a4aa382ed0c5d8698abc661e51285bf51faec190f5f42f766e35f9126",
@@ -106,13 +106,13 @@
     "crates/qspquest-modeling/src/document/scan.rs": "a19fa2a1420167f33288b7a311da70df7d00c2f0d4ff2ae79e65fee801784ecf",
     "crates/qspquest-modeling/src/document/sensitivity/fit.rs": "8e131ed961162cc67750bc6834e40b98c470ae7cf238a7bb41969816b61663a1",
     "crates/qspquest-modeling/src/document/sensitivity/fit_planning.rs": "fbb5f898e139aa50c5fc33f68316a2280665941eec39f841e5ddb537bae8cefb",
-    "crates/qspquest-modeling/src/document/sensitivity/objective.rs": "9302306bc5d9b5db0afe0c4245803688a2a619559c5ea739f2258d7a7b09d757",
+    "crates/qspquest-modeling/src/document/sensitivity/objective.rs": "48a7579d808e83dfac2e87cdb1afc2c92f5cc589860aa23969df32d9b9742573",
     "crates/qspquest-modeling/src/document/sensitivity/planning.rs": "59fd1eea7af52b8f5f133b1472043ffda9f6927dfd1b2b6b39c3f5c90a4e08e5",
-    "crates/qspquest-modeling/src/document/sensitivity/population_focei.rs": "0d6466c33dad714eef15b1583c10104558acc82d98d4a43b236b541e9b3b4fe4",
-    "crates/qspquest-modeling/src/document/sensitivity/population_focei_2d.rs": "978ba5af4fffc24dc83fc4135fd93d0941b7e898139af7e8d2ad2bb1b392fa86",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei.rs": "bab3c126878f2295e95b482018b07d835c1b2f5d0233c55b3f3fd02202b986e4",
+    "crates/qspquest-modeling/src/document/sensitivity/population_focei_2d.rs": "8cd5705b09d641c7e004c9bec3619f533bed8a86effef86aab2637ec17262e7c",
     "crates/qspquest-modeling/src/document/sensitivity/population_laplace.rs": "f056536c8896145fa97f2941041e3083f0dd4b0a6e31176a1cfc7f293e9132ae",
     "crates/qspquest-modeling/src/document/sensitivity/population_saem.rs": "0bdc5b5682c43116fb91d3f244ed819f7b2b0b12d9b4d0abb24b610537bb938d",
-    "crates/qspquest-modeling/src/document/sensitivity/run.rs": "2cb900c9ccc725b158b2ef87a525f581242d69678cc50825a81706a048765771",
+    "crates/qspquest-modeling/src/document/sensitivity/run.rs": "876e783399ed4842d819b36988c5f493ca6cf7e40d338d32b2f103815114621a",
     "crates/qspquest-modeling/src/document/steady_state.rs": "e934ec68f345d46eac126f29b82d94818f5b72964b1c809e247147ffce22a1d1",
     "crates/qspquest-modeling/src/document/switches.rs": "ebee84c58ab0756515313d6706d0aee431bb0c7cde1fea4783049ba353993e8b",
     "scripts/build-mcp.sh": "b6018ec1cdca5b3a3a064edb22b527f28190a681a03d9142a52d2399eb9395e2",
@@ -265,8 +265,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -305,8 +303,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -345,8 +341,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -385,7 +379,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -426,8 +419,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -497,8 +488,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -675,8 +664,7 @@
         "profiled_proportional"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -714,8 +702,7 @@
         "profiled_proportional"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -755,8 +742,7 @@
         "profiled_proportional"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -794,8 +780,7 @@
         "profiled_proportional"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -831,8 +816,7 @@
         "profiled_proportional"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -867,8 +851,7 @@
         "pooled"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "wasm32-unknown-unknown"
@@ -901,8 +884,7 @@
         "pooled"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "wasm32-unknown-unknown"
@@ -935,8 +917,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -976,8 +957,7 @@
         "pooled"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -1018,8 +998,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -1056,8 +1035,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -1093,8 +1071,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -1130,8 +1107,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "wasm32-unknown-unknown"
@@ -1165,8 +1141,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "wasm32-unknown-unknown"
@@ -1201,7 +1176,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1242,8 +1216,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1281,8 +1253,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1319,8 +1289,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
-        "diffsol_rosenbrock23",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1839,8 +1807,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1880,7 +1846,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1923,8 +1888,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -1962,8 +1925,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2000,8 +1961,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2038,8 +1997,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2074,8 +2031,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
-        "diffsol_rosenbrock23",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2145,8 +2100,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2219,8 +2172,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2260,7 +2211,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2301,8 +2251,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2340,8 +2288,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2378,8 +2324,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2416,8 +2360,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2452,8 +2394,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
-        "diffsol_rosenbrock23",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2521,8 +2461,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -2557,8 +2496,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -2591,8 +2529,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -2624,8 +2561,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "wasm32-unknown-unknown"
@@ -2661,8 +2597,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2705,7 +2639,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2749,8 +2682,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2791,8 +2722,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2832,8 +2761,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2873,8 +2800,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -2909,8 +2834,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
-        "diffsol_rosenbrock23",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3381,8 +3304,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3455,8 +3376,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3495,8 +3414,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3538,8 +3455,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3578,8 +3493,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3617,8 +3530,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -3650,8 +3562,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -3686,8 +3597,7 @@
         "none"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -3723,8 +3633,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -3761,8 +3670,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -3802,8 +3710,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3841,8 +3747,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3883,8 +3787,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3924,7 +3826,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -3968,7 +3869,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -4012,8 +3912,7 @@
         "saem_native"
       ],
       "solvers": [
-        "diffsol_bdf",
-        "diffsol_rodas5p"
+        "diffsol_bdf"
       ],
       "targets": [
         "aarch64-apple-darwin",
@@ -4056,7 +3955,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -4100,8 +3998,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -4138,8 +4034,6 @@
         "diffsol_tsit45",
         "diffsol_esdirk34",
         "diffsol_tr_bdf2",
-        "diffsol_rosenbrock23",
-        "diffsol_rodas5p",
         "analytic_linear_pk"
       ],
       "targets": [
@@ -4770,7 +4664,7 @@
     "steady_state": "Periodic linear PK steady state",
     "iterate_periodic": "Bounded periodic-state iteration",
     "analysis_fit_individual": "Python likelihood fit with fitted errors and M3",
-    "analysis_fit_population": "Python SAEM with 1\u20138 effects",
+    "analysis_fit_population": "Python SAEM with 1–8 effects",
     "visual_predictive_check": "VPC and prediction-corrected VPC",
     "profile_likelihood": "Profile likelihood",
     "bootstrap_population": "Subject bootstrap",
@@ -4814,9 +4708,9 @@
     "get_local_job": "Inspect offline local job",
     "cancel_local_job": "Cancel offline local job",
     "resume_local_job": "Resume offline local job",
-    "fit_gamma_poisson": "Gamma\u2013Poisson count fitting",
+    "fit_gamma_poisson": "Gamma–Poisson count fitting",
     "fit_probit_normal_binomial": "Probit-normal binomial fitting"
   },
-  "compiler_source_sha256": "sha256:6896afe45da27cf101e0e68d10019dc387ae8877219d49e61c68b069a561e6b3",
-  "vendor_source_sha256": "36eb02e7fab3d73ba5d9bd123c99341cec9fa1aa4b15b6310e5fe9cfbdedac67"
+  "compiler_source_sha256": "sha256:61847e895ae1d0b16091b1428a20b8443aeef118c1ec1ae00322fd0ab0136202",
+  "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 }

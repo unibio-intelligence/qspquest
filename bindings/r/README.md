@@ -3,16 +3,15 @@
 This workspace package uses extendr-api 0.9.0 (MIT). Compile a model once with
 `compile_model(source)`, then call `simulate_model`, `fit_model`, `scan_model`
 or `morris_model` with the corresponding versioned JSON string or R list.
-The compiled pointer is local to an R session; recreate it in another process.
-Fitting currently compiles the requested sensitivity selection per call.
-Inspect `fit$fit$status`; returning a result does not imply convergence.
+The compiled model works only in the R session that created it. Each fit call
+recompiles the sensitivities it needs. Always check `fit$fit$status`; a returned
+result is not necessarily converged.
 
 `result_data_frame(simulation_result)` produces long data with TIME, SIDE,
-OUTPUT, VALUE and UNIT columns. It retains missing values as NA, attaches the
-time unit and execution identity, and avoids collisions with model output names.
-Errors use class `qspquest_error` with code, message and available scientific
-location fields. JSON models permit four million bytes; model text and requests
-retain a one-million-byte limit.
+OUTPUT, VALUE and UNIT columns, with missing values kept as NA and the time
+unit attached. Errors use class `qspquest_error` with a code, message and, where
+available, the location of the problem. JSON models may be up to four million
+bytes; model text and requests up to one million bytes.
 
 ## Installation
 
@@ -36,7 +35,7 @@ is optional for exporting an rxode2 UI.
 See [installation](../../docs/installation.md#r) for terminal commands, platform
 limits and preparing the archive, and the [R guide](../../docs/R-USER-GUIDE.md)
 for a complete simulation and fitting workflow. The archive route is checked on
-macOS ARM64 and in the Linux ARM64 R image; other installations need qualification. QSPQuest
+macOS ARM64 and in the Linux ARM64 R image; other platforms are untested. QSPQuest
 is not yet published to CRAN or R-universe.
 
 ## Count and correlated binomial fitting
@@ -91,8 +90,7 @@ engine validates units, time bounds and model targets when executed.
 Same-time observations use the explicit global pre/post setting, never source
 row order. Negative RATE, nonzero SS, EVID 2/3/4, dose fields on observation
 rows, and additional columns are rejected. Covariates, censoring and endpoint
-mapping need explicit future adapters; this is not a general NONMEM importer.
-Per-subject execution identities remain on the individual result objects.
+mapping are not supported; this is not a general NONMEM importer.
 
 Record terminology follows the [NONMEM Users Guide VIII](https://nonmem.iconplc.com/nonmem744/guides/VIII.pdf).
 The converter is independently authored from the data contract.
@@ -130,8 +128,8 @@ in that subject's simulation, matching the native request schema. Units are
 validated and converted by the engine. Pooled MAP counts the template prior once;
 independent MAP fits each receive the prior. Check every fit status before using
 estimates. This adapter supports fixed-error Gaussian individual/pooled fits;
-random effects, censoring, residual-error estimation and covariate import remain
-outside this contract.
+random effects, censoring, residual-error estimation and covariate import are
+not supported.
 
 `fit_parameter_data_frame` returns one row per fitted parameter with estimate,
 unit, status and objective. `fit_observation_data_frame` is an explicit replay

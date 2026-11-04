@@ -35,7 +35,7 @@ ScanResultSchema = Literal['qspquest.scan-result/v0.1']
 ScanSchema = Literal['qspquest.scan/v0.1']
 SensitivityResultSchema = Literal['qspquest.sensitivity-result/v0.1']
 SensitivitySchema = Literal['qspquest.sensitivity/v0.1']
-Solver = Literal['diffsol_bdf', 'diffsol_tsit45', 'diffsol_esdirk34', 'diffsol_tr_bdf2', 'diffsol_rosenbrock23', 'diffsol_rodas5p', 'analytic_linear_pk']
+Solver = Literal['diffsol_bdf', 'diffsol_tsit45', 'diffsol_esdirk34', 'diffsol_tr_bdf2', 'analytic_linear_pk']
 
 class _AdministrationRequired(TypedDict):
     amount: Quantity

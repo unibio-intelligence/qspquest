@@ -64,8 +64,8 @@ toolchain and restart R after replacing a loaded package.
 
 [Installation](installation.md#r) also covers terminal commands, installing from
 a complete source checkout, a custom user library, and building the R archive.
-Source installation is checked on macOS ARM64 and in the Linux ARM64 R image;
-other platforms need separate verification. `rxode2` is optional for the UI exporter and is not required by this
+Source installation is tested on macOS ARM64 and in the Linux ARM64 R image;
+other platforms are untested. `rxode2` is optional for the UI exporter and is not required by this
 guide's native simulation and fitting workflow.
 
 ## Quickstart
@@ -140,8 +140,7 @@ print(cp)
 ```
 
 Expected concentrations are 2.000000 mg/L at 0 h, 1.340640 mg/L at 4 h,
-and 0.602388 mg/L at 12 h. The analytic comparison checks scientific behavior
-as well as successful execution.
+and 0.602388 mg/L at 12 h, matching the analytic solution.
 
 Compile once and reuse `model`. Each simulation starts from its own initial
 conditions and request. It does not continue the previous trajectory.
@@ -182,10 +181,9 @@ plot(cp$TIME, cp$VALUE, type = "b",
 write.csv(frame, "trajectory.csv", row.names = FALSE)
 ```
 
-Filter the desired output before plotting. Retain side labels when comparing
+Filter the desired output before plotting. Keep side labels when comparing
 values at an event time. States are returned only when exposed as model
-outputs. CSV does not preserve execution attributes, so retain the complete
-JSON result as well.
+outputs. CSV drops these attributes, so also keep the complete JSON result.
 
 For a tidyverse workflow, the existing data frame can be passed to dplyr or
 ggplot2. Those packages are optional; they are not required for the native
@@ -309,8 +307,7 @@ add rows. Always inspect returned times and sides. Do not combine nonempty
 `samples` with an observation plan, or supply an empty observation plan.
 
 This guide uses BDF. Simulation also supports `diffsol_tsit45`,
-`diffsol_esdirk34`, `diffsol_tr_bdf2`, `diffsol_rosenbrock23`, and
-`diffsol_rodas5p` within their supported ODE scope. No unknown method selects
+`diffsol_esdirk34`, and `diffsol_tr_bdf2` within their supported ODE scope. No unknown method selects
 a fallback. Sensitivity-based fitting currently requires BDF. An
 `analytic_linear_pk` run needs a model that declares `linear_pk`; an arbitrary
 linear-looking differential equation does not select that engine automatically.
@@ -432,11 +429,10 @@ unit alone. The selected parameter order must match the fitting contract.
 
 The engine can return a result with `evaluation_limit`; inspect the status
 before using estimates. Review objective, work count, boundaries and prediction
-replay. A fit to exact noiseless synthetic data verifies implementation; it
-does not establish confidence-interval calibration or clinical validity.
+replay. A fit to noiseless synthetic data only checks the software; it says
+nothing about interval calibration or clinical validity.
 `priors = list()` requests likelihood fitting. Supported priors produce MAP
-fits; consult [Gaussian objectives](GAUSSIAN-OBJECTIVE.md) for their native
-representation. The R binding does not currently expose Python's derivative-free
+fits; see [Gaussian objectives](GAUSSIAN-OBJECTIVE.md) for details. The R binding does not currently expose Python's derivative-free
 scalar fitting method.
 
 ## Simulate and fit NONMEM style rows
@@ -630,7 +626,7 @@ were a final marginal objective. `saem_observations` can be `NULL` when the
 native result supplies no fitted-observation rows. Inspect the returned object
 and method-specific status before requesting diagnostics or interpreting fits.
 
-The native SAEM contract includes fixed normal/lognormal errors, left censoring,
+Native SAEM supports fixed normal/lognormal errors, left censoring,
 specific fitted additive-error cases, bounded one-effect fitted covariates,
 and limited local uncertainty. Advanced fields require explicit native
 requests; the row adapter does not infer them. See [the SAEM guide](SAEM.md)
@@ -663,12 +659,9 @@ writeLines(capture.output(sessionInfo()), "qspquest-analysis/session-info.txt")
 print(result$identity)
 ```
 
-Save the native `population_fit$result` envelope as JSON; the classed R wrapper
-and its source mapping are stored separately as RDS and CSV. RDS retains
-data-frame attributes in an R workflow; JSON retains the native
-execution identity for interchange. That identity records model content,
-resolved bindings, the run request, compiler source and backend/build details.
-It identifies the execution, not the model's scientific suitability.
+Save `population_fit$result` as JSON; the R wrapper and its source mapping go
+to RDS and CSV. RDS keeps data-frame attributes for R; JSON keeps the execution
+record (model, bindings, run request, compiler and build details) for sharing.
 
 To reload the simulation, read its request with `simplifyVector = FALSE`,
 compile the saved source, and call `simulate_model()` again. Do not share the
@@ -678,8 +671,8 @@ executes subjects sequentially.
 
 ## Handle errors and troubleshoot
 
-Scientific compiler/engine failures use class `qspquest_error` with a code,
-message, and available scientific/source-location fields. R adapter validation
+Compiler and engine failures use class `qspquest_error` with a code, message,
+and source location where available. R adapter validation
 can instead raise an ordinary R error. Catch the classes appropriate to the
 operation you call.
 
@@ -698,8 +691,8 @@ stopifnot(inherits(caught, "qspquest_error"))
 stopifnot(identical(simulate_model(model, request), result))
 ```
 
-Failures produce no partial scientific result. A failed request does not
-replace the compiled model or retain its bindings. Some errors have fallback
+Failures return no partial result. A failed request leaves the compiled model
+unchanged. Some errors have fallback
 line/column information rather than exact expression spans.
 
 | Symptom | Action |

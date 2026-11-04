@@ -720,13 +720,9 @@ def _check_fit(model, request):
             _fail("unsupported", "Fit archive profile requires empty priors.")
         simulation = objective["simulation"]
         run = simulation["run"]
-        if run.get("solver") not in ("diffsol_bdf", "diffsol_rodas5p"):
-            _fail("unsupported", "Fit archives require diffsol_bdf or diffsol_rodas5p.")
-        # Check the fixed-regimen subset through native admission. This copy
-        # changes only admission's solver, never the request retained in OMEX.
-        admission = deepcopy(run)
-        admission["solver"] = "diffsol_bdf"
-        _check_request(model, admission)
+        if run.get("solver") not in ("diffsol_bdf",):
+            _fail("unsupported", "Fit archives require diffsol_bdf.")
+        _check_request(model, run)
         seen, errors = set(), {}
         rows = objective["observations"]
         if not isinstance(rows, list) or not 1 <= len(rows) <= 10_000:

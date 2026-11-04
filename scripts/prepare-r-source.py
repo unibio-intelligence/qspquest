@@ -2,7 +2,7 @@
 """Build a standalone R source archive with the locked QSPQuest workspace.
 
 Installing the archive requires R, a compatible C compiler and Rust/Cargo.
-Cargo downloads locked registry dependencies during the first installation.
+Cargo downloads locked upstream dependencies during the first installation.
 """
 import argparse
 import hashlib
@@ -49,10 +49,6 @@ def prepare(root, destination):
             copy(source, engine / source.relative_to(root))
         if (root / member / "build.rs").exists():
             copy(root / member / "build.rs", engine / member / "build.rs")
-    copy(root / "vendor/DIFFSOL-PROVENANCE.md", engine / "vendor/DIFFSOL-PROVENANCE.md")
-    for source in sorted((root / "vendor/diffsol").rglob("*")):
-        if source.is_file():
-            copy(source, engine / source.relative_to(root))
     (package / "src/Makevars").write_text(
         """CARGO ?= cargo
 CARGO_TARGET_DIR = $(CURDIR)/rust-target

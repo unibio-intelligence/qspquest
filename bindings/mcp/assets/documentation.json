@@ -27,8 +27,8 @@
       "mime_type": "application/json",
       "asset": "guides/spec/capabilities.json",
       "source": "spec/capabilities.json",
-      "source_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
-      "content_sha256": "b234b5895b2708ac963957d85f55f337b0f6f44fc1a6f74b91f79254de3b8219",
+      "source_sha256": "a4741ac22a51ab711356eaed312e10a01b658963de723efe05c485917aa0e26a",
+      "content_sha256": "a4741ac22a51ab711356eaed312e10a01b658963de723efe05c485917aa0e26a",
       "anchors": []
     },
     {
@@ -67,8 +67,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/LINEAR-PK-KERNELS.md",
       "source": "docs/LINEAR-PK-KERNELS.md",
-      "source_sha256": "685b955574b5334df8ce59e46f3c88d95960c2440768aec6a5e0365ffa630283",
-      "content_sha256": "685b955574b5334df8ce59e46f3c88d95960c2440768aec6a5e0365ffa630283",
+      "source_sha256": "4629dfc1b0ae4e8646374ac6d2b4e7339495ccb1f40bd4df90addf13087cc658",
+      "content_sha256": "4629dfc1b0ae4e8646374ac6d2b4e7339495ccb1f40bd4df90addf13087cc658",
       "anchors": [
         "derived-coefficient-checks",
         "infusions-crossing-a-periodic-boundary",
@@ -90,8 +90,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/PARAMETER-SCANS.md",
       "source": "docs/PARAMETER-SCANS.md",
-      "source_sha256": "bbf606e1baf02bc33497cb6a69259fa4ee7b924ac07be894679aaf923ccf1548",
-      "content_sha256": "bbf606e1baf02bc33497cb6a69259fa4ee7b924ac07be894679aaf923ccf1548",
+      "source_sha256": "4e99400a417fc75db17899fcdbb0541ebdc3e41f93a33a9b626f1826e178aede",
+      "content_sha256": "4e99400a417fc75db17899fcdbb0541ebdc3e41f93a33a9b626f1826e178aede",
       "anchors": [
         "bounded-parameter-scans",
         "python-and-browser-bindings",
@@ -174,8 +174,8 @@
       "mime_type": "text/plain",
       "asset": "guides/docs/examples/paired_endpoint_fit.py",
       "source": "docs/examples/paired_endpoint_fit.py",
-      "source_sha256": "651a28cb0a52852945120476da96db9ca46eb0298d558edc89a6f1a2f7ce2056",
-      "content_sha256": "651a28cb0a52852945120476da96db9ca46eb0298d558edc89a6f1a2f7ce2056",
+      "source_sha256": "2a5697921edaedc334808034bc11ac5300108eb37233e4368cccfa63e43919f6",
+      "content_sha256": "2a5697921edaedc334808034bc11ac5300108eb37233e4368cccfa63e43919f6",
       "anchors": []
     },
     {
@@ -204,8 +204,8 @@
       "mime_type": "text/plain",
       "asset": "guides/docs/examples/table_bundle.py",
       "source": "docs/examples/table_bundle.py",
-      "source_sha256": "e1604f9da0db16006c8864356bbc76194ced68f510cc40ad1f1ad3253df80ad1",
-      "content_sha256": "e1604f9da0db16006c8864356bbc76194ced68f510cc40ad1f1ad3253df80ad1",
+      "source_sha256": "694a7f091c8ef453035db18aab325f9b006b822d3da7d5e5617c724f8d7782d1",
+      "content_sha256": "694a7f091c8ef453035db18aab325f9b006b822d3da7d5e5617c724f8d7782d1",
       "anchors": []
     },
     {
@@ -214,8 +214,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/inverse-gaussian-input.md",
       "source": "docs/tutorials/inverse-gaussian-input.md",
-      "source_sha256": "cb9ba8ec460771b5ef6514085fb4ee7aeb1ab03090bf3b74a59efa15dd74703b",
-      "content_sha256": "80f3eef295029cb9fafbf3cab9f74ed1ac9931c68731103eb7e78bd9568634cb",
+      "source_sha256": "5e54ff94937f33e195bd50481470ed89a31dd19f5e35e7d184960b1850af7d63",
+      "content_sha256": "6e9fea4c675f694bccee09b32f3494d60a3e1eea7a7b322bf910cea0a8dd5861",
       "anchors": [
         "fit-a-fraction-with-a-delayed-input"
       ]
@@ -226,8 +226,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/schema/README.md",
       "source": "spec/schema/README.md",
-      "source_sha256": "ee808681c09a284d70bf394f4ff1f3078e07d7d87c6aca9b443761f73d0ef71c",
-      "content_sha256": "ee808681c09a284d70bf394f4ff1f3078e07d7d87c6aca9b443761f73d0ef71c",
+      "source_sha256": "fb35e05640a5b86376366040ae50d5745b44546345d4109dad56f4540853e49b",
+      "content_sha256": "fb35e05640a5b86376366040ae50d5745b44546345d4109dad56f4540853e49b",
       "anchors": [
         "generated-structural-schemas"
       ]
@@ -258,8 +258,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/expressions.md",
       "source": "spec/expressions.md",
-      "source_sha256": "bf243a4909be7cb820efbf8d513c45661afe1d4b5a559a6121cf39c64d12562f",
-      "content_sha256": "9ce7c9f9d5723b6c4686555f1040c6e0df8df2980c8cfb4434edfa9357ae5887",
+      "source_sha256": "3df0fe5228e616f69382c2fbec73f1fb0f1dc50576ba4bbeadab8bdf00d3402d",
+      "content_sha256": "e5a775c1d358c0310f1773b0fe4fa2f8834371a1f61d87c9a55b465f0b216ddf",
       "anchors": [
         "closed-expression-nodes",
         "evaluation",
@@ -275,8 +275,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/invariants.md",
       "source": "spec/invariants.md",
-      "source_sha256": "cbc1c157f2336ab6af62006738d6b9508611fdcaa85ccdc4ce291ffaa8e01d17",
-      "content_sha256": "cbc1c157f2336ab6af62006738d6b9508611fdcaa85ccdc4ce291ffaa8e01d17",
+      "source_sha256": "0667898f9d68636e0023b1ff9612224b4cbc80a8ce8cdb2edbe1c977bb802e44",
+      "content_sha256": "0667898f9d68636e0023b1ff9612224b4cbc80a8ce8cdb2edbe1c977bb802e44",
       "anchors": [
         "runtime-invariants"
       ]
@@ -287,8 +287,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/language.md",
       "source": "spec/language.md",
-      "source_sha256": "a59662e0f06d7796c49130746c34f7bfc47a4994fea6f3fbb392be2b1eb7aef2",
-      "content_sha256": "2d8d877a3a95c041c087f4495515a96d7ffe88e67504c28fe0cda7e1c4a4fb0a",
+      "source_sha256": "a6d175d817ff0da523906a2a5650630dfb0777c5c93c23333cf5aaa6433aa3ca",
+      "content_sha256": "5b1ff17176a1fe42be91cba887892afae6d209277ef056eb2308709fc70ec6f2",
       "anchors": [
         "algebraic-definitions",
         "allowed-delivery-modes",
@@ -312,8 +312,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/library-fitting.md",
       "source": "docs/tutorials/library-fitting.md",
-      "source_sha256": "8e4f53d5665b06901d734e15f70e1c6028261168e833638fc484c13397c23b31",
-      "content_sha256": "436ca269d39ee89e0c3527489609597c948fa74cf4df7d59c83bf289e7939ccf",
+      "source_sha256": "8f4238014bd9a6e942bb345d55e880d71fc70c95226df60a6696619d585647bc",
+      "content_sha256": "55c7a58e71d16398335c2756f609f53f571b96aea184d6d73b1011af682720ed",
       "anchors": [
         "discover-and-run-an-archived-synthetic-fitting-workflow",
         "execute-and-retain-the-result",
@@ -328,8 +328,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/mcp-local-jobs.md",
       "source": "docs/tutorials/mcp-local-jobs.md",
-      "source_sha256": "a5727064a712c6543c3b9dcb81d6e2f27090efaf499ded1943140b56cc4a11b5",
-      "content_sha256": "83214d42f189f400c0530c1ad2107e89b754a3a72ba2e705416cd9383e52f106",
+      "source_sha256": "5763aca7fd997f08671d5682bbf0dced8d8e69e3fe0293d56afb794ccddf1a2a",
+      "content_sha256": "42e12e266960f7e9dc1e0b3a097c67e6384241f8598bf45d7b159e7df44f70e9",
       "anchors": [
         "configure-an-agent-client",
         "limits-and-common-errors",
@@ -343,8 +343,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/managed-result-artifacts.md",
       "source": "docs/tutorials/managed-result-artifacts.md",
-      "source_sha256": "9048d5d7b4f11079fc539338327b0160cb951745edb606e087ec186514bf5a2c",
-      "content_sha256": "652e7837b1cc4492aebc037ffa81ebca169d00865cc06a4049c061d7b5d5b4fa",
+      "source_sha256": "c036cd2e815ed25dec4396d56e85a00b230ac22c7b90b674f4e77555831a2598",
+      "content_sha256": "958ffc4df8b45e9a494e8f5e040ad5f9a24d954cd46daa9f93e213ecbf6348a2",
       "anchors": [
         "agent-contract-and-limits",
         "platform-byte-contract",
@@ -359,8 +359,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/model-ir.md",
       "source": "spec/model-ir.md",
-      "source_sha256": "a8b81fa9e805675b282e9bb11700de2b5ba1958eb6d595d8861148c8a129f8a0",
-      "content_sha256": "87ddda50baa9eb1a130117f6965e64627fadebbb96b89fefed67c0c0979b1e40",
+      "source_sha256": "e5419aeb537492ac468a8700db4faf0a32d32e57319cfd7fd5a6e30c65d6e1dd",
+      "content_sha256": "5621f3d782217fa3e681bec1529769ff41473e7a872363896d281f4bb24abd50",
       "anchors": [
         "executable-document",
         "native-model-document",
@@ -373,8 +373,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/paired-endpoint-fitting.md",
       "source": "docs/tutorials/paired-endpoint-fitting.md",
-      "source_sha256": "bf48ef460a5a77791aa878a71388043bfe1e55e3c3cc400208c919034d052f96",
-      "content_sha256": "db1fea6683852e3c063de659601d478c09ce4b90980b21816ea881766d32fa0e",
+      "source_sha256": "3e5eaf41a3519a8e961c0bf5c4e7e27d7ed703988b97b4ffdf9af60a594ca216",
+      "content_sha256": "ff69d74912aed58f38c29760ebcfee27ce6460267389cb0b99c4002f6f9a332b",
       "anchors": [
         "archive-contract",
         "expected-output-and-interpretation",
@@ -389,8 +389,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/mcp-population-records.md",
       "source": "docs/tutorials/mcp-population-records.md",
-      "source_sha256": "b6b58be76031b306021f0191607f8bfb70b8325bba6cdd7414bea03afb261d63",
-      "content_sha256": "0c1fe51fadfe46a19e69827593bff03cda116a58b69d689a935c733d41528ddc",
+      "source_sha256": "2631a08c9bd5633b18025570968597501e59f6b1a6e49988b7aa4a71b5566331",
+      "content_sha256": "8c121950f8dffe9dc4d998663f823a9ad1c504726ddf8b5d78089f6479fee103",
       "anchors": [
         "prepare-and-fit-explicit-population-records"
       ]
@@ -401,8 +401,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/parallel-predictive-checks.md",
       "source": "docs/tutorials/parallel-predictive-checks.md",
-      "source_sha256": "091c1b2dbba742ef5778126e7c7ba2767b7bf9a31544da470447ce75f4482c73",
-      "content_sha256": "313866b7acd73db4a83fe20f7625e0f5a6d323876ecf4a09b93a5e67f983e400",
+      "source_sha256": "72e5f8a7cf5588a41678fbfa0a6488e2cec688be43931db821a82e3fe2fc0a8b",
+      "content_sha256": "8fd51105c2bb1f84a63837f575a6b2a3bb04d1c0fd165a92ca488f5538cc6371",
       "anchors": [
         "failures-cancellation-and-restart",
         "inspect-and-compare-results",
@@ -416,8 +416,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/regimens.md",
       "source": "spec/regimens.md",
-      "source_sha256": "ac1a80fe2239f9561dfc0128d485dbe4f8f0fd346902b75046c632db445e2e74",
-      "content_sha256": "ac1a80fe2239f9561dfc0128d485dbe4f8f0fd346902b75046c632db445e2e74",
+      "source_sha256": "9f5c65eb0f87ff59be51d0ab064b2854509fde07e080dcd636c924d031f8e024",
+      "content_sha256": "3265c6befd3ff6a938272d37904ffdbc8d730af8fe6789b38d7686ab0385643a",
       "anchors": [
         "administration-metadata-for-history-consumers",
         "covariate-steps",
@@ -443,8 +443,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/release-verification.md",
       "source": "docs/release-verification.md",
-      "source_sha256": "50013a1f082a7b100776f734aa0d3fde163042ecb2c454bbd02ea29f994796e9",
-      "content_sha256": "50013a1f082a7b100776f734aa0d3fde163042ecb2c454bbd02ea29f994796e9",
+      "source_sha256": "a183aaa4057f27519a1408e746d26841454364a586b8524f55c9e63b19837ae4",
+      "content_sha256": "a183aaa4057f27519a1408e746d26841454364a586b8524f55c9e63b19837ae4",
       "anchors": [
         "check-python-distribution-contents",
         "verify-a-release-artifact"
@@ -456,8 +456,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/run-results.md",
       "source": "spec/run-results.md",
-      "source_sha256": "186466298cc33cffc71ddbfb5ce2d34a23ba9a3d90d1f1ee2008e2e701739a3e",
-      "content_sha256": "d3a5bdf7d6e40746684f66b6fd7f78c9085b12ff771fc17940c6e3e0dd47845c",
+      "source_sha256": "8cc11a62cf4ed58ed4533a3bb1a9db1a9ac7eb1751fe26586d8a58ca4644d3a1",
+      "content_sha256": "94dcf8ac941f4ea7872e2b2442f2f2d0349a50cd8f9e1ac80b44e03e2b94e0a2",
       "anchors": [
         "absolute-simulation-start",
         "canonical-hashes",
@@ -483,8 +483,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/requirements.md",
       "source": "spec/requirements.md",
-      "source_sha256": "53c7fc062d123be9099109feed2f2e53da15b8e9d5719d4206e46fe6ffd6ab7a",
-      "content_sha256": "53c7fc062d123be9099109feed2f2e53da15b8e9d5719d4206e46fe6ffd6ab7a",
+      "source_sha256": "52ceb9ec6baf94bda153218fd2c19c63f94602e04641bed09a9088df8fd271ca",
+      "content_sha256": "52ceb9ec6baf94bda153218fd2c19c63f94602e04641bed09a9088df8fd271ca",
       "anchors": [
         "declared-execution-requirements"
       ]
@@ -507,10 +507,11 @@
       "mime_type": "text/markdown",
       "asset": "guides/docs/tutorials/mcp-result-resources.md",
       "source": "docs/tutorials/mcp-result-resources.md",
-      "source_sha256": "c625301d0cd54d3f30ad748075d5e84ca5fdc1df94f0c625a24f7e3589c3c68b",
-      "content_sha256": "d22d535df99f223fe0f86054f998d04311c0fcc5adc4b246980d45b545904a55",
+      "source_sha256": "2cadc2c5f343f9bcf4bbeb6e28b2b4fb22a6ba62525d0a2005b3030d7c58d41f",
+      "content_sha256": "750f0f906ade8ffcf5da544b3b8ea28e5846528681a91560e9c76141b576ed25",
       "anchors": [
         "bind-inspected-inputs-to-a-request",
+        "check-times-before-integration",
         "format-complete-decision-responses",
         "inspect-a-plan-before-execution",
         "inspect-and-execute-a-regimen-comparison",
@@ -522,6 +523,8 @@
         "plan-and-guard-a-periodic-steady-state-solve",
         "plan-and-run-synthetic-morris-screening",
         "read-a-complete-mcp-simulation-result",
+        "read-the-result-contract",
+        "require-specific-outputs",
         "retain-complete-results-across-local-server-restarts",
         "save-and-reimport-an-analysis-bundle",
         "select-a-complete-precision-profile",
@@ -535,8 +538,8 @@
       "mime_type": "text/markdown",
       "asset": "guides/spec/units.md",
       "source": "spec/units.md",
-      "source_sha256": "90d0b041cfac9ed9970d01c465a12da348b4b30e448b5a89676b4d1b097655d5",
-      "content_sha256": "d3917a929a8d9baf1c10c3fadd4973627854830e354263fee106fbf48b7d4968",
+      "source_sha256": "0e6eaa3d5c40e3b48a7be1a7c9a59e93b10ee3da78a6158f637a7be7eca57a9a",
+      "content_sha256": "6127c08751429651e449e679178722380eda6e276916fe398c5c895c91ba248b",
       "anchors": [
         "archive-source-coordinates",
         "codes-and-dimensions",
@@ -553,8 +556,8 @@
       "mime_type": "application/json",
       "asset": "capability-catalog.schema.json",
       "source": "spec/schema/capability-catalog.schema.json",
-      "source_sha256": "22f320f55bd434b1a7dfd883eeab0dd298010e74e0eff86950d44007a15c8062",
-      "content_sha256": "22f320f55bd434b1a7dfd883eeab0dd298010e74e0eff86950d44007a15c8062",
+      "source_sha256": "539c2f299bf41e9032ef3b26eae9543d37f096080b053b58884e0a13037463e0",
+      "content_sha256": "539c2f299bf41e9032ef3b26eae9543d37f096080b053b58884e0a13037463e0",
       "anchors": []
     },
     {
@@ -563,8 +566,8 @@
       "mime_type": "application/json",
       "asset": "cycle-iteration-request.schema.json",
       "source": "spec/schema/cycle-iteration-request.schema.json",
-      "source_sha256": "de7e2dc71bee1c3120e947fcc78f8aa4fadc11fcedc516c338795a7523419d09",
-      "content_sha256": "de7e2dc71bee1c3120e947fcc78f8aa4fadc11fcedc516c338795a7523419d09",
+      "source_sha256": "3d04ef346dee1008f7b2315adc30a0d6ac3d679e841c9aefa8b774431b5fce36",
+      "content_sha256": "3d04ef346dee1008f7b2315adc30a0d6ac3d679e841c9aefa8b774431b5fce36",
       "anchors": []
     },
     {
@@ -603,8 +606,8 @@
       "mime_type": "application/json",
       "asset": "fit-request.schema.json",
       "source": "spec/schema/fit-request.schema.json",
-      "source_sha256": "025d5aae080b505cb2385c559b7ff04d926207cbe00fc833585506b248f803a1",
-      "content_sha256": "025d5aae080b505cb2385c559b7ff04d926207cbe00fc833585506b248f803a1",
+      "source_sha256": "c1d5c02b936819f8ca48d806349f5e348089fdc01f3712a2bdeeb7b2b1ce0db8",
+      "content_sha256": "c1d5c02b936819f8ca48d806349f5e348089fdc01f3712a2bdeeb7b2b1ce0db8",
       "anchors": []
     },
     {
@@ -613,8 +616,8 @@
       "mime_type": "application/json",
       "asset": "fit-plan.schema.json",
       "source": "spec/schema/fit-plan.schema.json",
-      "source_sha256": "dab45abfb017b63730b7113b6259494a6761a32e48714dd0f6e7d442ee524284",
-      "content_sha256": "dab45abfb017b63730b7113b6259494a6761a32e48714dd0f6e7d442ee524284",
+      "source_sha256": "92336cb75785d4154153a5fe1bb4879adef59aaad843bc8d02a9df24f993a0a9",
+      "content_sha256": "92336cb75785d4154153a5fe1bb4879adef59aaad843bc8d02a9df24f993a0a9",
       "anchors": []
     },
     {
@@ -643,8 +646,8 @@
       "mime_type": "application/json",
       "asset": "gaussian-objective-plan.schema.json",
       "source": "spec/schema/gaussian-objective-plan.schema.json",
-      "source_sha256": "270da8836908cb25a74b439c54815ec39a863487ca46ce18cbcad408f4ff47b1",
-      "content_sha256": "270da8836908cb25a74b439c54815ec39a863487ca46ce18cbcad408f4ff47b1",
+      "source_sha256": "a081a17bc5b8c06a1ca3b2d4c91bc6a55d8c15317c8513431fd6465f254ac80a",
+      "content_sha256": "a081a17bc5b8c06a1ca3b2d4c91bc6a55d8c15317c8513431fd6465f254ac80a",
       "anchors": []
     },
     {
@@ -693,8 +696,8 @@
       "mime_type": "application/json",
       "asset": "morris-request.schema.json",
       "source": "spec/schema/morris-request.schema.json",
-      "source_sha256": "81385e07c1435e448f49abe496b1dffdb0ec0ae1f474d7c840ed017dd4117ba6",
-      "content_sha256": "81385e07c1435e448f49abe496b1dffdb0ec0ae1f474d7c840ed017dd4117ba6",
+      "source_sha256": "ea380aafc5b1240afb7c798fc559675ee13097c7b8bcfa370409c594829a4512",
+      "content_sha256": "ea380aafc5b1240afb7c798fc559675ee13097c7b8bcfa370409c594829a4512",
       "anchors": []
     },
     {
@@ -703,8 +706,8 @@
       "mime_type": "application/json",
       "asset": "morris-plan.schema.json",
       "source": "spec/schema/morris-plan.schema.json",
-      "source_sha256": "b5773bb84d304b2e0945ee109c22bf5df854395da98dc222491741b5af595b57",
-      "content_sha256": "b5773bb84d304b2e0945ee109c22bf5df854395da98dc222491741b5af595b57",
+      "source_sha256": "96c8de38268e392562ea43d8424fdec73c31c14d762db64ccc86e44bc96a1a29",
+      "content_sha256": "96c8de38268e392562ea43d8424fdec73c31c14d762db64ccc86e44bc96a1a29",
       "anchors": []
     },
     {
@@ -723,8 +726,8 @@
       "mime_type": "application/json",
       "asset": "periodic-plan.schema.json",
       "source": "spec/schema/periodic-plan.schema.json",
-      "source_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
-      "content_sha256": "84f839958366a8d43e05622a653c2dc6177c08ae2a7aa8c806102507e1afa7a9",
+      "source_sha256": "4d0f5cb7dac46cf1f07d474450ef8fbbfcc09691f60e0cdc6066481db67a7874",
+      "content_sha256": "4d0f5cb7dac46cf1f07d474450ef8fbbfcc09691f60e0cdc6066481db67a7874",
       "anchors": []
     },
     {
@@ -773,8 +776,8 @@
       "mime_type": "application/json",
       "asset": "run.schema.json",
       "source": "spec/schema/run.schema.json",
-      "source_sha256": "ab342427b61d54849b3d70cc8881fa6327bb0c872372d57221d6fa06c2784bd9",
-      "content_sha256": "ab342427b61d54849b3d70cc8881fa6327bb0c872372d57221d6fa06c2784bd9",
+      "source_sha256": "c4d5530ee192b8d06f02dbf48d8437692c4a1e3fe9096f8c795e5970de930d9b",
+      "content_sha256": "c4d5530ee192b8d06f02dbf48d8437692c4a1e3fe9096f8c795e5970de930d9b",
       "anchors": []
     },
     {
@@ -783,8 +786,8 @@
       "mime_type": "application/json",
       "asset": "run-plan.schema.json",
       "source": "spec/schema/run-plan.schema.json",
-      "source_sha256": "f84c4d1913662cba508ba1dbd077fcc774c227b22b3b32bcf53b29d9e2268526",
-      "content_sha256": "f84c4d1913662cba508ba1dbd077fcc774c227b22b3b32bcf53b29d9e2268526",
+      "source_sha256": "cb513e46d4e09b1f6342d1322df7f4fdf0cfd4f10c6548179823a3e917fb8625",
+      "content_sha256": "cb513e46d4e09b1f6342d1322df7f4fdf0cfd4f10c6548179823a3e917fb8625",
       "anchors": []
     },
     {
@@ -793,8 +796,8 @@
       "mime_type": "application/json",
       "asset": "scalar-fit-request.schema.json",
       "source": "spec/schema/scalar-fit-request.schema.json",
-      "source_sha256": "097a760df645c2be340c5efbe279983c6181085e2512145f44fb1b447a8013f0",
-      "content_sha256": "097a760df645c2be340c5efbe279983c6181085e2512145f44fb1b447a8013f0",
+      "source_sha256": "55ee0d1e410401e3c126dbbb3e78c817b378987df9411cb102f2b546ba4fe6c4",
+      "content_sha256": "55ee0d1e410401e3c126dbbb3e78c817b378987df9411cb102f2b546ba4fe6c4",
       "anchors": []
     },
     {
@@ -803,8 +806,8 @@
       "mime_type": "application/json",
       "asset": "scalar-fit-plan.schema.json",
       "source": "spec/schema/scalar-fit-plan.schema.json",
-      "source_sha256": "03235b99de4c553ff483067dec94b2d294f104e49481d8fc449815d56be8a938",
-      "content_sha256": "03235b99de4c553ff483067dec94b2d294f104e49481d8fc449815d56be8a938",
+      "source_sha256": "9a43ef4a74f8003a8f6b3d30196f2e87602dfdf48a5c6c040a0bdeb81c7f6ea7",
+      "content_sha256": "9a43ef4a74f8003a8f6b3d30196f2e87602dfdf48a5c6c040a0bdeb81c7f6ea7",
       "anchors": []
     },
     {
@@ -823,8 +826,8 @@
       "mime_type": "application/json",
       "asset": "scan-request.schema.json",
       "source": "spec/schema/scan-request.schema.json",
-      "source_sha256": "46172a515b4de407cf222ef409220bf9faee0c48a989c6ed37671aafccb2437f",
-      "content_sha256": "46172a515b4de407cf222ef409220bf9faee0c48a989c6ed37671aafccb2437f",
+      "source_sha256": "08f4b913f2677e221553ba2652ec1409e10cacecaf31319ebb7a4508760bcf49",
+      "content_sha256": "08f4b913f2677e221553ba2652ec1409e10cacecaf31319ebb7a4508760bcf49",
       "anchors": []
     },
     {
@@ -833,8 +836,8 @@
       "mime_type": "application/json",
       "asset": "scan-plan.schema.json",
       "source": "spec/schema/scan-plan.schema.json",
-      "source_sha256": "d9e1357a77397394e432f1938c4a3aa4a72e98f4369c5d6dad90dbd4f762678b",
-      "content_sha256": "d9e1357a77397394e432f1938c4a3aa4a72e98f4369c5d6dad90dbd4f762678b",
+      "source_sha256": "e941cde05c3f8501201032d8ef894ecf9a4b04c4a9dece8cb5599848cbb2c5b5",
+      "content_sha256": "e941cde05c3f8501201032d8ef894ecf9a4b04c4a9dece8cb5599848cbb2c5b5",
       "anchors": []
     },
     {
@@ -853,8 +856,8 @@
       "mime_type": "application/json",
       "asset": "sensitivity-request.schema.json",
       "source": "spec/schema/sensitivity-request.schema.json",
-      "source_sha256": "bc79f4c49b58e59a5deef79152d084dff18c583087e66745d46326de0ecc9ff6",
-      "content_sha256": "bc79f4c49b58e59a5deef79152d084dff18c583087e66745d46326de0ecc9ff6",
+      "source_sha256": "0e37d158aa37b6e56f79a3fff7c2c11ac5288590478f93f68751cb9b3ed4989f",
+      "content_sha256": "0e37d158aa37b6e56f79a3fff7c2c11ac5288590478f93f68751cb9b3ed4989f",
       "anchors": []
     },
     {
@@ -863,8 +866,8 @@
       "mime_type": "application/json",
       "asset": "sensitivity-plan.schema.json",
       "source": "spec/schema/sensitivity-plan.schema.json",
-      "source_sha256": "d4a5cbdf1a61576e24c67ddfdab7480ac7bff8d8f959dd0fa949fbb9e2e6fd50",
-      "content_sha256": "d4a5cbdf1a61576e24c67ddfdab7480ac7bff8d8f959dd0fa949fbb9e2e6fd50",
+      "source_sha256": "1d0ada0dad01075cc2fd874eea4d4f63d25baeac63c58054faa7c0b6b8fabdc0",
+      "content_sha256": "1d0ada0dad01075cc2fd874eea4d4f63d25baeac63c58054faa7c0b6b8fabdc0",
       "anchors": []
     },
     {
@@ -883,8 +886,8 @@
       "mime_type": "application/json",
       "asset": "steady-state-request.schema.json",
       "source": "spec/schema/steady-state-request.schema.json",
-      "source_sha256": "aa27b1708ba7262dcaaf9ea5a4d8f0a15939bd69febeef15e5d8d72ee18072f4",
-      "content_sha256": "aa27b1708ba7262dcaaf9ea5a4d8f0a15939bd69febeef15e5d8d72ee18072f4",
+      "source_sha256": "2c2354edf6413edcf89b35a58c2864fc1fe8b257b584385f11721cf68cc245b1",
+      "content_sha256": "2c2354edf6413edcf89b35a58c2864fc1fe8b257b584385f11721cf68cc245b1",
       "anchors": []
     },
     {

@@ -22,9 +22,9 @@ python3 -B docs/examples/published_theophylline.py \
   --out ../theophylline-fit
 ```
 
-For an existing validation checkout, select that revision without cloning again.
-Choose a new output directory. The script verifies the pinned validation manifest,
-archive checksum and selected input bytes before fitting.
+If you already have the validation checkout, skip the clone but still check out
+the pinned revision. Choose a new output
+directory. The script checks the data files' checksums before fitting.
 
 ## Data and model
 
@@ -41,11 +41,10 @@ output directory. The fit uses BDF and a Gaussian residual model with fixed
 additive standard deviation 2.1 in source numerical coordinates, no proportional
 error and no prior. It estimates `cl`, `vc` and `ka`.
 
-The source data describe concentrations and doses, but this archived numerical
-contract represents amount, volume and output coordinates with unit `1`, and time
-with hours. Its reported `cl` is therefore in `1/h`, `vc` in `1` and `ka` in `1/h`.
-Do not relabel these estimates as a physically qualified clearance or volume;
-unit-aware model construction is a separate step.
+The model stores amount, volume and concentration with no physical unit attached
+(unit `1`, on the source's numeric scale) and time in hours, so `cl` is reported in `1/h`, `vc` in `1` and `ka` in
+`1/h`. Do not report these as clearance or volume in physical units; that needs
+a model with real units.
 
 ## Read the result
 
@@ -58,9 +57,8 @@ The command prints `status: converged`, `observations: 10` and estimates close t
 | `ka` | 1.77741 | `1/h` |
 
 Small differences across builds are expected. The negative log-likelihood is about
-17.03261. Inspect `fit.json` for convergence, bounds, the projected-gradient norm,
-evaluation counts and engine identity. `receipt.json` binds the result to the
-validation revision and exact inputs.
+17.03261. `fit.json` has convergence, bounds, the projected-gradient norm and
+evaluation counts. `receipt.json` records the validation revision and inputs used.
 
 Open `observed-predicted.csv` to inspect the ten time points, fitted concentrations
 and residuals (`observed - predicted`). At 1.12 hours the observed value is 10.5 and

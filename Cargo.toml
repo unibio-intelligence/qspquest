@@ -1,7 +1,6 @@
 [workspace]
 members = ["crates/qspquest-core", "crates/qspquest-modeling", "bindings/wasm", "bindings/cli", "bindings/mcp", "bindings/python", "bindings/r/src/rust"]
 default-members = ["crates/qspquest-core", "crates/qspquest-modeling", "bindings/cli"]
-exclude = ["vendor/diffsol"]
 resolver = "2"
 
 [workspace.package]
@@ -13,9 +12,14 @@ publish = false
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-qspquest-core = { path = "crates/qspquest-core" }
-qspquest-modeling = { path = "crates/qspquest-modeling" }
-diffsol = { path = "vendor/diffsol/crates/diffsol", version = "=0.18.0", default-features = false, features = ["nalgebra", "faer", "deterministic"] }
+qspquest-core = { path = "crates/qspquest-core", version = "=0.1.0" }
+qspquest-modeling = { path = "crates/qspquest-modeling", version = "=0.1.0" }
+# Published crates require Diffsol from crates.io. QSPQuest's own builds patch it
+# to the exact upstream revision below, which adds fixes released after 0.18.0.
+diffsol = { version = "0.18", default-features = false, features = ["nalgebra", "faer"] }
+
+[patch.crates-io]
+diffsol = { git = "https://github.com/martinjrobins/diffsol", rev = "883d9a09238c2e0b465f0f1549c462b8c38ea1b2" }
 
 [profile.release]
 lto = "thin"

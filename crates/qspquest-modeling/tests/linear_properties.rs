@@ -90,7 +90,7 @@ fn generated_linear_conservation_superposition_and_unit_equivalence() {
         let volume = 2.0 + 8.0 * next(&mut state);
         let first = 0.5 + 9.5 * next(&mut state);
         let second = 0.5 + 9.5 * next(&mut state);
-        for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+        for solver in [Solver::DiffsolBdf] {
             let base = request(solver, cl, volume, &[first + second]);
             let total = compiled.execute(&base).unwrap();
             let split = compiled
@@ -182,7 +182,7 @@ fn simultaneous_covariate_reset_lag_and_infusion_match_piecewise_analytic() {
         .unwrap()
         .push(json!({"name":"phase","unit":"1","expression":{"kind":"symbol","name":"phase"}}));
     let compiled = CompiledDocument::from_json(&document.to_string()).unwrap();
-    for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+    for solver in [Solver::DiffsolBdf] {
         let mut request = serde_json::to_value(request(solver, 0.3, 3., &[6.])).unwrap();
         let observations = [0., 1., 1.5, 2., 3.]
             .into_iter()
@@ -262,7 +262,7 @@ fn generated_smooth_gradients_match_analytic_and_independent_central_differences
         let cl = 0.1 + 0.9 * next(&mut state);
         let volume = 2. + 8. * next(&mut state);
         let dose = 0.5 + 9.5 * next(&mut state);
-        for solver in [Solver::DiffsolBdf, Solver::DiffsolRodas5p] {
+        for solver in [Solver::DiffsolBdf] {
             let run = request(solver, cl, volume, &[dose]);
             let sensitivity: SensitivityRequest = serde_json::from_value(json!({
                 "schema":"qspquest.sensitivity/v0.1","run":run.clone(),"with_respect_to":parameters.clone(),

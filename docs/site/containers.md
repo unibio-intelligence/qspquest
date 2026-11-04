@@ -29,10 +29,9 @@ skip the clone and point `QSPQUEST_LIBRARY_DIR` at that directory.
 
 Compose mounts the library read-only at `/models` and configures its loader.
 The engine is installed in the image; no separate `pip install` of the model
-library is needed. Discovery includes inspection-only models; executable
-scenarios are listed separately. Read the selected version's model card before
-interpreting results. The loader verifies catalog/archive and member hashes.
-The [shared-model guide](shared-models.md) explains the execution contract.
+library is needed. Search also lists inspection-only models; runnable
+scenarios are listed separately. Read the model card before interpreting
+results. The [shared-model guide](shared-models.md) explains more.
 
 Run a complete named scenario and preserve its output:
 
@@ -65,7 +64,7 @@ print(result["scenario_id"], result["archive_sha256"])
 
 `qspquest.model_library()` uses the configured `/models` mount. Native Python
 users can install the model-library package and pass its directory explicitly.
-A library load does not qualify arbitrary edits or provide a fitting contract.
+Loading a library model does not validate your own edits to it or enable fitting.
 
 ## Use R in Docker
 
@@ -82,7 +81,7 @@ print(head(result_data_frame(result)))
 '
 ```
 
-The R shared-library helper uses the same verified Python loader and installed
+The R shared-library helper uses the same Python loader and installed
 engine inside the image. Native R modeling and fitting use the R binding
 directly. Run the complete native R tutorial with
 `docker compose run --rm r /opt/qspquest/r_quickstart.R`.
@@ -213,8 +212,7 @@ path, retained document path and SHA-256. Retained paths are relative to the sam
 Multiarch package names use underscores in retained directory names. The complete
 package table also retains records that are no longer installed. An installed
 package with a missing or empty copyright document makes the image build fail.
-These records describe package files and identities; they do not establish a
-license-policy decision or cover software outside the package database.
+These records are not a license review and cover only OS packages.
 
 The image targets are Linux ARM64 and Linux AMD64. Retain passing checks for
 each exact image before treating its workflows as verified. These images run on Docker hosts

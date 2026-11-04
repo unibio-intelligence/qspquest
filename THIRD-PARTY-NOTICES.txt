@@ -1,6 +1,6 @@
 Third-party Rust dependency notices
 
-Cargo.lock SHA-256: 871dde8c2c55430cd6bb9bcc205a963345ab7d547762f5b86994326cef9f269f
+Cargo.lock SHA-256: d93a49a46f8896f8e66082bd33fef1e9c4e41132a0d97562741093b272354bb3
 
 These notices cover the locked native and WebAssembly dependencies of the
 supported engine and bindings, including optional MCP sandbox features and
@@ -4589,9 +4589,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ========================================================================
-diffsol 0.17.1 — diffsol-0.17.1-LICENSE.txt
-diffsol-la 0.2.0 — diffsol-0.17.1-LICENSE.txt
-diffsol-nl 0.2.0 — diffsol-0.17.1-LICENSE.txt
+diffsol 0.18.0 — Diffsol LICENSE.txt
+diffsol-la 0.3.0 — Diffsol LICENSE.txt
+diffsol-nl 0.3.0 — Diffsol LICENSE.txt
 ------------------------------------------------------------------------
 MIT License
 

@@ -188,7 +188,7 @@ end
             .document;
         CompiledDocument::compile(&document).unwrap();
         let compiled = CompiledSensitivityDocument::compile(&document, &["theta".into()]).unwrap();
-        for solver in ["diffsol_bdf", "diffsol_rodas5p"] {
+        for solver in ["diffsol_bdf"] {
             let request: qspquest_core::run::SensitivityRequest = serde_json::from_value(serde_json::json!({
                 "schema":"qspquest.sensitivity/v0.1", "with_respect_to":["theta"],
                 "derivative_absolute_tolerances":{"theta":{"unused":{"value":1e-12,"unit":"L/mg"}}},
@@ -258,7 +258,7 @@ end
     };
     CompiledDocument::compile(&document).unwrap();
     let compiled = CompiledSensitivityDocument::compile(&document, &["theta".into()]).unwrap();
-    for solver in ["diffsol_bdf", "diffsol_rodas5p"] {
+    for solver in ["diffsol_bdf"] {
         let request: qspquest_core::run::SensitivityRequest = serde_json::from_value(serde_json::json!({
             "schema":"qspquest.sensitivity/v0.1", "with_respect_to":["theta"],
             "derivative_absolute_tolerances":{"theta":{"mass":{"value":1e-12,"unit":"1"}}},
@@ -300,7 +300,7 @@ end
 "#;
     let document = qspquest_modeling::language::parse(source).unwrap().document;
     let compiled = CompiledSensitivityDocument::compile(&document, &["volume".into()]).unwrap();
-    for solver in ["diffsol_bdf", "diffsol_rodas5p"] {
+    for solver in ["diffsol_bdf"] {
         let request: qspquest_core::run::SensitivityRequest = serde_json::from_value(serde_json::json!({
             "schema":"qspquest.sensitivity/v0.1", "with_respect_to":["volume"],
             "derivative_absolute_tolerances":{"volume":{"concentration":{"value":1e-12,"unit":"mg/L2"}}},

@@ -61,7 +61,7 @@ def test_invalid_source_records_are_not_repaired(invalid):
         qsp.individual_fit_dataset([invalid], example.template('diffsol_bdf', example.STARTS[0]), endpoints={'pd': error})
 
 
-@pytest.mark.parametrize('solver', ['diffsol_bdf', 'diffsol_rodas5p'])
+@pytest.mark.parametrize('solver', ['diffsol_bdf'])
 def test_fit_profile_exact_roundtrip_two_solvers_and_plans(solver):
     request = dataset(solver).request
     raw = export_omex(MODEL, {}, fits={'paired': request})
@@ -119,7 +119,7 @@ def test_rehashed_archive_cannot_hide_unsupported_fit_contracts(mutation):
     assert error.value.code == ('unsupported' if mutation == 'unknown_profile' else 'invalid_document')
 
 
-@pytest.mark.parametrize('solver', ['diffsol_bdf', 'diffsol_rodas5p'])
+@pytest.mark.parametrize('solver', ['diffsol_bdf'])
 def test_two_endpoint_objective_and_gradient_against_independent_exponentials(solver):
     source = '''model independent_two_outputs
 time_unit = h

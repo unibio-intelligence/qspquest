@@ -24,9 +24,6 @@ class CapabilityRegistryTests(unittest.TestCase):
         paths.update(path for example in self.catalog['examples'] for path in example['paths'])
         paths.update(str(p.relative_to(ROOT)) for directory in DIRECTORIES for p in (ROOT / directory).rglob('*.rs'))
         paths.update(FIXED)
-        paths.update(str(p.relative_to(ROOT)) for p in (ROOT / 'vendor/diffsol').rglob('*')
-                     if p.is_file() and p.name != 'Cargo.lock'
-                     and not {'target', '.git'}.intersection(p.relative_to(ROOT).parts))
         for name in paths:
             destination = root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -125,10 +122,10 @@ class CapabilityRegistryTests(unittest.TestCase):
 
     def test_withheld_mcp_solver_and_worker_operations_are_refused(self):
         self.entry('mcp', 'simulate')['solvers'].append('diffsol_rosenbrock23')
-        with self.assertRaisesRegex(ValueError, 'withholds'):
+        with self.assertRaisesRegex(ValueError, 'unsupported enum|unavailable'):
             validate(ROOT, self.catalog)
         self.entry('mcp', 'simulate')['solvers'].remove('diffsol_rosenbrock23')
-        self.entry('wasm_worker', 'simulate')['solvers'].append('diffsol_rodas5p')
+        self.entry('wasm_worker', 'simulate')['solvers'].append('diffsol_tsit45')
         with self.assertRaisesRegex(ValueError, 'Worker contract'):
             validate(ROOT, self.catalog)
 
