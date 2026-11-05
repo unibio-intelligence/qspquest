@@ -3,6 +3,8 @@
 QSPQuest simulates pharmacology models and fits model parameters. Run it locally
 from the command line, Python or R, or connect through WebAssembly or MCP.
 Models declare their equations, units, parameters and dosing events.
+To use QSPQuest without installing anything, try the hosted service at
+[biologics.unibiointelligence.com](https://biologics.unibiointelligence.com/).
 
 Start with the synthetic model below. To explore a published model, use the
 [model catalog](https://github.com/unibio-intelligence/qspquest-models).
@@ -78,8 +80,14 @@ model can be fitted, so read each model's scope and units before using its resul
 
 ## Contribute and get help
 
-See [contributing](CONTRIBUTING.md) for tests, builds and bug reports, and the
-[security policy](SECURITY.md) for private vulnerability reports.
+Contributions are welcome. Open an issue first, then follow the
+[contributing guide](CONTRIBUTING.md). Report vulnerabilities privately using the
+[security policy](SECURITY.md).
 Ubi-owned engine code and synthetic examples use [Apache-2.0](LICENSE).
 Dependency licenses are included in [third-party notices](THIRD-PARTY-NOTICES.txt).
 Developed by [UniBio Intelligence](https://unibiointelligence.com).
+
+## Acknowledgements
+
+We gratefully acknowledge support from Anthropic's AI for Science rare disease
+research grants.

@@ -1,11 +1,24 @@
 # Contributing to QSPQuest
 
-Report suspected vulnerabilities privately using the [security policy](SECURITY.md).
+Contributions are welcome: bug reports, fixes, documentation, examples and new
+scientific capabilities.
 
-Start with an issue describing the scientific use case and a small reproducible
-example. For a bug, include model text, a minimal request, expected behavior,
-actual output or structured error, environment details from `qspquest-doctor
---json`, and the exact version/commit. Remove credentials and confidential data.
+## How to contribute
+
+1. **Open an issue first.** Describe the problem or scientific use case with a
+   small reproducible example. For a bug, include model text, a minimal request,
+   expected behavior, actual output or structured error, `qspquest-doctor --json`
+   output and the exact version or commit. Except for typo fixes, wait for a
+   maintainer to agree on the approach before you open a pull request.
+2. **Open a focused pull request.** Make one change per pull request, link its
+   issue (`Closes #123`), and include tests and documentation for the change.
+3. **Review and release.** Maintainers review scientific correctness,
+   compatibility, provenance and scope. Accepted changes pass the full test
+   suite before they appear in a release, and you are credited.
+
+Contributions are licensed under the repository's [Apache-2.0 license](LICENSE).
+Remove credentials and confidential data from issues. Report suspected
+vulnerabilities privately using the [security policy](SECURITY.md).
 
 ## Development
 
@@ -44,12 +57,8 @@ Provide the exact upstream source version, citation, license, equation mapping,
 units and limitations for examples. Do not add restricted publisher assets or
 unlicensed data. Model/example licenses can differ from the engine's Apache-2.0 license; retain all notices in their own directories.
 
-## Review and release
-
-Open a focused pull request with the problem, behavior change, and validation.
-Maintainers review scientific correctness, compatibility, provenance and scope.
-The paper and package release must identify the exact reviewed source. A passing
-installation self-check does not qualify a model or estimation method.
+A release identifies the exact reviewed source. A passing installation
+self-check does not qualify a model or estimation method.
 
 ## Automated checks
 

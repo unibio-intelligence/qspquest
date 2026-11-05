@@ -59,6 +59,11 @@ def load_lock(path):
     if not case["solvers"] or len(set(case["solvers"])) != len(case["solvers"]) or any(
             s not in {"diffsol_bdf"} for s in case["solvers"]):
         raise ValueError("Invalid native solver selection")
+    presets = lock.get("validation_presets", [])
+    if not isinstance(presets, list) or any(
+            not (isinstance(p, list) and len(p) == 2 and all(isinstance(x, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", x) for x in p))
+            for p in presets):
+        raise ValueError("Invalid validation preset selection")
     return lock
 
 
@@ -242,11 +247,58 @@ def check_bundled_models(models, catalog, engine_root):
     return verified
 
 
-def check_validation_engine(identity, environment):
-    """Require evidence for the actual compiler, not just its package version."""
-    expected = environment["engine"]["compiler_source_sha256"]
-    if identity.get("compiler_source_sha256") != expected:
-        raise ValueError("Validation evidence does not match the CLI compiler source")
+def source_identity():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import check_source_identity
+    finally:
+        sys.path.pop(0)
+    return check_source_identity
+
+
+def check_validation_engine(identity, environment, engine_root=None):
+    """Require evidence recorded for the same numerical engine as the CLI.
+
+    Evidence that records `numerical_source_sha256` applies to any engine build
+    with the same solver sources and locked dependencies: the CLI must be built
+    from this checkout and the checkout's numerical identity must match. Older
+    evidence without that field must match the CLI's full compiler source.
+    """
+    recorded = environment.get("numerical_source_sha256")
+    if recorded is None:
+        if identity.get("compiler_source_sha256") != environment["engine"]["compiler_source_sha256"]:
+            raise ValueError("Validation evidence does not match the CLI compiler source")
+        return {"basis": "compiler_source"}
+    identities = source_identity()
+    root = engine_root or ROOT
+    if identity.get("compiler_source_sha256") != identities.source_hashes(root)[0]:
+        raise ValueError("The CLI was not built from this engine checkout")
+    if identity.get("backend_version") != environment["engine"]["backend_version"]:
+        raise ValueError("Validation evidence used a different Diffsol backend")
+    if identities.numerical_identity(root) != recorded:
+        raise ValueError("Validation evidence does not match the engine's numerical sources")
+    return {"basis": "numerical_source", "numerical_source_sha256": recorded}
+
+
+def replay_validation_presets(validation, cli, presets):
+    """Re-run selected retained validation presets with the actual CLI."""
+    receipts = []
+    for model_id, case_id in presets:
+        with tempfile.TemporaryDirectory(prefix="qspquest-validation-replay-") as temporary:
+            output = Path(temporary) / "replay"
+            result = subprocess.run(
+                [sys.executable, "-B", "scripts/reproduce.py", "--suite", "presets", "--model", model_id,
+                 "--case", case_id, "--cli", str(cli), "--output", str(output)],
+                cwd=validation, capture_output=True, timeout=600)
+            summary = json.loads((output / "summary.json").read_text()) if (output / "summary.json").is_file() else {}
+            receipt = {"kind": "validation-preset-replay", "model_id": model_id, "case_id": case_id,
+                       "exit_code": result.returncode, "counts": summary.get("counts")}
+            receipts.append(receipt)
+            if result.returncode or summary.get("counts") != {"matched": 1}:
+                raise ValueError("Validation preset replay failed: " + model_id + "/" + case_id + ": "
+                                 + result.stderr.decode(errors="replace")[-2000:])
+            receipt["status"] = "passed"
+    return receipts
 
 
 def check(lock, models, validation, cli, report, engine_root=ROOT):
@@ -322,12 +374,14 @@ def check(lock, models, validation, cli, report, engine_root=ROOT):
                                  + result.stderr.decode(errors="replace")[-2000:])
             output = json.loads(result.stdout)
             receipt["engine_identity"] = output["identity"]
-            check_validation_engine(output["identity"], validation_environment)
+            report["validation_engine"] = check_validation_engine(
+                output["identity"], validation_environment, engine_root)
             if output["identity"]["compiler_version"] != "qspquest/" + lock["engine_version"]:
                 raise ValueError("CLI engine version differs from the suite lock")
             receipt.update(compare(output, native, reference, case["absolute_tolerance"], case["relative_tolerance"],
                                    time_unit=model_document["time_unit"], model_outputs=model_document["outputs"]))
             receipt["status"] = "passed"
+    report["checks"].extend(replay_validation_presets(validation, cli, lock.get("validation_presets", [])))
     if sha(cli.read_bytes()) != cli_hash:
         raise ValueError("CLI artifact changed during compatibility execution")
     for role, root in roots.items():

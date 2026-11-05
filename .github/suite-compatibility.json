@@ -4,14 +4,14 @@
   "components": {
     "models": {
       "repository": "unibio-intelligence/qspquest-models",
-      "commit": "9d7bd228202fdec4892a7acf63f7bddd65a583db",
+      "commit": "d452e30b85a6a278176d324ae9479a4dbc4686c2",
       "catalog_sha256": "673b9ead5c8ef4114a4f728de45dae90e3185ed1c0ce330373be083ac5a159a2",
       "version": "0.1.0"
     },
     "validation": {
       "repository": "unibio-intelligence/qspquest-validation",
-      "commit": "45769c19153772b09677b6fb39f9ac4385439719",
-      "manifest_sha256": "b9e3b4ef06eb53c7c7b006ce7f38765396409ee1fd1e387d286df71752bf25d8"
+      "commit": "7b98a5613b39c6cfd535349b26e7740d51bf41e5",
+      "manifest_sha256": "68986a00551b9b365016f72e7680b7e78e9593f009461d1a68599c8419e8e090"
     }
   },
   "required_engine_files": [
@@ -30,5 +30,23 @@
     ],
     "absolute_tolerance": 1e-08,
     "relative_tolerance": 0.0001
-  }
+  },
+  "validation_presets": [
+    [
+      "qspquest-ortiz-2024-ravulizumab-nmosd-pkpd",
+      "week50-40-60-pk-free-c5-ode"
+    ],
+    [
+      "qspquest-vu-2017-erenumab-cidbf-pkpd-tmdd",
+      "sc-7mg-q4w-75kg-dynamic"
+    ],
+    [
+      "qspquest-choi-2025-denosumab-sb16-biosimilarity-poppkpd",
+      "figure6-7-pmo-64kg-asian-typical"
+    ],
+    [
+      "qspquest-stathis-2018-imgn529-cd37-adc-phase1-nca",
+      "stathis-dose-0p4-exponential-probe"
+    ]
+  ]
 }

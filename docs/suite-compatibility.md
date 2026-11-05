@@ -2,7 +2,14 @@
 
 This check tests the CLI against a pinned model-library snapshot and verifies a
 pinned validation snapshot. It runs one bispecific-binding preset with BDF
-and compares the outputs to a stored reference trajectory.
+and compares the outputs to a stored reference trajectory, then replays a few
+validation presets against their retained references.
+
+The validation evidence applies when the engine's numerical identity matches the
+one it records: the solver sources and locked dependencies, including the Diffsol
+revision. Version numbers, manifests, documentation and formatting outside the
+solver sources do not change it, so they don't require new evidence. The CLI must
+also be built from the checked-out engine.
 
 ## Prerequisites
 

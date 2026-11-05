@@ -2685,6 +2685,7 @@ impl CompiledSensitivityDocument {
                         continue;
                     }
                 }
+                let newton = next;
                 let mut accepted = false;
                 for _ in 0..12 {
                     let candidate = match self.saem_joint(
@@ -2713,6 +2714,51 @@ impl CompiledSensitivityDocument {
                     }
                 }
                 if !accepted {
+                    // Near a conditional mode the quadratic decrease of the
+                    // joint objective can fall below ODE-tolerance noise, so
+                    // a value-based line search stalls with an unconverged
+                    // mode. The Laplace log-determinant is first-order in
+                    // that residual, so accept the small Newton step on its
+                    // score merit instead, as the censored path already does.
+                    if (0..dimensions).all(|axis| (newton[axis] - eta[axis]).abs() <= 1e-5) {
+                        let Some(trial_gradient) = self.saem_joint_gradient(
+                            subject,
+                            setup,
+                            theta,
+                            omega,
+                            newton,
+                            evaluations,
+                            budget,
+                        )?
+                        else {
+                            return Ok(None);
+                        };
+                        let old_norm = gradient[..dimensions]
+                            .iter()
+                            .map(|g| g.abs())
+                            .fold(0_f64, f64::max);
+                        let new_norm = trial_gradient[..dimensions]
+                            .iter()
+                            .map(|g| g.abs())
+                            .fold(0_f64, f64::max);
+                        if new_norm.is_finite() && new_norm < 0.5 * old_norm {
+                            let Some(value) = self.saem_joint(
+                                subject,
+                                setup,
+                                theta,
+                                omega,
+                                newton,
+                                evaluations,
+                                budget,
+                            )?
+                            else {
+                                return Ok(None);
+                            };
+                            eta = newton;
+                            best = value;
+                            continue;
+                        }
+                    }
                     break;
                 }
                 eta = next;

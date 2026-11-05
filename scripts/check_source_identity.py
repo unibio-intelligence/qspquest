@@ -37,6 +37,42 @@ def locked_backend_version(text):
     return version + '+git:' + source.group(1)
 
 
+NUMERICAL_DIRECTORIES = ('crates/qspquest-core/src', 'crates/qspquest-modeling/src')
+NUMERICAL_FILES = ('bindings/mcp/src/core/compute.rs',)
+
+
+def locked_dependencies(text):
+    """Third-party package blocks from Cargo.lock; QSPQuest's own packages carry no source."""
+    blocks = re.split(r'(?m)^\[\[package\]\][ \t]*$', text)[1:]
+    return sorted(block.strip() for block in blocks if re.search(r'(?m)^source[ \t]*=', block))
+
+
+def numerical_identity(root):
+    """Inputs that can change simulation and fitting numbers.
+
+    Solver and model sources plus every locked third-party dependency, including
+    the exact Diffsol revision. Package versions, manifests, build scripts,
+    bindings and documentation are excluded: changing them does not require
+    re-recording validation evidence.
+    """
+    root = Path(root).resolve()
+    if (root / 'public-candidate/Cargo.toml').is_file():
+        root = root / 'public-candidate'
+    paths = [path for directory in NUMERICAL_DIRECTORIES for path in (root / directory).rglob('*.rs')]
+    paths += [root / name for name in NUMERICAL_FILES]
+    digest = hashlib.sha256()
+    for path in sorted(paths, key=lambda p: p.relative_to(root).parts):
+        if path.is_symlink():
+            raise ValueError('Source identity requires regular files, not links')
+        name = path.relative_to(root).as_posix().encode('utf-8')
+        content = path.read_bytes()
+        digest.update(len(name).to_bytes(8, 'big') + name + len(content).to_bytes(8, 'big') + content)
+    for block in locked_dependencies((root / 'Cargo.lock').read_text()):
+        raw = block.encode('utf-8')
+        digest.update(b'lock' + len(raw).to_bytes(8, 'big') + raw)
+    return 'sha256:' + digest.hexdigest()
+
+
 def source_hashes(root):
     root = Path(root).resolve()
     if (root / 'public-candidate/Cargo.toml').is_file():

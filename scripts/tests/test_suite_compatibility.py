@@ -54,6 +54,43 @@ class SuiteCompatibilityTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaisesRegex(ValueError, "compiler source"):
                 SUITE.check_validation_engine(dict(identity, compiler_source_sha256=source), environment)
 
+    def test_numerical_identity_admits_any_build_with_the_same_solver_sources(self):
+        identities = SUITE.source_identity()
+        source, backend = identities.source_hashes(SUITE.ROOT)
+        numerical = identities.numerical_identity(SUITE.ROOT)
+        environment = {"engine": {"compiler_source_sha256": "sha256:" + "9" * 64, "backend_version": backend},
+                       "numerical_source_sha256": numerical}
+        identity = {"compiler_source_sha256": source, "backend_version": backend}
+        self.assertEqual(SUITE.check_validation_engine(identity, environment)["basis"], "numerical_source")
+        cases = [({"numerical_source_sha256": "sha256:" + "3" * 64}, {}, "numerical sources"),
+                 ({}, {"compiler_source_sha256": "sha256:" + "4" * 64}, "not built from this engine"),
+                 ({}, {"backend_version": "0.18.0+crates-io"}, "different Diffsol")]
+        for env_change, identity_change, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                SUITE.check_validation_engine(dict(identity, **identity_change), dict(environment, **env_change))
+
+    def test_numerical_identity_ignores_versions_and_tracks_solver_sources_and_dependencies(self):
+        identities = SUITE.source_identity()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'crates/qspquest-core/src').mkdir(parents=True)
+            (root / 'crates/qspquest-modeling/src').mkdir(parents=True)
+            (root / 'bindings/mcp/src/core').mkdir(parents=True)
+            (root / 'crates/qspquest-core/src/lib.rs').write_text('pub fn a() {}\n')
+            (root / 'crates/qspquest-modeling/src/lib.rs').write_text('pub fn b() {}\n')
+            (root / 'bindings/mcp/src/core/compute.rs').write_text('// compute\n')
+            lock = ('[[package]]\nname = "qspquest-core"\nversion = "0.1.0"\n\n'
+                    '[[package]]\nname = "diffsol"\nversion = "0.18.0"\nsource = "registry+x"\n')
+            (root / 'Cargo.lock').write_text(lock)
+            original = identities.numerical_identity(root)
+            (root / 'Cargo.lock').write_text(lock.replace('version = "0.1.0"', 'version = "0.2.0"'))
+            self.assertEqual(identities.numerical_identity(root), original)
+            (root / 'Cargo.lock').write_text(lock.replace('0.18.0', '0.18.1'))
+            self.assertNotEqual(identities.numerical_identity(root), original)
+            (root / 'Cargo.lock').write_text(lock)
+            (root / 'crates/qspquest-modeling/src/lib.rs').write_text('pub fn c() {}\n')
+            self.assertNotEqual(identities.numerical_identity(root), original)
+
     def test_checkout_identity_and_ignored_cache(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'models'
