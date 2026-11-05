@@ -233,7 +233,7 @@ docker run --detach --name qspquest-mcp --init \
 Search the newly selected library and use the IDs, units and stored scenario
 requests it returns. The mounted library replaces the starter catalog.
 Read [shared models](../site/shared-models.md) for selecting a library and
-[MCP result handling](mcp-result-resources.md) for complete result retrieval.
+[MCP result handling](mcp-results.md#read-a-complete-mcp-simulation-result) for complete result retrieval.
 
 Stop and remove the HTTP example when finished:
 
@@ -246,4 +246,4 @@ URL to `http://127.0.0.1:8081/mcp`. For startup errors, run
 `docker logs qspquest-mcp`. Docker must be running and the image architecture
 must match the host. Keep the server on loopback (`127.0.0.1`) for this
 workflow; serving remote clients needs HTTPS and access control, as described in
-[deployment profiles](mcp-deployment-profiles.md).
+[deployment profiles](mcp-deploy.md#choose-an-mcp-deployment-profile).

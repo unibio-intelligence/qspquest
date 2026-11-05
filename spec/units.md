@@ -212,14 +212,7 @@ Unit errors from planning or execution also report the declared
 and readable aliases alike. The error code, message and location are unchanged.
 Solver and unrelated errors get no source-unit hint.
 
-## Evidence
-
-Native tests cover exact conversion ratios, dimensional expression failures,
-explicit molar-mass conversion, allometric scaling, analytic one-compartment
-bolus/infusion solutions, changed time/state/dose units, bounds, and atomic
-rebinding. Chrome and Firefox conformance use the same unit-aware expression
-compiler in WASM. Browser expression checks alone do not qualify unit-bearing
-ODE model authoring, which still needs the public IR and browser model wrapper.
+## Years
 
 `a` denotes the fixed Julian year of exactly 365.25 days (31,557,600 seconds),
 following the [UCUM year definition](https://ucum.org/ucum). It is a duration

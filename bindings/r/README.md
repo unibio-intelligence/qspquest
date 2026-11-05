@@ -63,9 +63,8 @@ means and litter-effect SDs from independent binomial litters. Supply a complete
 versioned request as an R list or JSON string; a compiled ODE model is not needed.
 Inspect the returned `status` and work counts. These are bounded point estimates.
 
-The [count tutorial](../../docs/tutorials/gamma-poisson-counts.md) and
-[correlated-binomial tutorial](../../docs/tutorials/probit-normal-binomial.md)
-include complete synthetic inputs, exact R commands, units, limits and expected
+The [count and binomial tutorial](../../docs/tutorials/discrete-data-fitting.md)
+includes complete synthetic inputs, exact R commands, units, limits and expected
 results. Both functions are also documented by `help("fit_gamma_poisson")`.
 
 ## Explicit NONMEM-style simulation input

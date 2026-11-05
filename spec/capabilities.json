@@ -13,26 +13,26 @@
   "source_snapshot": {
     "Cargo.toml": "4112fb671681be3de978964d858dcc2fe97f05f7066d4f978d3a4828652c0c4f",
     "bindings/cli/src/main.rs": "9f356bb0f8af4c90bb36f04c6554a3e0c749fcc2084b8678675948f2ae9ff64c",
-    "bindings/mcp/Cargo.toml": "4256b8751db2f1fba7768d90ead78f0009439f5f1e1bc979e587cea08d606c1e",
-    "bindings/mcp/Dockerfile": "5cfba71283867c80c9b623aa5910bef3f5b25dcc86c0b2155af29c5110faac4b",
-    "bindings/mcp/assets/library/catalog.json": "9b3d543755e112c67208ec86fcf91646b09a375adfa8659729eb2f648dcd8861",
-    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/evidence.json": "f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
-    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.1/evidence.json": "073dfdb95834cd7032f388fd4ea04c7aa7770a86b2c98f6608988463bb32376b",
-    "bindings/mcp/assets/library/models/qspquest_diffdose_2026_tgi_benchmark/0.1.0/evidence.json": "52235f1405b414c11e7b4431a60ccc41bbf8517ccdc1afc1140a9ad7f72c76d9",
-    "bindings/mcp/assets/library/models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/evidence.json": "7764e94f911a805d0fb542fb1daf5a8c4f607a4b22d07c486509c815e1b1c7e0",
-    "bindings/mcp/assets/library/models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/evidence.json": "55055efe1971a2bfbda6d23c1b9c496ef322937f5ecbf2f779e8544f85c733d6",
-    "bindings/mcp/assets/library/models/qspquest_ubi_2026_membrane_ternary_binding/0.1.2/evidence.json": "05955b89248690dbae9560d9394c50fe2887da64ab51b3e5f3d2faee59f5c473",
-    "bindings/mcp/assets/library/models/qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0/evidence.json": "1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
-    "bindings/mcp/assets/library/models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.2/evidence.json": "8939afb26a318c5b792c5fc7b71ee1ed2e87ccf4b8ebcbe774214be42b34410a",
-    "bindings/mcp/assets/library/qspquest_models/availability.json": "3dbdf86390e520d957efcd7f1119f91123b3a4645b1ec2c816321f646053dd9c",
-    "bindings/mcp/build.rs": "5099dc2d9f1b7a2ab2d0c9fa753a9e2fc748cd1718f91acd7b011c6e037a54a0",
+    "bindings/mcp/Cargo.toml": "29c8984a2612d923efb11edeb912001c066c34b743edb1c506ca675c5c821442",
+    "bindings/mcp/Dockerfile": "bfa60a511497dd495313f6967cc19b7102786054dc28e6852255a89b2fc8d2b4",
+    "bindings/mcp/tests/library/catalog.json": "9b3d543755e112c67208ec86fcf91646b09a375adfa8659729eb2f648dcd8861",
+    "bindings/mcp/tests/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/evidence.json": "f4a76255a61d4d5dffec77bdb66f8e1c22d4f96ac7840b06d1639e13e05223ee",
+    "bindings/mcp/tests/library/models/qspquest_diffdose_2026_idr_benchmark/0.3.1/evidence.json": "073dfdb95834cd7032f388fd4ea04c7aa7770a86b2c98f6608988463bb32376b",
+    "bindings/mcp/tests/library/models/qspquest_diffdose_2026_tgi_benchmark/0.1.0/evidence.json": "52235f1405b414c11e7b4431a60ccc41bbf8517ccdc1afc1140a9ad7f72c76d9",
+    "bindings/mcp/tests/library/models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/evidence.json": "7764e94f911a805d0fb542fb1daf5a8c4f607a4b22d07c486509c815e1b1c7e0",
+    "bindings/mcp/tests/library/models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/evidence.json": "55055efe1971a2bfbda6d23c1b9c496ef322937f5ecbf2f779e8544f85c733d6",
+    "bindings/mcp/tests/library/models/qspquest_ubi_2026_membrane_ternary_binding/0.1.2/evidence.json": "05955b89248690dbae9560d9394c50fe2887da64ab51b3e5f3d2faee59f5c473",
+    "bindings/mcp/tests/library/models/qspquest_ubi_2026_target_gated_cargo_qsp/2.0.0/evidence.json": "1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
+    "bindings/mcp/tests/library/models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.2/evidence.json": "8939afb26a318c5b792c5fc7b71ee1ed2e87ccf4b8ebcbe774214be42b34410a",
+    "bindings/mcp/tests/library/qspquest_models/availability.json": "3dbdf86390e520d957efcd7f1119f91123b3a4645b1ec2c816321f646053dd9c",
+    "bindings/mcp/build.rs": "e61835df1846887ac246cd7f1f48006cfda68316602a282ff73d8c218a576d26",
     "bindings/mcp/src/artifacts.rs": "418274f5db950a267c40fa3e75a16793672f6235550532b20273ad81145d1cc2",
-    "bindings/mcp/src/availability.rs": "4f99322470089705d04e34ab2fbb7eaa73cf978a0c9afcaf3acf0bdf466df149",
+    "bindings/mcp/src/availability.rs": "b6b36d88b3958b2b5114c247a82afa39dcc5f1d652070915567ead376bd8ff50",
     "bindings/mcp/src/boundaries.rs": "328552536b5501161291491b9e44d36d5af5079260aa812963be881e0690defb",
     "bindings/mcp/src/cache.rs": "4f2ea6a171e625c51623b177eb818c6155cc6f075d9050b578c2df121e1a3759",
     "bindings/mcp/src/cache_fs.rs": "0822929008c4a72fc1ad0c3c86a1b385fcccd5c8e2a6f02155e529b65d17085d",
-    "bindings/mcp/src/capability.rs": "824e22a8348eddf9156b1307f98107dca73c478af8c417cba6a827458597cf7c",
-    "bindings/mcp/src/contract.rs": "e82b2968747cc3303c048a1e555515d580c2a0e44996f082fa77ea59c90069c1",
+    "bindings/mcp/src/capability.rs": "8465215f05b837db51ec849a5a2217046d28ace0c9b62963500f2b53c8a9646f",
+    "bindings/mcp/src/contract.rs": "118178bfce402c3af11aa9de1020a0662cb66af648d2f879630e287db3b70986",
     "bindings/mcp/src/core/analysis_request.rs": "7720752a5c9e3dd9183fd02af63ee0dcd1e3d01a1e4b30ca1bd7eb277889dde3",
     "bindings/mcp/src/core/compute.rs": "f3b9d7d05ce737d0a43b3701ee50982360a858ddd86dff9e92a2ae6d8f92cb8c",
     "bindings/mcp/src/core/individual_request.rs": "3d2fd0eccbcd2bc286dd21497ca666e77943f26bc47cb89c036c491afa55f864",
@@ -57,7 +57,7 @@
     "bindings/mcp/src/jobs.rs": "426148183bda0c9b79c2469615684a09f6565c81b57baeb17e711554c6ec1f23",
     "bindings/mcp/src/jobs/request.rs": "b3222fdce94200227e8c95c97eab71114e5056984e4df26c7985481db82487ec",
     "bindings/mcp/src/lib.rs": "77749489084300e01f9af37c9257e7c9644ef7cf4e714e5de954f79a72eaa5f1",
-    "bindings/mcp/src/library.rs": "bd54edb6b2af9488da73bc876670847e2a7ea1b575ba7ca8963381193e1a68b2",
+    "bindings/mcp/src/library.rs": "c2c018b4b28b33c728438269b751dcceee7f90bd71366dee2b6428a5990bbeb1",
     "bindings/mcp/src/local_fs.rs": "246b2d71fcdfd064d572f7a2dcc31cbcd9702c5d78f3b0dc02188a0d0ada6e5d",
     "bindings/mcp/src/local_jobs.rs": "53ad41ee522b76df4d49e86abb87facbfbc87162f397c9ecbbea4908a565d34b",
     "bindings/mcp/src/main.rs": "ab1d6792a6fd7b5fea647d602e8537dfc077f652c54e444f2a342b6f1739a805",
@@ -68,12 +68,12 @@
     "bindings/mcp/src/precision.rs": "dca889a91ba1e7286e21750e6fcec7053b1fe2943bd24ddf0bcf30521d4b5f74",
     "bindings/mcp/src/response_format.rs": "f66af9ee9680b543e258c50654c95107b127e3a05172eebd6b510d1dc67499b2",
     "bindings/mcp/src/scientific.rs": "44e135c246ea668bbd93d45965f21ae4828c05a1351248bc0d9f8eacfadd2906",
-    "bindings/mcp/src/server.rs": "e8faabfcf9b3330eb68eeceaf48c4d9ee69b4e281aba2f63edef558b44f2bd2e",
+    "bindings/mcp/src/server.rs": "e6ec8b5d9a87f33b3fa95773a6555c930d565f4e9e52eda7ca995fecabd8fbec",
     "bindings/mcp/src/server/execution.rs": "3690057eb29d1fcc05e0c169fbc90487772a648a68de58e0764e9f38cd6b79e8",
-    "bindings/mcp/src/server/local_jobs.rs": "da220964cac1d101da9a8c51a4e785b9a4176aa2e06580ddebc444bdbae3a74b",
+    "bindings/mcp/src/server/local_jobs.rs": "ef291e6bb48d7211d0372d938248fad282de2ab42ccd055ab69025f19116b2e9",
     "bindings/mcp/src/server/managed.rs": "843eea426555537afa0d5089a94a54cf5a054de9fe0d7087f955d5ef7f06c7f9",
     "bindings/mcp/src/table.rs": "b1e613bdca4a993cd9ebc817cc964ec55c1554f332fa3ad215c5a9371c94c758",
-    "bindings/python/python/qspquest/__init__.py": "c92aac11783e663dc87c09cc0f4919a1e6e2c95232a966e2397ab128e798fda1",
+    "bindings/python/python/qspquest/__init__.py": "0dd6b30bfa28d50cab5ca74e043e65f3eacbfd067d66044de84c2cf74a75ba28",
     "bindings/python/python/qspquest/control.py": "62dd5d60c4693e7a9c7773c7f1a35d5f3abdcc1d1ff663e7e4fb4e3c436f9d94",
     "bindings/python/python/qspquest/derivatives.py": "66934b42a97abe9e056862493f9e1601331c95caf9334a1324d5ddcf8d6e5936",
     "bindings/python/python/qspquest/diagnostics.py": "1bfa6628c895923f144feed054e3a1fc6ab411a3c1af72523b05e22306b9c924",
@@ -84,13 +84,13 @@
     "bindings/python/python/qspquest/population.py": "006e23aa4830a9498a9e5996b831b623f3b842e6b07a78c94154880f835a999d",
     "bindings/python/python/qspquest/uncertainty.py": "31e0d3d76f5722761196e3cc31a75084be203297907a558da9a36e945cd6ca2c",
     "bindings/python/src/lib.rs": "49135ed91d45ba12fbeb1cd0e1aff3db8a7c5dcf3d4d8391eb211dac504b8a59",
-    "bindings/r/NAMESPACE": "0983343cd518d0f9fb502ca332bc673e3db2d2e4aebd94f0ab41b7470d473f39",
+    "bindings/r/NAMESPACE": "0b20ba9850cb7c8b6ec39b974f5b7623ada7141557be141e58e1bd5994c906ca",
     "bindings/r/R/qspquest.R": "27758bf21f1682039cdec3bdd0d902cb31ffb49c1dc40a3036f3bc74be1db31b",
     "bindings/r/src/rust/src/lib.rs": "4522a5b5c654e87fa1d92ccdcd7d96bdff4dd28044d90c48dc8a8e9297fbb083",
-    "bindings/wasm/Cargo.toml": "ff17b7ae4b8e65fe893b0e9dc810ddd6a50b4958c5ff90731770f4eb9859ffc5",
+    "bindings/wasm/Cargo.toml": "90f637879a83f083eeb922b5f5bfc931c5da2bd851294b91d4685e28d9562a05",
     "bindings/wasm/js/client.d.mts": "ef04db2c55ced9e407a5cb622a953fcc6dd2140ab99948823b3ebc213ae089b9",
     "bindings/wasm/js/engine-worker.mjs": "ebdb881635c5fbee6d9a1a70187aa8351cd21f890734ccc5cd7298fe7fb9748f",
-    "bindings/wasm/src/browser.rs": "b0b8f4b4535d63d60622c58101930df6a3d9d3e1f9dd51645b95067981e0e224",
+    "bindings/wasm/src/browser.rs": "5a6c092efe29a2240449f4c846a9f712b4c271f0359ce068b0e28ae871dbbf38",
     "bindings/wasm/src/lib.rs": "0272b2ffe2b7575391542f4a1e84a3603cd8dec30497badebb629383848e1ec0",
     "bindings/wasm/src/sandbox.rs": "d3212c3d462848974c600793cd84167e3ea9556866b08d75a3780117abd1f433",
     "crates/qspquest-core/src/fit.rs": "f10f06a80435cffcf817c7b77ac61cfdfec326fc4d3f7450776123becc12571d",
@@ -116,7 +116,6 @@
     "crates/qspquest-modeling/src/document/steady_state.rs": "e934ec68f345d46eac126f29b82d94818f5b72964b1c809e247147ffce22a1d1",
     "crates/qspquest-modeling/src/document/switches.rs": "ebee84c58ab0756515313d6706d0aee431bb0c7cde1fea4783049ba353993e8b",
     "scripts/build-mcp.sh": "b6018ec1cdca5b3a3a064edb22b527f28190a681a03d9142a52d2399eb9395e2",
-    "scripts/verify_release_provenance.py": "4d10779455268137e574f6d9ef1743ff29d0b658da7c01e3a263342359871732",
     "crates/qspquest-modeling/src/discrete_fit.rs": "c0d587496a6a58d37f7ef0eb90c87dff38cf8c375a929a46092d49c6f6999bce",
     "crates/qspquest-modeling/src/probit_normal.rs": "6e4f22e0b0446e09a746965255b17ab8ce63693a4415b5b0be4d07730cacc549",
     "crates/qspquest-core/src/expression.rs": "4a960721e3b183704370041c1ccc17fcb87e116f9f5e450ff6ddcc4f5c8172ae",
@@ -169,7 +168,7 @@
     {
       "id": "mcp-local-jobs",
       "paths": [
-        "docs/tutorials/mcp-local-jobs.md",
+        "docs/tutorials/mcp-deploy.md",
         "docs/examples/mcp_local_jobs.py",
         "conformance/models/synthetic-one-compartment.qsp"
       ],
@@ -178,7 +177,7 @@
     {
       "id": "managed-artifact-retrieval",
       "paths": [
-        "docs/tutorials/managed-result-artifacts.md",
+        "docs/tutorials/mcp-deploy.md",
         "docs/examples/managed_artifact_download.py",
         "scripts/tests/test_managed_artifact_download.py",
         "bindings/mcp/tests/managed.rs"
@@ -188,7 +187,7 @@
     {
       "id": "population-record-mapping",
       "paths": [
-        "docs/tutorials/mcp-population-records.md",
+        "docs/tutorials/mcp-results.md",
         "docs/examples/mcp_population_records.py",
         "bindings/mcp/assets/fits/population.json",
         "bindings/mcp/assets/fits/population-record-mapping-golden.json",
@@ -210,7 +209,7 @@
       "id": "gamma-poisson-counts",
       "paths": [
         "docs/examples/gamma-poisson-fit.json",
-        "docs/tutorials/gamma-poisson-counts.md"
+        "docs/tutorials/discrete-data-fitting.md"
       ],
       "purpose": "Fit independent count/exposure rows."
     },
@@ -218,7 +217,7 @@
       "id": "probit-normal-binomial",
       "paths": [
         "docs/examples/probit-normal-binomial-fit.json",
-        "docs/tutorials/probit-normal-binomial.md"
+        "docs/tutorials/discrete-data-fitting.md"
       ],
       "purpose": "Fit grouped binomial observations with normal probit effects."
     },
@@ -859,9 +858,7 @@
       "modes": [
         "in_process"
       ],
-      "required_features": [
-        "m0-conformance"
-      ],
+      "required_features": [],
       "requirements": "Native bounded Gaussian individual/pooled fit; sensitivity and parameter/observation contracts apply. The sandbox-abi build omits the browser classes.",
       "limits": {
         "request_bytes": 1000000,
@@ -1115,9 +1112,7 @@
       "modes": [
         "in_process"
       ],
-      "required_features": [
-        "m0-conformance"
-      ],
+      "required_features": [],
       "requirements": "Native FOCEI, Laplace or SAEM contracts; supported dimensions and uncertainty depend on the estimator, not interface availability. The sandbox-abi build omits the browser classes.",
       "limits": {
         "request_bytes": 1000000,
@@ -2569,9 +2564,7 @@
       "modes": [
         "in_process"
       ],
-      "required_features": [
-        "m0-conformance"
-      ],
+      "required_features": [],
       "requirements": "Fixed-event forward sensitivity contracts; BDF or Rodas5P; no run-level stochastic seed. The sandbox-abi build omits the browser classes.",
       "limits": {
         "request_bytes": 1000000,
@@ -4711,6 +4704,6 @@
     "fit_gamma_poisson": "Gamma–Poisson count fitting",
     "fit_probit_normal_binomial": "Probit-normal binomial fitting"
   },
-  "compiler_source_sha256": "sha256:bb83813b58fc99fc42938546d5e321870eb2601e4240da54d825f2f5e3aa0712",
+  "compiler_source_sha256": "sha256:ce189ad2bb3d9ca31d4b911c05a39d2f6410b0c7f67d3b91bdcb270c10652459",
   "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 }

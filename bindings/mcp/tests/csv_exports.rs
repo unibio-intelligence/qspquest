@@ -1,6 +1,6 @@
+mod common;
 use qspquest_mcp::{
     export::{csv_path, OutputDirectory},
-    library::Library,
     policy::Tier,
     server::Server,
 };
@@ -243,7 +243,7 @@ fn root_cannot_be_renamed_until_directory_anchors_close() {
 async fn real_mcp_client_observes_export_boundary_for_simulation_and_comparison() {
     let scratch = Scratch::new();
     let root = scratch.0.join("output");
-    let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2)
+    let server = Server::new(common::library(), false, Tier::Free, 2)
         .with_csv_output(&root)
         .unwrap();
     let (a, b) = tokio::io::duplex(1_000_000);
@@ -306,13 +306,11 @@ async fn real_mcp_client_observes_export_boundary_for_simulation_and_comparison(
 #[tokio::test]
 async fn hosted_and_unconfigured_servers_refuse_exports_before_model_execution() {
     let scratch = Scratch::new();
-    assert!(
-        Server::new(Library::embedded().unwrap(), true, Tier::Free, 2)
-            .with_csv_output(&scratch.0.join("output"))
-            .is_err()
-    );
+    assert!(Server::new(common::library(), true, Tier::Free, 2)
+        .with_csv_output(&scratch.0.join("output"))
+        .is_err());
     for hosted in [false, true] {
-        let server = Server::new(Library::embedded().unwrap(), hosted, Tier::Free, 2);
+        let server = Server::new(common::library(), hosted, Tier::Free, 2);
         let (a, b) = tokio::io::duplex(1_000_000);
         let task =
             tokio::spawn(async move { server.serve(a).await.unwrap().waiting().await.unwrap() });

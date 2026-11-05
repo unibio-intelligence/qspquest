@@ -154,19 +154,7 @@ def prepare_cran(root, destination, cargo="cargo"):
     (package / "inst/extdata").mkdir(exist_ok=True)
     for name in ("profiled-proportional.qsp", "profiled-proportional-fit.json"):
         shutil.copyfile(root / "docs/examples" / name, package / "inst/extdata" / name)
-    (package / "tests").mkdir()
-    for name in ("discrete-fitting.R", "json-precision.R", "schema-admission.R"):
-        shutil.copyfile(binding / "tests" / name, package / "tests" / name)
-    (package / "tests/quickstart.R").write_text(
-        'source(system.file("doc", "quickstart.R", package = "qspquest"))\n'
-    )
-    profiled = (binding / "tests/profiled-proportional.R").read_text()
-    profiled = profiled.replace(
-        'repo <- if (length(args)) args[[1]] else "."',
-        'repo <- if (length(args)) file.path(args[[1]], "docs/examples") else '
-        'system.file("extdata", package = "qspquest")',
-    ).replace('file.path(repo,"docs/examples/', 'file.path(repo,"')
-    (package / "tests/profiled-proportional.R").write_text(profiled)
+    shutil.copytree(binding / "tests", package / "tests")
 
     # The scientific build identity consumes Wasm sources and one MCP input;
     # retain those exact files without building their delivery interfaces.

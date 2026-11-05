@@ -3,6 +3,8 @@
 /node_modules/
 __pycache__/
 *.pyc
+# Native extension left by `maturin develop`
+/bindings/python/python/qspquest/_native*
 .env
 .env.*
 !.env.example

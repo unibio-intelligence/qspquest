@@ -2,7 +2,7 @@
 
 Expressions are the checked numerical language used by models.
 Code and tests live in `qspquest-core::expression`, `qspquest_modeling::compile`, and
-`crates/qspquest-modeling/tests/expressions.rs`. The model compiler checks units. Errors point to the
+`crates/qspquest-modeling/tests/language/expressions.rs`. The model compiler checks units. Errors point to the
 declaration, not yet to the exact token. A valid expression does not by itself make a valid
 pharmacology model.
 

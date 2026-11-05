@@ -7,7 +7,7 @@ import pytest
 import qspquest as qsp
 from qspquest._analysis import Budget
 from qspquest._work import ordered_work
-from test_friendly import cohort
+from test_workflow import cohort
 
 
 def settings():

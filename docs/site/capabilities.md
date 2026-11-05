@@ -21,10 +21,10 @@ qualification.
 | Gamma–Poisson count fitting | Declared | Declared | Declared | Declared | — | — | — | — |
 | Inspect model interface | — | — | — | — | — | — | — | Declared |
 | Inspect offline local job | — | — | — | — | — | — | — | Declared |
-| Native bounded population fit | Declared | Declared | Declared | Declared | Requires `m0-conformance` | — | Requires `sandbox-abi` | Declared |
+| Native bounded population fit | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Native bounded scalar Gaussian fit | Declared | Declared | — | Declared | — | — | Requires `sandbox-abi` | Declared |
-| Native fixed-event sensitivities | Declared | Declared | — | Declared | Requires `m0-conformance` | — | — | — |
-| Native individual/pooled Gaussian fit | Declared | Declared | Declared | Declared | Requires `m0-conformance` | — | Requires `sandbox-abi` | Declared |
+| Native fixed-event sensitivities | Declared | Declared | — | Declared | Declared | — | — | — |
+| Native individual/pooled Gaussian fit | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Native Morris screening | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Native parameter scans | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Native simulation | Declared | Declared | Declared | Declared | Declared | Declared | Requires `sandbox-abi` | Declared |

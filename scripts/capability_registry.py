@@ -95,8 +95,6 @@ def validate(root, catalog=None):
             raise ValueError('Capability advertises an unavailable solver')
         if entry['interface'] == 'wasm_worker' and (entry['operation'] != 'simulate' or entry['solvers'] != ['diffsol_bdf']):
             raise ValueError('Public Worker contract exposes BDF simulation only')
-        if entry['interface'] == 'wasm_direct' and entry['operation'] in ('sensitivities', 'fit_individual', 'fit_population') and 'm0-conformance' not in entry['required_features']:
-            raise ValueError('Direct WASM sensitivity/fitting binding requires m0-conformance')
         if entry['interface'] == 'mcp' and entry['operation'] in ('steady_state', 'morris_screening') and 'analysis' not in entry['required_features']:
             raise ValueError('MCP analysis tools require analysis')
         if entry['interface'] == 'mcp' and entry['operation'] in ('preview_job', 'submit_simulation', 'submit_population_fit', 'submit_scan', 'get_job', 'wait_for_job', 'get_artifact') and 'managed' not in entry['required_features']:

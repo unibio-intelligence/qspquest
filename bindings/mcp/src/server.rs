@@ -3663,7 +3663,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn scalar_identity_response_preserves_execution_and_convergence_status() {
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 2);
         let identity = scalar_identity_fixture();
         for (status, expected) in [
             ("converged", "success"),
@@ -3691,7 +3691,7 @@ mod core_library_response_tests {
                 .unwrap()
                 .as_nanos()
         ));
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2)
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 2)
             .with_artifact_storage(&directory)
             .unwrap();
         let identity = scalar_identity_fixture();
@@ -3718,7 +3718,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn scalar_identity_incomplete_or_unrelated_payload_stays_metadata() {
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 2);
         for payload in [
             json!({"schema":"qspquest.scalar-fit-result/v0.1",
                 "objective":{"identity":{"backend":"diffsol","model_content_hash":"model"}}}),
@@ -3732,7 +3732,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn scalar_identity_explicit_top_level_identity_is_preserved() {
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 2);
         let mut explicit = scalar_identity_fixture();
         explicit["run_request_hash"] = json!("explicit");
         let value = server
@@ -3746,7 +3746,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn compiled_cache_binds_captured_versions_and_preserves_trajectories() {
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 4);
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 4);
         server.library.write().unwrap().version = "current-v2".into();
         let source = |rate: usize| {
             let text = format!(
@@ -4019,7 +4019,7 @@ mod core_library_response_tests {
     #[tokio::test]
     async fn output_alias_mapping_binds_plans_and_matches_returned_native_columns() {
         let source = "model synthetic_source_labels\ntime_unit = h\nparameters\n k = 1 [1/h]\nstates\n x = 1 [1]\ndynamics\n d/dt(x) = -k * x\noutputs\n library_state_7 = x [1]\nend\n";
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         let record = &mut library.records[0];
         let id = record.metadata["id"].clone();
         record.model =
@@ -4113,7 +4113,7 @@ mod core_library_response_tests {
     #[tokio::test]
     async fn inactive_overrides_are_visible_in_plans_patient_scan_and_cached_results() {
         let source = "model synthetic_overrides\ntime_unit = h\nparameters\n k = 1 [1/h]\n source_scale = 1 [1]\nstates\n x = 1 [1]\ndynamics\n d/dt(x) = -k * x\noutputs\n response = x [1]\nend\n";
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         let record = &mut library.records[0];
         let id = record.metadata["id"].clone();
         record.model =
@@ -4175,7 +4175,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn bounded_output_mapping_names_complete_resource_and_preserves_entry_count() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mapping: Vec<_> = (0..1000).map(|i| json!({"requested_output":format!("alias_{i}_{}", "x".repeat(300)),"canonical_output":"cp","returned_column":"cp","returned_unit":"mg/L","declared_source_unit":null,"analyte":null,"compartment":null,"returned_quantity":null})).collect();
         let complete = json!({"effective_request_hash":"mapping-test", "output_mapping":mapping, "library_version":"test"});
         assert!(server.cache.put("mapping-test".into(), complete.clone()));
@@ -4208,7 +4208,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn patient_preparation_preserves_initial_exposure_without_future_rhs() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = json!({"model":{"source":include_str!("../assets/templates/iv.qsp").replace("(cl / v)","(cl / (v - v))").replace("central = 0 [mg]","central = 6 [mg]")},"covariates":{"v":{"value":6000,"unit":"mL"}},"outputs":["cp"]});
         let plan = server
             .plan_invocation("get_patient_parameters", args.clone())
@@ -4251,7 +4251,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn patient_plan_does_not_evaluate_selected_outputs() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = json!({"model":{"source":include_str!("../assets/templates/iv.qsp").replace("cp = (central / v)","cp = (central / (v - v))")},"covariates":{},"outputs":["cp"]});
         assert!(server
             .plan_invocation("get_patient_parameters", args.clone())
@@ -4266,7 +4266,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn patient_true_covariates_and_complete_inline_budget_are_enforced() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut model: Value = serde_json::from_str(include_str!(
             "../../../conformance/models/synthetic-one-compartment.json"
         ))
@@ -4357,7 +4357,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn comparison_plans_bind_every_member_and_retain_each_execution_identity() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = comparison_args();
         let plan = server
             .plan_invocation("compare_regimens", args.clone())
@@ -4434,7 +4434,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn comparison_counterfactuals_preserve_shared_inputs_and_bind_separate_results() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let source = "model synthetic_binding_conditions\ntime_unit = h\nparameters\n kon = 0.5 [1/h] fixed\n start_amount = 6 [mg] fixed\nstates\n free = start_amount [mg]\n bound = 0 [mg]\ndynamics\n d/dt(free) = -kon * free\n d/dt(bound) = kon * free\noutputs\n free_amount = free [mg]\n bound_amount = bound [mg]\nend\n";
         let mut args = json!({"model":{"source":source},"end":{"value":2,"unit":"h"},
             "times":[{"value":0,"unit":"h"},{"value":1,"unit":"h"},{"value":2,"unit":"h"}],
@@ -4525,7 +4525,7 @@ mod core_library_response_tests {
 
     #[tokio::test]
     async fn comparison_refuses_invalid_later_member_inputs_before_any_integration() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = comparison_args();
         args["model"]["source"] =
             json!(include_str!("../assets/templates/iv.qsp").replace("(cl / v)", "(cl / (v - v))"));
@@ -4571,7 +4571,7 @@ mod core_library_response_tests {
             "qspquest-comparison-admission-{}",
             std::process::id()
         ));
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1)
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1)
             .with_csv_output(&root)
             .unwrap();
         let mut args = comparison_args();
@@ -4610,7 +4610,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn comparison_never_advertises_already_evicted_member_trajectories() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = comparison_args();
         args["regimens"] = json!((0..10)
             .map(|i| json!({"name":format!("regimen_{i}"),"doses":[{
@@ -4646,7 +4646,7 @@ mod core_library_response_tests {
     async fn comparison_refuses_ambiguous_names_and_csv_collisions_without_exports() {
         let root =
             std::env::temp_dir().join(format!("qspquest-comparison-names-{}", std::process::id()));
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1)
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1)
             .with_csv_output(&root)
             .unwrap();
         let mut args = comparison_args();
@@ -4677,7 +4677,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn plans_bind_context_and_guard_execution_without_promoting_qualification() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = plan_args();
         let plan = server.plan_invocation("simulate", args.clone()).await;
         assert!(plan["error"].is_null(), "{plan}");
@@ -4749,7 +4749,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn plans_defer_readout_domains_but_reject_static_units_and_fit_fields() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = plan_args();
         args["model"]["source"] = json!(include_str!("../assets/templates/iv.qsp")
             .replace("(central / v)", "(central / (v - v))"));
@@ -4798,7 +4798,7 @@ mod core_library_response_tests {
     #[cfg(feature = "analysis")]
     #[tokio::test]
     async fn malformed_analysis_fields_refuse_before_compute_permits_for_plans_and_execution() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let _occupied = server.semaphore.clone().try_acquire_owned().unwrap();
         let source = include_str!("../../../conformance/models/synthetic-one-compartment.json");
         let mut morris: Value = serde_json::from_str(include_str!(
@@ -4842,7 +4842,7 @@ mod core_library_response_tests {
     #[cfg(feature = "analysis")]
     #[tokio::test]
     async fn morris_planning_and_guards_use_the_complete_analysis_request() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let source = include_str!("../../../conformance/models/synthetic-one-compartment.json");
         let request: Value = serde_json::from_str(include_str!(
             "../../../conformance/requests/synthetic-morris.json"
@@ -4874,7 +4874,7 @@ mod core_library_response_tests {
     #[cfg(feature = "analysis")]
     #[tokio::test]
     async fn periodic_planning_guards_cover_tolerances_and_request_identity() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let source = include_str!("../../../conformance/models/synthetic-linear-pk.json");
         let request: Value = serde_json::from_str(include_str!(
             "../../../conformance/requests/synthetic-linear-pk-steady.json"
@@ -4907,7 +4907,7 @@ mod core_library_response_tests {
 
     #[tokio::test]
     async fn input_name_refusals_are_located_versioned_and_precede_execution() {
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         library
             .records
             .retain(|r| r.metadata["id"] == "qspquest_diffdose_2026_idr_benchmark");
@@ -5032,7 +5032,7 @@ mod core_library_response_tests {
 
     #[tokio::test]
     async fn input_name_refusals_cover_large_hosted_routing_and_bounded_source_names() {
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         library
             .records
             .retain(|r| r.metadata["id"] == "qspquest_diffdose_2026_idr_benchmark");
@@ -5056,7 +5056,7 @@ mod core_library_response_tests {
             server.invoke("simulate", invalid).await["error"]["code"],
             "input_alias_unknown"
         );
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let name = "🧪".repeat(4000);
         let args = json!({"model":{"source":"model source_input_guard\ntime_unit = h\nparameters\n k = 1 [1/h] fixed\nstates\n x = 1 [mg]\ndynamics\n d/dt(x) = -k * x\noutputs\n y = (1 / (x-x)) [1]\nend\n"},"parameters":{name.clone():{"value":1,"unit":"1"}},"end":{"value":1,"unit":"h"}});
         let value = server.plan_invocation("simulate", args).await;
@@ -5079,7 +5079,7 @@ mod core_library_response_tests {
 
     #[tokio::test]
     async fn source_coordinate_unit_errors_name_units_without_molar_mass_advice() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let source = "model synthetic_source_coordinates\ntime_unit = h\nparameters\n rate = 1 [1] fixed\n clock = 1 [1/h] fixed\nstates\n x = 1 [1]\ndynamics\n d/dt(x) = (-clock * rate * x)\noutputs\n y = (1 / (x - x)) [1]\nend";
         let mut args = json!({"model":{"source":source},"parameters":{"rate":{"value":1,"unit":"1/h"}},"end":{"value":2,"unit":"h"}});
         let value = server.plan_invocation("simulate", args.clone()).await;
@@ -5116,7 +5116,7 @@ mod core_library_response_tests {
 
     #[tokio::test]
     async fn inspected_bindings_guard_library_and_scenario_requests_before_compute() {
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         library
             .records
             .retain(|r| r.metadata["id"] == "qspquest_diffdose_2026_idr_benchmark");
@@ -5165,7 +5165,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn escaped_plan_text_cannot_silently_lose_complete_preparation() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let payload = server.plan_invocation("simulate", plan_args()).await;
         let mut plan: crate::planning::RequestPlan =
             serde_json::from_value(payload["plan"].clone()).unwrap();
@@ -5199,7 +5199,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn complete_large_local_plans_use_bounded_metadata_and_utf8_chunks() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let mut args = plan_args();
         args["request"]["regimen"]["samples"] = json!((0..3000)
             .map(|i| json!({"value":i as f64 / 1500.,"unit":"h"}))
@@ -5225,7 +5225,7 @@ mod core_library_response_tests {
         assert_eq!(response["contract"]["completeness"], "resource_linked");
         assert_eq!(response["contract"]["resources"], json!([uri]));
         // A supplied hostile source never falls back to native hosted planning.
-        let hosted = Server::new(Library::embedded().unwrap(), true, policy::Tier::Free, 1);
+        let hosted = Server::new(Library::fixture().unwrap(), true, policy::Tier::Free, 1);
         assert_eq!(
             hosted.plan_invocation("simulate", plan_args()).await["error"]["code"],
             "sandbox_unavailable"
@@ -5233,7 +5233,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn adapter_preparation_preserves_requests_without_acquiring_compute_slots() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let permit = server.semaphore.clone().try_acquire_owned().unwrap();
         let source = include_str!("../assets/templates/iv.qsp");
         let request = json!({"schema":"qspquest.run/v0.1","solver":"diffsol_bdf","budgets":{"solver_callbacks":1000000,"events":10000,"output_values":25000000},"parameters":{},"initial_states":{},"regimen":{"end":{"value":2,"unit":"h"},"samples":[],"administrations":[],"rtol":1e-8,"atol":1e-10}});
@@ -5263,7 +5263,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn malformed_requests_and_readouts_fail_before_compute_admission() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let _permit = server.semaphore.clone().try_acquire_owned().unwrap();
         let model = json!({"source":include_str!("../assets/templates/iv.qsp")});
         for (arguments, field) in [
@@ -5296,7 +5296,7 @@ mod core_library_response_tests {
     #[tokio::test]
     async fn required_outputs_refuse_before_compute_and_bind_complete_results() {
         let source = "model synthetic_analytes\ntime_unit = h\nparameters\n k = 1 [1/h]\n v = 3 [L]\nstates\n vector = 0 [1]\n antibody = 6 [mg]\ndynamics\n d/dt(vector) = -k * vector\n d/dt(antibody) = -k * antibody\noutputs\n vector_readout = vector [1]\n antibody_readout = (antibody / v) [mg/L]\nend\n";
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         let record = &mut library.records[0];
         let id = record.metadata["id"].clone();
         record.model =
@@ -5431,7 +5431,7 @@ mod core_library_response_tests {
     #[tokio::test]
     async fn dose_receipts_follow_native_repeats_lag_availability_and_csv() {
         let source = include_str!("../assets/templates/iv.qsp");
-        let mut library = Library::embedded().unwrap();
+        let mut library = Library::fixture().unwrap();
         let record = &mut library.records[0];
         let id = record.metadata["id"].clone();
         record.model =
@@ -5542,7 +5542,7 @@ mod core_library_response_tests {
             (scaled.as_str(), "central", 0, 2., "mg", 3.),
             (grams.as_str(), "central", 0, 2., "g", 0.003),
         ] {
-            let mut library = Library::embedded().unwrap();
+            let mut library = Library::fixture().unwrap();
             let record = &mut library.records[0];
             let id = record.metadata["id"].clone();
             record.model =
@@ -5625,7 +5625,7 @@ mod core_library_response_tests {
             "native_target",
             "source_coordinate",
         ] {
-            let mut library = Library::embedded().unwrap();
+            let mut library = Library::fixture().unwrap();
             let record = &mut library.records[0];
             let id = record.metadata["id"].clone();
             record.model =
@@ -5656,7 +5656,7 @@ mod core_library_response_tests {
     }
     #[tokio::test]
     async fn time_preflight_names_fields_before_compute_and_preserves_valid_protocols() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let request = json!({"schema":"qspquest.run/v0.1","solver":"diffsol_bdf","budgets":{"solver_callbacks":1000000,"events":100,"output_values":10000},"initial_states":{"central":{"value":6,"unit":"mg"}},"regimen":{"start":{"value":2,"unit":"h"},"end":{"value":4,"unit":"h"},"samples":[{"value":120,"unit":"min"},{"value":180,"unit":"min"},{"value":240,"unit":"min"}],"administrations":[],"rtol":1e-10,"atol":1e-12}});
         let args = json!({"model":{"source":include_str!("../assets/templates/iv.qsp")},"request":request,"outputs":["cp"]});
         let permit = server.semaphore.clone().try_acquire_owned().unwrap();
@@ -5713,7 +5713,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn oversized_numerical_result_without_retention_is_an_explicit_failure() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
         let response = server.response(json!({"times":vec![0.0;100_000],"effective_request_hash":"synthetic request","identity":{"backend":"qspquest","algorithm":"synthetic fixture"}}));
         assert_eq!(response.is_error, Some(true));
         let value = response.structured_content.unwrap();
@@ -5734,7 +5734,7 @@ mod core_library_response_tests {
                 .unwrap()
                 .as_nanos()
         ));
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 1)
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1)
             .with_artifact_storage(&directory)
             .unwrap();
         let mut args = comparison_args();
@@ -5772,7 +5772,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn oversized_comparison_preserves_named_members_and_complete_receipt_links() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let records: Vec<Value> = (0..4).map(|i| json!({"name":format!("condition-{i}"),
             "input_receipt":{"requested_inputs_sha256":format!("inputs-{i}")},
             "result":{"identity":{"backend":"test"},"full_result_resource":format!("qspquest://runs/condition-{i}"),
@@ -5815,7 +5815,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn oversized_inline_result_preserves_cached_resource() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let result = server.response(json!({
             "times": vec![0.; 100_000],
             "full_result_resource": "qspquest://runs/cached-scientific-result",
@@ -5834,7 +5834,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn oversized_pharmacology_summary_preserves_cached_resource() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let result = server.response(json!({
             "times": vec![0.; 100_000],
             "full_result_resource": "qspquest://runs/large-model-result",
@@ -5854,7 +5854,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn final_delivery_receipt_preserves_operation_outcomes_and_complete_links() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let uri = format!("qspquest://managed-artifacts/fixture/{}", "a".repeat(64));
         for (fields, status, is_error) in [
             (json!({}), "success", false),
@@ -5932,7 +5932,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn final_delivery_receipt_preserves_every_named_comparison_member() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let rows: Vec<Value> = (0..25)
             .map(|i| {
                 json!({"name":format!("condition-{i}"),
@@ -5963,7 +5963,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn final_delivery_receipt_preserves_local_job_lookup_and_completed_resources() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let completed: Vec<Value> = (0..25)
             .map(|i| {
                 json!({"index":i,
@@ -5990,7 +5990,7 @@ mod core_library_response_tests {
     }
     #[test]
     fn capped_failure_and_routing_preserve_status_and_resource_links() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         for (payload, status) in [
             (
                 json!({"error":{"code":"Domain","message":"é".repeat(200_000)}}),
@@ -6028,7 +6028,7 @@ mod core_library_response_tests {
 
     #[test]
     fn capped_model_card_retains_structural_declaration_identity_and_complete_resource() {
-        let server = Server::new(Library::embedded().unwrap(), false, policy::Tier::Free, 2);
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 2);
         let uri = "qspquest://models/synthetic/details/1";
         let summary = json!({"status":"declared","entry_count":1,"native_model_sha256":"b".repeat(64),
             "author_code_qualification":"not_assessed","dimensional_qualification":false,"complete_declaration_resource":uri});

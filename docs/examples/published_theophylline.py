@@ -9,6 +9,10 @@ import subprocess
 import zipfile
 
 
+# The published validation snapshot this example reads.
+VALIDATION_COMMIT = '7b98a5613b39c6cfd535349b26e7740d51bf41e5'
+VALIDATION_MANIFEST_SHA256 = '68986a00551b9b365016f72e7680b7e78e9593f009461d1a68599c8419e8e090'
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -19,11 +23,9 @@ def main():
     parser.add_argument('--cli', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
-    engine = Path(__file__).resolve().parents[2]
-    pin = json.loads((engine / '.github/suite-compatibility.json').read_text())['components']['validation']
     manifest_raw = (args.validation / 'manifest.json').read_bytes()
-    if digest(manifest_raw) != pin['manifest_sha256']:
-        raise ValueError('Validation snapshot differs from the engine suite pin; select the pinned revision')
+    if digest(manifest_raw) != VALIDATION_MANIFEST_SHA256:
+        raise ValueError('Validation snapshot differs from ' + VALIDATION_COMMIT + '; check out that revision')
     manifest = json.loads(manifest_raw)
     archive_name = 'inputs/individual-fitting.omex'
     raw = (args.validation / archive_name).read_bytes()

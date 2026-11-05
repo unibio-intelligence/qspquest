@@ -95,11 +95,8 @@ The CLI keeps its file-size limit and structured stderr errors.
 
 Python `CompiledModel.morris(request)` returns a dict and `morris_json(request)`
 returns JSON. They accept the same versioned envelope, release the GIL, and let
-you share a compiled model across analyses. Tested on Python 3.11.15 and 3.12.8
-with three concurrent seeded designs.
+you share a compiled model across analyses.
 
 WASM `CompiledSimulation.morris(request_json)` and conformance-worker
-`kind: "morris"` execute the same request. Chrome 154 and Firefox 154 reproduce
-seeded designs and request hashes exactly. Across four cases, trajectories and
-effect statistics differ from native by at most 1.67e-16 (test threshold 1e-8).
-Safari and other native platforms are not yet tested.
+`kind: "morris"` execute the same request and reproduce seeded designs and
+request hashes.

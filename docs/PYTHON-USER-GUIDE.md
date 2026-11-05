@@ -671,6 +671,5 @@ not achieved by adding SS records to the dataset adapter. Read
 [model language](../spec/language.md), [regimens](../spec/regimens.md),
 [run and result identity](../spec/run-results.md),
 [parameter scans](PARAMETER-SCANS.md), and [JSON schemas](../spec/schema/README.md).
-For language-specific installation and ownership details, see
-[the Python binding notes](PYTHON.md). For R colleagues, use
-[the R user guide](R-USER-GUIDE.md).
+For platform-specific installation, see [installation](installation.md). For R
+colleagues, use [the R user guide](R-USER-GUIDE.md).

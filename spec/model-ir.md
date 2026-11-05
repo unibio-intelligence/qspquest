@@ -52,8 +52,7 @@ expression budgets also apply. Output count is 1–1024, with at most one millio
 compiled output instructions. Output evaluation checks its value budget and
 returns no partial result if any output fails.
 
-`CompiledSimulation` is a WASM wrapper behind `m0-conformance`, not a released
-browser product API. It accepts a model document once, then quantity overrides
+`CompiledSimulation` is the WASM wrapper used by the browser engine. It accepts a model document once, then quantity overrides
 and either a raw-number protocol or a unit-bearing regimen with scalar or
 per-state absolute tolerances per simulation. It returns output columns
 and exposes output names and units. Use named output columns and their declared units when reading a trajectory.

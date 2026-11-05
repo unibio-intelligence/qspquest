@@ -235,7 +235,6 @@
               "enum": [
                 "analysis",
                 "interchange",
-                "m0-conformance",
                 "managed",
                 "sandbox-abi"
               ]

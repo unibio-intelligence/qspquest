@@ -250,7 +250,7 @@ impl CompileContext {
 
 /// Infer dimensions with unit scale one in the internal SI basis.
 /// Explicit declared units may instead be selected by the caller.
-pub fn infer(expr: &Expr, symbols: &[(Symbol, Unit)]) -> Result<Unit, Error> {
+pub(crate) fn infer(expr: &Expr, symbols: &[(Symbol, Unit)]) -> Result<Unit, Error> {
     infer_mode(expr, symbols, false)
 }
 pub(crate) fn infer_expanded(expr: &Expr, symbols: &[(Symbol, Unit)]) -> Result<Unit, Error> {

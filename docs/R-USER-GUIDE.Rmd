@@ -41,6 +41,7 @@ outputs. Keep this guide with the source version you use.
 You need R, its compatible C compiler, Rust 1.98.1 and Cargo on `PATH`,
 and the standalone R archive `qspquest_0.1.0.tar.gz`. The archive contains its
 Rust workspace; no separate QSPQuest source checkout is required.
+Install `jsonlite` 2.0.0 or newer to preserve numeric request precision.
 
 In R or RStudio, from the directory containing the archive:
 
@@ -59,6 +60,8 @@ packageVersion("qspquest")
 
 Expected version: `0.1.0`. Cargo downloads locked dependencies on first
 installation, so network access is required unless they are already cached.
+The Linux/macOS archive prepared with `scripts/prepare-r-source.py --cran`
+instead bundles those dependency sources and compiles offline with two jobs.
 The native package links to your installed R runtime; use its compatible compiler
 toolchain and restart R after replacing a loaded package.
 

@@ -1,4 +1,3 @@
-use include_dir::{include_dir, Dir};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -6,7 +5,6 @@ use std::{
     io::{Cursor, Read},
     path::Path,
 };
-static EMBEDDED: Dir = include_dir!("$CARGO_MANIFEST_DIR/assets/library");
 #[derive(Clone)]
 pub struct Record {
     pub metadata: Value,
@@ -687,13 +685,13 @@ impl Library {
                 .ok_or_else(|| format!("Missing release member: {path}"))
         })
     }
-    pub fn embedded() -> Result<Self, String> {
-        Self::load(|path| {
-            EMBEDDED
-                .get_file(path)
-                .map(|f| f.contents().to_vec())
-                .ok_or_else(|| format!("Missing embedded {path}"))
-        })
+    /// The synthetic library used by this crate's unit tests.
+    #[cfg(test)]
+    pub(crate) fn fixture() -> Result<Self, String> {
+        Self::directory(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/library"
+        )))
     }
     pub fn directory(dir: &Path) -> Result<Self, String> {
         if !dir.join("catalog.json").is_file() {

@@ -27,16 +27,16 @@ install the companion model-library package from its extracted root:
 ```sh
 python -m pip install /absolute/path/to/qspquest-models
 export QSPQUEST_LIBRARY_DIR=/absolute/path/to/qspquest-models
-qspquest-library --library "$QSPQUEST_LIBRARY_DIR" --search rituximab
+qspquest-models --library "$QSPQUEST_LIBRARY_DIR" --search rituximab
 ```
 
-`qspquest-library` and `python -m qspquest_models` are equivalent. Search
+`qspquest-models` and `python -m qspquest_models` are equivalent. Search
 includes the catalog summaries, such as `B-cell recovery`. With the native engine
 and companion loader installed, both return the same JSON records, including
 availability, unit status and fitting support:
 
 ```sh
-qspquest-library --search 'B-cell recovery' --format json
+qspquest-models --search 'B-cell recovery' --format json
 python -m qspquest_models --search 'B-cell recovery' --format json
 ```
 
@@ -61,12 +61,11 @@ Failures report the problem, cause and suggested fix to stderr. Add
 `--json-errors` for a `qspquest.library-error/v1` object with `code`, `problem`,
 `cause` and `fix`. Exit status is 2 for invalid arguments or unknown IDs, and 1
 for library, archive, engine or export failures. Discovery JSON remains on stdout.
-Without the companion loader, `qspquest-library --help` explains how to install
-it; the complete option help is available after installation.
 
 ```python
-import qspquest
-library = qspquest.model_library()
+import os
+from qspquest_models import Library
+library = Library(os.environ["QSPQUEST_LIBRARY_DIR"])
 model = library.load("qspquest_serkland_2025_rituximab_ms_pkpd")
 result = model.run("population-typical-1000mg-full-ode")
 assert len(result["times"]) == 201
@@ -79,10 +78,11 @@ No CLI path is required when the native Python engine is installed.
 
 ## R and MCP
 
-The [R Docker example](containers.md#use-r-in-docker) uses
-`library(qspquest); models <- model_library()` for discovery and named runs.
-The library helper requires Python and the loader as well as an installed
-QSPQuest Python engine or CLI; the Docker R image supplies them. This extra
+The model library's R helper, `tutorials/qspquest-models.R`, provides
+`qspquest_library(root)` for discovery and named runs; the
+[R Docker example](containers.md#use-r-in-docker) uses it. The helper requires
+Python and the loader as well as an installed QSPQuest Python engine or CLI;
+the Docker R image supplies them. This extra
 bridge requirement applies to shared archives; native R models need neither
 Python nor the shared library.
 

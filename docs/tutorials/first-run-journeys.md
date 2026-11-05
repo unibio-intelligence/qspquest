@@ -1,47 +1,23 @@
 # Save your first QSPQuest result
 
 Run a synthetic one-compartment model and save a table you can read and
-rerun. Choose the CLI, Python or local MCP route below. Each uses the same
-6 mg bolus, clearance 0.3 L/h, volume 3 L and four post-dose observations,
-and checks the result against `cp(t) = 2 * exp(-0.1 * t)` within 1e-8 mg/L.
+rerun. Choose the Python, CLI or MCP route below. Each uses the same
+6 mg bolus, clearance 0.3 L/h, volume 3 L and four post-dose observations.
+The Python and CLI helpers check the result against `cp(t) = 2 * exp(-0.1 * t)`
+within 1e-8 mg/L.
 
-Use source builds until matching downloads are available on the release page.
-Download the release file for your machine (macOS ARM64, Linux ARM64, Linux
-x86_64 or Windows x86_64) and verify it against the published checksum file.
-The executables need no Rust compiler. The helper scripts need Python 3.10+
-and nothing else; the Python route also installs the QSPQuest wheel.
+QSPQuest 0.1.0 publishes Python wheels on PyPI and the MCP server image on
+GitHub Container Registry. The command-line tool is built from source.
 
-## Scientist: use the CLI download
+## Developer: use the Python wheel
 
-Extract `qspquest-cli-0.1.0-TARGET.zip` and open a terminal in its extracted
-directory. It includes the executable, complete model and request, `first_run.py`,
-`result_bundle.py` and legal notices. On macOS/Linux:
-
-```sh
-python3 first_run.py --out scientist-results
-```
-
-On Windows PowerShell:
-
-```powershell
-python first_run.py --out scientist-results
-```
-
-The script runs the model, checks all four observations and saves six files.
-To get the JSON result without the helper, run `./qspquest run synthetic-one-compartment.qsp
-first-run.json > simulation.json` on macOS/Linux, or
-`.\qspquest.exe run synthetic-one-compartment.qsp first-run.json > simulation.json`
-on Windows.
-
-## Developer: use an installed wheel
-
-The wheel includes the model, request and executable example; no source checkout
-or analysis packages are needed. On macOS ARM64 with CPython 3.10+:
+The wheel includes the model, request and executable example; no Rust compiler,
+source checkout or analysis packages are needed. With CPython 3.10+ on macOS/Linux:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --no-deps ./qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl
+python -m pip install qspquest
 python -m qspquest.first_run --out developer-results
 ```
 
@@ -50,12 +26,11 @@ On Windows PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --no-deps .\qspquest-0.1.0-cp310-abi3-win_amd64.whl
+python -m pip install qspquest
 python -m qspquest.first_run --out developer-results
 ```
 
-On Linux, use your wheel's exact filename in the `pip` command. To run the
-model from Python directly:
+To run the model from Python directly:
 
 ```python
 from qspquest import CompiledModel
@@ -67,41 +42,48 @@ print(result["identity"])
 print(next(column for column in result["outputs"] if column["name"] == "cp"))
 ```
 
-## Agent: use the local MCP download
+## Scientist: build and run the CLI
 
-Extract `qspquest-mcp-0.1.0-TARGET.zip` and open a terminal in its extracted
-directory. It includes the server, `models/` and the helper scripts. On macOS/Linux:
+Build the CLI from a source checkout, as in the
+[README](../../README.md#build-the-cli-from-source). The helper script reuses the
+result writer from the Python wheel, so install the wheel as above. With that
+environment active, from the source root on macOS/Linux:
 
 ```sh
-python3 first_run.py --out agent-results > agent-first-run.json
+cargo build --release --locked -p qspquest-cli
+python docs/examples/scientist_first_run.py --binary target/release/qspquest \
+  --model conformance/models/synthetic-one-compartment.qsp \
+  --request docs/examples/first-run.json --out scientist-results
 ```
 
-On Windows PowerShell:
+On Windows, pass `--binary target\release\qspquest.exe`. The script runs the
+model, checks all four observations and saves six files. To get the JSON result
+without the helper, run `target/release/qspquest run
+conformance/models/synthetic-one-compartment.qsp docs/examples/first-run.json >
+simulation.json`.
 
-```powershell
-python first_run.py --out agent-results > agent-first-run.json
+## Agent: use the MCP image
+
+The published image includes the same synthetic model, so no model files or
+library settings are needed. An MCP client starts it over stdio with:
+
+```sh
+docker run --rm -i --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges \
+  ghcr.io/unibio-intelligence/qspquest-mcp:latest --profile local
 ```
 
-The script starts the local server, finds the model, previews the run with
-`plan_run`, runs it with `expected_plan_hash`, and downloads the full result.
-`agent-first-run.json` keeps the plan, result, checks and file hashes.
-
-For a conversational MCP client, configure absolute paths:
-
-```json
-{"mcpServers":{"qspquest":{"command":"ABSOLUTE_PATH_TO_qspquest-mcp","args":["--profile","local","--library-dir","ABSOLUTE_PATH_TO_models"]}}}
-```
-
-Use `qspquest-mcp.exe` on Windows. Ask the agent to inspect capabilities, search
-for `synthetic_one_compartment`, read its full card and default scenario, inspect
-a simulation plan, and simulate with `detail: full`, `outputs: ["cp"]` and the
-returned plan hash. The packaged script runs entirely locally. A chat client,
-by contrast, may send the model, requests and results to its AI provider;
-configure it to match your data requirements.
+Follow the [agent and Docker quickstart](agents-docker.md) to connect your MCP
+client over stdio or HTTP and run the same simulation. Ask the agent to inspect
+capabilities, search for `synthetic_one_compartment`, read its full card and
+default scenario, inspect a simulation plan, and simulate with `detail: full`,
+`outputs: ["cp"]` and the returned plan hash. The server runs locally. A chat
+client, by contrast, may send the model, requests and results to its AI
+provider; configure it to match your data requirements.
 
 ## Interpret and retain the output
 
-CLI and Python print this table. MCP saves the same values in its CSV and JSON:
+The Python and CLI routes print this table; the MCP tools return the same values:
 
 ```text
 time_h,side,cp_mg_per_L
@@ -112,7 +94,7 @@ time_h,side,cp_mg_per_L
 ```
 
 `post` means after the bolus at time zero. Time is in hours and `cp` is in mg/L.
-Keep all six files:
+The Python and CLI helpers save six files; keep all of them:
 
 | File | Purpose |
 | --- | --- |
@@ -123,18 +105,15 @@ Keep all six files:
 | `first-run.csv.manifest.json` | Column meanings, units and file hashes |
 | `checks.json` | Comparison against the exact analytical answer |
 
-The manifest uses `qspquest.table-manifest/v1`, with `producer` equal to `cli`,
-`python` or `mcp`. It records `not_assessed` and `qualified: false`: passing this
+The manifest uses `qspquest.table-manifest/v1`, with `producer` equal to `cli`
+or `python`. It records `not_assessed` and `qualified: false`: passing this
 check does not validate other models or clinical use. Checksums detect changed
 files; they do not prove who produced them.
 
 Choose a new output directory for each run; its parent must exist. If
-installation fails, check the OS, CPU, Python version and wheel tag; do not
-rename a wheel to force installation. An executable-format error means you
-downloaded the wrong archive. On macOS/Linux, `chmod +x qspquest` or
-`chmod +x qspquest-mcp` fixes a missing execute permission. For MCP, keep the
-whole `models/` directory and both helper scripts. Do not loosen the analytical
-limit to make a failing check pass.
+installation fails, check the OS, CPU and Python version against the
+[supported wheels](../installation.md); do not rename a wheel to force
+installation. Do not loosen the analytical limit to make a failing check pass.
 
 To try a named model, install the model library and follow the
 [shared-model workflow](../site/shared-models.md). Check the model's units,

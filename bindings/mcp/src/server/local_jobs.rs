@@ -266,7 +266,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn unavailable_deployments_fail_before_admission_or_dispatch() {
-        let library = Library::embedded().unwrap();
+        let library = Library::fixture().unwrap();
         for hosted in [false, true] {
             let server = Server::new(library.clone(), hosted, Tier::Free, 1);
             let input = local_jobs::Submit {
@@ -288,7 +288,7 @@ mod tests {
     }
     #[test]
     fn work_units_obey_the_same_closed_input_contracts_as_synchronous_tools() {
-        let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 1);
+        let server = Server::new(Library::fixture().unwrap(), false, Tier::Free, 1);
         let mut unit = local_jobs::Unit {
             label: "synthetic".into(),
             operation: Operation::Simulate,

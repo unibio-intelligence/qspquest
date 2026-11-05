@@ -1,11 +1,11 @@
-"""Check canonical links, generated MCP copies and optional rendered site links."""
+"""Check canonical links, the generated MCP documentation index and optional site links."""
 import argparse
 import json
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 
 from doc_links import LINK, local_target, prose, check_html
-from generate_mcp_resources import check as check_resources
+from generate_mcp_resources import check as check_resources, rendered
 
 
 def check(root, site=None):
@@ -14,15 +14,20 @@ def check(root, site=None):
     index = json.loads((root / 'bindings/mcp/assets/documentation.json').read_text())
     resources = {entry['uri']: entry for entry in index['resources']}
     resource_links = 0
+    texts = rendered(root)
     for entry in resources.values():
         if entry['mime_type'] != 'text/markdown':
             continue
-        path = root / 'bindings/mcp/assets' / entry['asset']
-        for link in LINK.finditer(prose(path.read_text())):
+        for link in LINK.finditer(prose(texts[entry['uri']])):
             url = link.group(1)
             parsed = urlsplit(url)
             if parsed.scheme == 'qspquest':
                 base = url.split('#', 1)[0]
+                example = base.removeprefix('qspquest://examples/fit/')
+                if (example != base and not parsed.fragment
+                        and (root / 'bindings/mcp/assets/fits' / (example + '.json')).is_file()):
+                    resource_links += 1
+                    continue
                 target = resources.get(base)
                 if target is None or parsed.fragment and unquote(parsed.fragment) not in target['anchors']:
                     raise ValueError('Embedded resource link has no delivered target/heading: ' + url)

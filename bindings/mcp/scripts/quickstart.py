@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the packaged synthetic first run over HTTP or container stdio."""
+"""Check the synthetic first run over HTTP or container stdio."""
 import argparse
 import json
 import math

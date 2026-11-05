@@ -210,7 +210,6 @@ class DistributionTests(unittest.TestCase):
                        'bindings/python', 'bindings/r/src/rust'):
             self.assertIn(member + '/Cargo.toml', expected)
             self.assertTrue(any(name.startswith(member + '/src/') for name in expected), member)
-        self.assertIn('bindings/mcp/examples/parity_audit.rs', expected)
         self.assertIn('bindings/wasm/js/engine-worker.mjs', expected)
 
     def test_safe_names_and_encoded_size_limits(self):

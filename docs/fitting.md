@@ -1,10 +1,10 @@
 # Parameter fitting
 
 For count observations with measured exposure, use the native
-[Gamma–Poisson fitting workflow](tutorials/gamma-poisson-counts.md).
+[Gamma–Poisson fitting workflow](tutorials/discrete-data-fitting.md#event-counts-with-measured-exposure).
 
 For correlated binary outcomes within independent litters or clusters, use
-[probit-normal binomial fitting](tutorials/probit-normal-binomial.md).
+[probit-normal binomial fitting](tutorials/discrete-data-fitting.md#correlated-binomial-outcomes).
 
 The [proportional-normal fitting workflow](tutorials/profiled-proportional-errors.md)
 jointly estimates structural parameters and one proportional residual scale per
@@ -222,7 +222,7 @@ Python's `population_fit_dataset()` converts an explicitly mapped tabular
 record subset into a population request and returns source-row mappings.
 Pass that object to `CompiledSensitivities.fit_population_data()`. Its API is
 declared in the [Python type stub](../bindings/python/python/qspquest/__init__.pyi).
-The [synthetic population tests](../crates/qspquest-modeling/tests/population_saem.rs)
+The [synthetic population tests](../crates/qspquest-modeling/tests/population/saem.rs)
 show supported request shapes. Check bounds, residual-error assumptions, identifiability, and
 scientific plausibility before using any fitted result.
 

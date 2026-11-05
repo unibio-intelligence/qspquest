@@ -24,6 +24,5 @@ component/version, its source or artifact digest, rationale, compensating
 controls, dated review evidence and an expiry. Exceptions cannot waive secret
 redaction, required artifact verification or publication review.
 
-Follow `docs/release-verification.md` in the matching complete QSPQuest source
-release to check an artifact's digest, expected build identity and signed SBOM
-before installation.
+Follow `docs/release-verification.md` to check an artifact's digest, build
+provenance and signed SBOM with the GitHub CLI before installation.

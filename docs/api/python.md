@@ -337,17 +337,6 @@ CompiledSensitivities.fit_population_data(self, dataset)
 
 Fit a prepared FOCEI/SAEM dataset and retain source-row provenance.
 
-### model_library
-
-```python
-model_library(root=None)
-```
-
-Open the shared model catalog; Docker mounts it at QSPQUEST_LIBRARY_DIR.
-
-The model-library loader must be installed or available on PYTHONPATH.
-Archives and indexed members are verified before a named scenario runs.
-
 ## friendly
 
 Small convenience interfaces that retain explicit units and native contracts.

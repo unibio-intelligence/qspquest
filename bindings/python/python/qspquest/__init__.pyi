@@ -134,4 +134,3 @@ from .friendly import (
 )
 
 # The separately distributed model-library package supplies the returned Library.
-def model_library(root: str | PathLike[str] | None = None) -> Any: ...

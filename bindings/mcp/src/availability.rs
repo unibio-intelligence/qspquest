@@ -475,7 +475,7 @@ mod tests {
     }
     #[test]
     fn every_bundled_fixture_has_verified_inventory_without_qualification_inference() {
-        let library = crate::library::Library::embedded().unwrap();
+        let library = crate::library::Library::fixture().unwrap();
         assert_eq!(library.records.len(), 8);
         assert_eq!(library.availability_counts["selected_model_identities"], 8);
         assert_eq!(library.availability_counts["selected_preset_requests"], 47);

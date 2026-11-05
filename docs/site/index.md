@@ -19,7 +19,7 @@ and alternative interfaces.
 - [Archived synthetic library fitting](../tutorials/library-fitting.md)
 - [SBML/OMEX interchange](interchange.md)
 - [Software adapters](../SOFTWARE-ADAPTERS.md)
-- [Packaged first runs](../tutorials/first-run-journeys.md), when matching artifacts are available
+- [First runs](../tutorials/first-run-journeys.md) with the wheel, CLI or MCP image
 
 ## Reference
 

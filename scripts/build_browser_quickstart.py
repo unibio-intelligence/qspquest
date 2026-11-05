@@ -13,7 +13,7 @@ SOURCES = ('bindings/wasm/quickstart/index.html', 'bindings/wasm/quickstart/app.
            'bindings/wasm/js/index.d.mts', 'bindings/wasm/js/client.d.mts',
            'conformance/models/synthetic-one-compartment.qsp', 'docs/examples/first-run.json', 'examples/synthetic/absorption.qsp',
            'docs/browser.md', 'docs/tutorials/agents-docker.md',
-           'bindings/mcp/scripts/quickstart.py', 'docs/site/shared-models.md', 'docs/tutorials/mcp-result-resources.md', 'docs/tutorials/mcp-deployment-profiles.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt')
+           'bindings/mcp/scripts/quickstart.py', 'docs/site/shared-models.md', 'docs/tutorials/mcp-results.md', 'docs/tutorials/mcp-deploy.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt')
 
 
 def library_entry(root, model_id, version, scenario):

@@ -53,8 +53,9 @@ use an absolute writable mount path.
 
 ```sh
 docker compose run --rm --entrypoint python models -c '
-import qspquest
-library = qspquest.model_library()
+import os
+from qspquest_models import Library
+library = Library(os.environ["QSPQUEST_LIBRARY_DIR"])
 print(len(library.list_models()))
 model = library.load("qspquest_serkland_2025_rituximab_ms_pkpd")
 result = model.run("population-typical-1000mg-full-ode")
@@ -63,8 +64,9 @@ print(result["scenario_id"], result["archive_sha256"])
 '
 ```
 
-`qspquest.model_library()` uses the configured `/models` mount. Native Python
-users can install the model-library package and pass its directory explicitly.
+`QSPQUEST_LIBRARY_DIR` names the `/models` mount, and `PYTHONPATH` makes its
+`qspquest_models` loader importable. Native Python users install the
+model-library package and pass its directory.
 Loading a library model does not validate your own edits to it or enable fitting.
 
 ## Use R in Docker
@@ -73,7 +75,8 @@ Loading a library model does not validate your own edits to it or enable fitting
 docker compose build r
 docker compose run --rm r -e '
 library(qspquest)
-models <- model_library()
+source(file.path(Sys.getenv("QSPQUEST_LIBRARY_DIR"), "tutorials/qspquest-models.R"))
+models <- qspquest_library(Sys.getenv("QSPQUEST_LIBRARY_DIR"))
 print(length(models$models()))
 result <- models$run("qspquest_serkland_2025_rituximab_ms_pkpd",
                     "population-typical-1000mg-full-ode")
@@ -82,7 +85,7 @@ print(head(result_data_frame(result)))
 '
 ```
 
-The R shared-library helper uses the same Python loader and installed
+The model library's R helper uses the same Python loader and installed
 engine inside the image. Native R modeling and fitting use the R binding
 directly. Run the complete native R tutorial with
 `docker compose run --rm r /opt/qspquest/r_quickstart.R`.
@@ -149,8 +152,7 @@ docker compose build notebook
 docker compose up notebook
 ```
 
-In a notebook, use `import qspquest; library = qspquest.model_library()` and
-the Python example above. To run teaching notebooks without a shared library:
+In a notebook, use the Python example above. To run teaching notebooks without a shared library:
 
 ```sh
 docker build --target notebook -t qspquest:notebook .

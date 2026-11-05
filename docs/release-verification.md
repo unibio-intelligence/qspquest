@@ -1,86 +1,40 @@
 # Verify a release artifact
 
-Verify the downloaded artifact and its SBOM before installation. You need Python
-3.10 or later, GitHub CLI `gh` with the attestation verification flags shown below,
-the matching complete QSPQuest project source archive or checkout, and these four
-release files:
+Every GitHub release attaches the wheels, the source archive, an SPDX SBOM,
+build-provenance and SBOM attestation bundles, and a `SHA256SUMS` file. The MCP
+server image on GHCR carries the same two attestations. Verify a download with
+the [GitHub CLI](https://cli.github.com/) before installing it.
 
-- The wheel, CLI/MCP archive, WASM archive, R archive or complete source archive.
-- Its build-provenance bundle.
-- Its SPDX 2.x or CycloneDX 1.x JSON SBOM.
-- Its SBOM-attestation bundle.
+## Files
 
-Obtain the expected artifact/SBOM SHA-256 hashes, public repository, build workflow,
-source commit and signer commit from trusted release metadata. A checksum received
-only from the same untrusted download does not establish its origin. Both commits
-must be full 40-character Git revisions; both checksums must be full 64-character
-SHA-256 values. Use this verification workflow only when the release supplies all four files;
-source-only downloads do not include signed binary artifacts.
-
-The Python and R installation source archives do not include this verifier;
-use the complete project source containing `scripts/verify_release_provenance.py`.
-
-The verifier uses the installed GitHub CLI for signature, certificate and identity
-verification. Its flags have been checked against `gh` 2.92.0. The CLI may need network
-access to obtain trust metadata. Verification does not publish artifacts or
-change repository contents.
-
-From the matching complete source release, set the values from its trusted release
-metadata and the paths of your downloads. The following example uses a CLI archive:
+Check the file against the release's checksum list, then verify that GitHub
+Actions built it from this repository's release workflow:
 
 ```sh
-ARTIFACT='./downloads/qspquest-cli-0.1.0-x86_64-unknown-linux-gnu.zip'
-PROVENANCE_BUNDLE='./downloads/cli.provenance.jsonl'
-SBOM='./downloads/cli.sbom.json'
-SBOM_BUNDLE='./downloads/cli.sbom-attestation.jsonl'
-REPOSITORY='unibio-intelligence/qspquest'
-WORKFLOW='.github/workflows/native-installation.yml'
-SOURCE_COMMIT='<full source commit from trusted release metadata>'
-SIGNER_COMMIT='<full signer commit from trusted release metadata>'
-ARTIFACT_SHA256='<artifact SHA-256 from trusted release metadata>'
-SBOM_SHA256='<SBOM SHA-256 from trusted release metadata>'
-
-python3 scripts/verify_release_provenance.py \
-  --artifact "$ARTIFACT" --sha256 "$ARTIFACT_SHA256" \
-  --provenance-bundle "$PROVENANCE_BUNDLE" \
-  --sbom "$SBOM" --sbom-sha256 "$SBOM_SHA256" \
-  --sbom-bundle "$SBOM_BUNDLE" \
-  --repository "$REPOSITORY" --workflow "$WORKFLOW" \
-  --source-commit "$SOURCE_COMMIT" --signer-commit "$SIGNER_COMMIT" \
-  --out release-verification
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify qspquest-0.1.0-cp310-abi3-manylinux_2_28_x86_64.whl \
+  --repo unibio-intelligence/qspquest \
+  --signer-workflow unibio-intelligence/qspquest/.github/workflows/release.yml
 ```
 
-Replace the four angle-bracket values before running the command. Use the actual
-artifact, file names, repository and workflow from that release. Use a new
-output directory for each run.
-Wheels and other file artifacts use the same command with their own release files.
+On macOS use `shasum -a 256 --check --ignore-missing SHA256SUMS`. Use the same
+`gh` command for the source archive. To check the SBOM attestation as well, add
+`--predicate-type https://spdx.dev/Document/v2.3`.
 
-For a container, replace `--artifact "$ARTIFACT"` with
-`--image "oci://registry.example/qspquest@sha256:$ARTIFACT_SHA256"`, using the actual
-release registry and repository. A mutable image tag is refused. The GitHub CLI
-must have access to that registry to inspect the exact image digest; keep the
-same provenance, SBOM, checksum and workflow arguments.
+## MCP image
 
-Success prints `status: verified` and writes `release-verification/report.json`
-alongside the two raw verifier stdout/stderr pairs. It checks both file hashes,
-the exact artifact subject in both attestations, the expected predicate types,
-source repository and commit, signer workflow and commit, and GitHub hosted
-execution. It also checks the build predicate's source/workflow declarations and
-compares the signed SBOM object with the supplied SBOM. Object-key order is
-irrelevant; array order, field values and JSON types must agree. Inputs changing
-during verification fail the check. The report includes the verifier executable,
-script, input digests and exact verification commands.
+Verify the image by digest, not by a mutable tag:
 
-Signature or identity failure, a wrong digest/commit/workflow, self-hosted execution,
-an altered SBOM, malformed verifier output or a timeout exits with failure. Keep
-the output and get the correct matching release files; do not drop identity
-flags, substitute an unsigned SBOM or treat plausible JSON as a verified signature.
-Missing `gh` or unsupported flags require a compatible CLI. An existing output
-directory is left untouched; choose another name.
+```sh
+gh attestation verify oci://ghcr.io/unibio-intelligence/qspquest-mcp@sha256:DIGEST \
+  --repo unibio-intelligence/qspquest \
+  --signer-workflow unibio-intelligence/qspquest/.github/workflows/release.yml
+```
 
-Attestations confirm who built the artifact and from which source. They do not
-check SBOM completeness, licenses, security advisories, installation behavior or
-scientific validity.
+A failed signature, a different repository or workflow, or a changed digest
+makes `gh` exit with an error; do not install that artifact. Attestations show
+who built an artifact and from which source. They do not check SBOM
+completeness, licenses, security advisories or scientific validity.
 
 ## Check Python distribution contents
 

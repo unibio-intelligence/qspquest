@@ -1,5 +1,5 @@
 //! Pharmacology execution engine. Native simulation and bounded fitting API.
-pub mod capabilities;
+mod capabilities;
 pub mod compile;
 pub mod discrete_fit;
 pub mod document;
@@ -305,26 +305,6 @@ pub(crate) fn simulate_with_solver<M: Model>(
         absolute_tolerances,
         solver_choice,
         false,
-    )
-}
-
-/// Require bounded convergence of sampled states with the same DiffSol method.
-/// Local tolerances are refined within each event interval, sharing the supplied
-/// callback budget. This is convergence checking, not a universal global bound.
-pub fn simulate_with_sampled_accuracy<M: Model>(
-    model: &M,
-    protocol: &Protocol,
-    budgets: Budgets,
-    absolute_tolerances: Option<&[f64]>,
-    solver_choice: Solver,
-) -> Result<Vec<Sample>, Error> {
-    simulate_with_solver_accuracy(
-        model,
-        protocol,
-        budgets,
-        absolute_tolerances,
-        solver_choice,
-        true,
     )
 }
 

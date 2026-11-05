@@ -1,4 +1,5 @@
 fn main() {
+    embed_documentation();
     println!(
         "cargo:rustc-env=QSPQUEST_MCP_TARGET={}",
         std::env::var("TARGET").unwrap()
@@ -47,4 +48,34 @@ fn main() {
             );
         }
     }
+}
+
+/// Embed every documentation resource from its canonical source file.
+fn embed_documentation() {
+    let manifest = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let index = manifest.join("assets/documentation.json");
+    println!("cargo:rerun-if-changed={}", index.display());
+    let index: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&index).unwrap()).expect("documentation index");
+    let mut code = String::from("pub static SOURCES: &[(&str, &str)] = &[\n");
+    for resource in index["resources"].as_array().unwrap() {
+        let path = manifest
+            .join("../..")
+            .join(resource["source"].as_str().unwrap());
+        let path = path.canonicalize().unwrap_or_else(|error| {
+            panic!(
+                "Documentation source {} is missing: {error}",
+                path.display()
+            )
+        });
+        println!("cargo:rerun-if-changed={}", path.display());
+        code += &format!(
+            "    ({:?}, include_str!({:?})),\n",
+            resource["uri"].as_str().unwrap(),
+            path.to_str().unwrap()
+        );
+    }
+    code += "];\n";
+    let out = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    std::fs::write(out.join("documentation_sources.rs"), code).unwrap();
 }

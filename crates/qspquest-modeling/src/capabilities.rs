@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 /// The current BDF adapter uses dense linear algebra. Symbolic Jacobian sparsity
 /// does not qualify sparse factorization, and Jacobian products do not qualify
 /// parameter gradients. Add support here only with executable evidence.
-pub fn validate_requirements(requirements: &Requirements) -> Result<(), Error> {
+pub(crate) fn validate_requirements(requirements: &Requirements) -> Result<(), Error> {
     let unsupported = |name: &str| {
         let mut error = Error::new(
             ErrorCode::Unsupported,

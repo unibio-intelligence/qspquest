@@ -63,12 +63,8 @@ For 100 parameter sets, submit four scans of 25 points and concatenate their
 ordered `results`. Give each scan a total budget large enough to reserve the
 requested per-point budget: for 25 points, multiply each run budget by 25.
 Scanning does not change the chosen solver, tolerances, observations or outputs.
-The macOS ARM64 wheel is tested on Python 3.11.15 and 3.12.8, including three
-concurrent scans and 3-point/25-point analytic cases.
 
 WASM `CompiledSimulation.scan(request_json)` returns result JSON. The current
 conformance worker accepts `kind: "scan"` with model text and the same envelope;
 it rejects separate callback/protocol/regimen overrides. Cancelling terminates
-the worker, and the next request starts a new one. Chrome 154 and Firefox 154
-match native results exactly on the same 3-point and 25-point cases. Safari and
-wheels for other platforms are not yet tested.
+the worker, and the next request starts a new one.

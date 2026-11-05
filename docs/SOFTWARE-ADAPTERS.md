@@ -164,12 +164,13 @@ The relevant primary documentation is [NONMEM Users Guide VIII](https://nonmem.i
 
 Run `python -m pytest bindings/python/tests/test_software_adapters.py` for
 independent analytic PK, explicit individual effects, event and rejection checks.
-`bindings/r/tests/software-adapters.R` additionally evaluates generated rxode2 and
-nlmixr2 syntax in an actual rxode2 runtime:
+`bindings/r/tests/testthat/test-software-adapters.R` additionally evaluates
+generated rxode2 and nlmixr2 syntax in an actual rxode2 runtime:
 
 ```sh
 python bindings/python/tests/test_software_adapters.py /tmp/qspquest-adapter-checks
-Rscript bindings/r/tests/software-adapters.R /tmp/qspquest-adapter-checks
+QSPQUEST_ADAPTER_CHECKS=/tmp/qspquest-adapter-checks \
+  Rscript -e 'testthat::test_file("bindings/r/tests/testthat/test-software-adapters.R", package = "qspquest", load_package = "installed")'
 ```
 
 The synthetic parameters and source

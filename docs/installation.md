@@ -55,7 +55,8 @@ minutes. Offline builds require those dependencies to be cached already.
 The default `cargo build --release --locked` builds the engine and CLI only.
 Python, R, MCP and WASM have their own install steps. `cargo test --workspace
 --locked` tests the whole workspace and needs every language prerequisite.
-See [building only the workflow you need](build-cost.md) for feature selection.
+The [MCP server guide](../bindings/mcp/README.md#build-and-connect) lists its
+optional features.
 
 From the checkout root:
 
@@ -101,8 +102,8 @@ gh attestation verify qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl \
 
 The MCP image carries the same attestations; verify it with
 `gh attestation verify oci://ghcr.io/unibio-intelligence/qspquest-mcp:0.1.0 --repo unibio-intelligence/qspquest`.
-[Release verification](release-verification.md) describes the complete check,
-including the SBOM content.
+[Release verification](release-verification.md) also covers the checksum list
+and the SBOM attestation.
 
 ### Install from a checkout
 
@@ -293,8 +294,8 @@ developer-results`; no complete source archive is needed for that workflow.
 
 
 See [release verification](release-verification.md) for downloaded artifact identity,
-signatures and distribution checks. Downloaded first-run examples are described
-in [packaged journeys](tutorials/first-run-journeys.md).
+signatures and distribution checks. First runs that save a complete result are described
+in [first-run journeys](tutorials/first-run-journeys.md).
 
 ## Browser, Docker and Rust
 

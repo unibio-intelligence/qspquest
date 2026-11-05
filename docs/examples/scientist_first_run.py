@@ -1,4 +1,4 @@
-"""Run a packaged CLI and save the complete synthetic first-run table and provenance."""
+"""Run the QSPQuest CLI and save the complete synthetic first-run table and provenance."""
 import argparse
 import json
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 
 try:
-    from result_bundle import write_bundle  # Included beside this script in the CLI download.
+    from result_bundle import write_bundle  # When result_bundle.py sits beside this script.
 except ModuleNotFoundError:
     from qspquest.result_bundle import write_bundle
 
@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--out', type=Path, default=Path('scientist-results'))
     args = parser.parse_args()
     for path in (args.binary, args.model, args.request):
-        if not path.is_file(): parser.error('Use the complete extracted CLI download; missing file: ' + str(path))
+        if not path.is_file(): parser.error('Missing input file; pass --binary, --model and --request: ' + str(path))
     if args.out.exists() or args.out.is_symlink(): parser.error('Choose a new output directory: ' + str(args.out))
     source = args.model.read_text(encoding='utf-8')
     request_bytes = args.request.read_bytes()

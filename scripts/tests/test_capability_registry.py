@@ -108,7 +108,7 @@ class CapabilityRegistryTests(unittest.TestCase):
             validate(ROOT, self.catalog)
 
     def test_feature_gates_cannot_disappear(self):
-        for interface, operation in [('mcp', 'steady_state'), ('wasm_direct', 'sensitivities'), ('mcp', 'submit_simulation'), ('wasm_sandbox', 'simulate')]:
+        for interface, operation in [('mcp', 'steady_state'), ('mcp', 'submit_simulation'), ('wasm_sandbox', 'simulate')]:
             catalog = deepcopy(self.catalog)
             next(e for e in catalog['entries'] if e['interface'] == interface and e['operation'] == operation)['required_features'] = []
             with self.subTest(interface=interface), self.assertRaises(ValueError):

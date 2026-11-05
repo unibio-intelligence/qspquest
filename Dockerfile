@@ -15,7 +15,6 @@ COPY Cargo.toml Cargo.lock pyproject.toml ./
 COPY .cargo/ .cargo/
 COPY crates/ crates/
 COPY bindings/ bindings/
-COPY conformance/ conformance/
 COPY LICENSE THIRD-PARTY-NOTICES.txt CITATION.cff CONTRIBUTING.md CHANGELOG.md README.md ./
 COPY docker/build_info.py /tmp/build_info.py
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

@@ -6,7 +6,7 @@ import unittest
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-LIBRARY = ROOT / 'bindings/mcp/assets/library'
+LIBRARY = ROOT / 'bindings/mcp/tests/library'
 
 
 class BundledLibraryTests(unittest.TestCase):

@@ -36,10 +36,9 @@ impl Drop for Scratch {
     }
 }
 fn files() -> BTreeMap<String, Vec<u8>> {
-    let model = include_bytes!(
-        "../assets/library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/model.omex"
-    )
-    .to_vec();
+    let model =
+        include_bytes!("library/models/qspquest_diffdose_2026_bite_benchmark/0.1.0/model.omex")
+            .to_vec();
     let catalog = serde_json::to_vec(&json!({"models":[{"id":"qspquest_diffdose_2026_bite_benchmark", "version":"0.1.0", "archive":"models/bite.omex", "omex_sha256":hash(&model), "scenario_ids":[], "fit_ready":false, "fitting_supported":false}]})).unwrap();
     BTreeMap::from([
         ("catalog.json".into(), catalog),

@@ -972,7 +972,7 @@ pub(crate) fn schema<T: JsonSchema>() -> Value {
     // expression schema instead of widening a typed dosing expression to JSON.
     if value["$defs"]["DoseEventReceipt"].is_object() {
         let mut expression = native_schema(
-            include_str!("../assets/expression.schema.json"),
+            include_str!("../../../spec/schema/expression.schema.json"),
             "DoseScale",
         );
         let definitions = expression.as_object_mut().unwrap().remove("$defs").unwrap();
@@ -983,8 +983,10 @@ pub(crate) fn schema<T: JsonSchema>() -> Value {
         value["$defs"]["DoseEventReceipt"]["properties"]["declared_base_scale"] = expression;
     }
     if value["$defs"]["NativeRecord"].is_object() {
-        let mut native =
-            native_schema(include_str!("../assets/model.schema.json"), "InspectionDoc");
+        let mut native = native_schema(
+            include_str!("../../../spec/schema/model.schema.json"),
+            "InspectionDoc",
+        );
         let definitions = native.as_object_mut().unwrap().remove("$defs").unwrap();
         value["$defs"]
             .as_object_mut()
@@ -1113,44 +1115,44 @@ fn plan_payload_schema() -> Value {
     for (kind, text, prefix) in [
         (
             "simulate",
-            include_str!("../assets/run-plan.schema.json"),
+            include_str!("../../../spec/schema/run-plan.schema.json"),
             "PlannedRun",
         ),
         (
             "get_patient_parameters",
-            include_str!("../assets/initial-values-plan.schema.json"),
+            include_str!("../../../spec/schema/initial-values-plan.schema.json"),
             "PlannedInitialValues",
         ),
         (
             "scan_parameters",
-            include_str!("../assets/scan-plan.schema.json"),
+            include_str!("../../../spec/schema/scan-plan.schema.json"),
             "PlannedScan",
         ),
         #[cfg(feature = "analysis")]
         (
             "morris_screening",
-            include_str!("../assets/morris-plan.schema.json"),
+            include_str!("../../../spec/schema/morris-plan.schema.json"),
             "PlannedMorris",
         ),
         #[cfg(feature = "analysis")]
         (
             "steady_state",
-            include_str!("../assets/periodic-plan.schema.json"),
+            include_str!("../../../spec/schema/periodic-plan.schema.json"),
             "PlannedPeriodic",
         ),
         (
             "fit_scalar",
-            include_str!("../assets/scalar-fit-plan.schema.json"),
+            include_str!("../../../spec/schema/scalar-fit-plan.schema.json"),
             "PlannedScalarFit",
         ),
         (
             "fit_individual",
-            include_str!("../assets/fit-plan.schema.json"),
+            include_str!("../../../spec/schema/fit-plan.schema.json"),
             "PlannedIndividualFit",
         ),
         (
             "fit_population",
-            include_str!("../assets/fit-plan.schema.json"),
+            include_str!("../../../spec/schema/fit-plan.schema.json"),
             "PlannedPopulationFit",
         ),
     ] {
@@ -1190,21 +1192,28 @@ fn plan_payload_schema() -> Value {
 pub fn output_schema_for(tool: &str) -> Arc<serde_json::Map<String, Value>> {
     let mut base = output_schema().as_ref().clone();
     let native = match tool {
-        "simulate" => Some((include_str!("../assets/result.schema.json"), "Run")),
+        "simulate" => Some((
+            include_str!("../../../spec/schema/result.schema.json"),
+            "Run",
+        )),
         "fit_scalar" => Some((
-            include_str!("../assets/scalar-fit-result.schema.json"),
+            include_str!("../../../spec/schema/scalar-fit-result.schema.json"),
             "Scalar",
         )),
-        "fit_individual" | "fit_population" => {
-            Some((include_str!("../assets/fit-result.schema.json"), "Fit"))
-        }
-        "scan_parameters" => Some((include_str!("../assets/scan-result.schema.json"), "Scan")),
+        "fit_individual" | "fit_population" => Some((
+            include_str!("../../../spec/schema/fit-result.schema.json"),
+            "Fit",
+        )),
+        "scan_parameters" => Some((
+            include_str!("../../../spec/schema/scan-result.schema.json"),
+            "Scan",
+        )),
         "steady_state" => Some((
-            include_str!("../assets/steady-state-result.schema.json"),
+            include_str!("../../../spec/schema/steady-state-result.schema.json"),
             "SteadyState",
         )),
         "morris_screening" => Some((
-            include_str!("../assets/morris-result.schema.json"),
+            include_str!("../../../spec/schema/morris-result.schema.json"),
             "Morris",
         )),
         _ => None,
@@ -1261,8 +1270,10 @@ pub fn output_schema_for(tool: &str) -> Arc<serde_json::Map<String, Value>> {
         if tool == "get_model" {
             value["$defs"]["PlatformCatalogDescriptor"]["properties"]["native_projection"]
                 ["const"] = json!(false);
-            let mut native =
-                native_schema(include_str!("../assets/run.schema.json"), "SelectedRequest");
+            let mut native = native_schema(
+                include_str!("../../../spec/schema/run.schema.json"),
+                "SelectedRequest",
+            );
             if let Some(definitions) = native.as_object_mut().unwrap().remove("$defs") {
                 value["$defs"]
                     .as_object_mut()
@@ -1275,17 +1286,17 @@ pub fn output_schema_for(tool: &str) -> Arc<serde_json::Map<String, Value>> {
         let nested = match tool {
             "get_patient_parameters" => Some((
                 "effective_initial_values",
-                include_str!("../assets/initial-values-result.schema.json"),
+                include_str!("../../../spec/schema/initial-values-result.schema.json"),
                 "InitialValuesResult",
             )),
             "get_scenario_request" => Some((
                 "request",
-                include_str!("../assets/run.schema.json"),
+                include_str!("../../../spec/schema/run.schema.json"),
                 "Request",
             )),
             "validate_model" | "model_template" => Some((
                 "model",
-                include_str!("../assets/model.schema.json"),
+                include_str!("../../../spec/schema/model.schema.json"),
                 "Model",
             )),
             _ => None,

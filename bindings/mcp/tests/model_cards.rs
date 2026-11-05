@@ -1,5 +1,6 @@
+mod common;
 use qspquest_mcp::{
-    library::{hash, Library},
+    library::hash,
     policy::{self, Tier},
     server::Server,
 };
@@ -11,7 +12,7 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn model_cards_preserve_full_details_and_stored_scenarios() {
-    let library = Library::embedded().unwrap();
+    let library = common::library();
     let expected = library.records.clone();
     let (a, b) = tokio::io::duplex(1_000_000);
     let task = tokio::spawn(async move {
@@ -172,7 +173,7 @@ async fn model_cards_preserve_full_details_and_stored_scenarios() {
 
 #[tokio::test]
 async fn oversized_metadata_is_lossless_through_bounded_utf8_chunks() {
-    let mut library = Library::embedded().unwrap();
+    let mut library = common::library();
     library
         .records
         .retain(|r| r.metadata["id"] == "qspquest_diffdose_2026_idr_benchmark");

@@ -14,7 +14,6 @@ qspquest-core.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [features]
-m0-conformance = []
 sandbox-abi = []
 
 [dependencies.serde]

@@ -62,15 +62,22 @@ self-check does not qualify a model or estimation method.
 
 ## Automated checks
 
-Code changes run formatting, core and CLI tests, and browser-client tests.
-Use the manual CI workflow for the full workspace, Wasm target and native R
-checks. MCP qualification and Docker builds run for relevant pull requests and changes
-to `main`, including build configuration under `.cargo/`. Suite compatibility
-checks exercise pinned model and validation snapshots; see
-[the compatibility guide](docs/suite-compatibility.md) for a local run. Installation artifacts
-and documentation/tutorials run when a maintainer starts their workflow.
-These workflows build and test artifacts; publishing packages, images and
-releases requires a separate maintainer action.
+Code changes run formatting, the Rust, Python and script tests, and the
+browser-client tests. Use the manual CI workflow for the full workspace, Wasm
+target and R package tests. MCP contract tests and Docker builds run for
+relevant changes to `main`, including build configuration under `.cargo/`.
+Documentation and tutorials run when a maintainer starts their workflow. These workflows
+build and test artifacts; publishing packages, images and releases requires a
+separate maintainer action.
+
+## Validation
+
+Numerical qualification of the engine and the compatibility check against the
+model library live in the
+[qspquest-validation](https://github.com/unibio-intelligence/qspquest-validation)
+repository. They run against an engine checkout and record evidence for an
+exact source revision. Changes to solver behaviour need a new validation run
+before release.
 
 ## Build input updates
 

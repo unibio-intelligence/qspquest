@@ -61,7 +61,7 @@ struct Catalog {
 fn catalog() -> &'static Catalog {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
     CATALOG.get_or_init(|| {
-        let text = include_str!("../assets/guides/spec/capabilities.json");
+        let text = include_str!("../../../spec/capabilities.json");
         let value: Value = serde_json::from_str(text).expect("Validated capability catalog");
         assert_eq!(value["schema"], "qspquest.capability-catalog/v1");
         let entries: Vec<Declaration> =
@@ -336,7 +336,7 @@ mod tests {
             local_jobs_ready: false,
             user_source_execution: true,
         };
-        let library = crate::library::Library::embedded().unwrap();
+        let library = crate::library::Library::fixture().unwrap();
         let mut record = library.records[0].clone();
         let mut query = Query {
             key: Key {
@@ -430,7 +430,7 @@ mod tests {
             local_jobs_ready: false,
             user_source_execution: false,
         };
-        let mut record = crate::library::Library::embedded().unwrap().records[0].clone();
+        let mut record = crate::library::Library::fixture().unwrap().records[0].clone();
         record.metadata["candidate"] = json!(true);
         let mut query = Query {
             key: Key {

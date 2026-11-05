@@ -9,8 +9,11 @@ COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY crates crates
 COPY bindings bindings
+COPY LICENSE SECURITY.md ./
+# The server embeds its documentation from these canonical sources.
+COPY spec spec
+COPY docs docs
 COPY conformance conformance
-COPY LICENSE ./
 COPY scripts/build-mcp.sh scripts/build-mcp.sh
 ARG MCP_FEATURES=sandbox,widget
 RUN --mount=type=cache,id=qspquest-mcp-registry-${TARGETARCH},target=/usr/local/cargo/registry \

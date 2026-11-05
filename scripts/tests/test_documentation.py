@@ -44,39 +44,38 @@ class DocumentationTests(unittest.TestCase):
         return root
 
     @unittest.skipUnless(importlib.util.find_spec('mistune'), 'install the docs extra to test site rendering')
-    def test_site_builders_render_linked_security_policy(self):
-        for name in ('build_docs', 'build_quickstart_docs'):
-            with self.subTest(builder=name), tempfile.TemporaryDirectory() as directory:
-                root = self.site_source(Path(directory) / 'source')
-                output = Path(directory) / 'site'
-                builder = importlib.import_module(name)
-                with patch.object(builder, 'ROOT', root):
-                    builder.build(output)
-                self.assertIn('href="reference-SECURITY.html#reporting"',
-                              (output / 'reference-README.html').read_text())
-                self.assertIn('id="reporting"',
-                              (output / 'reference-SECURITY.html').read_text())
-                check_html(output)
+    def test_site_builder_renders_linked_security_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.site_source(Path(directory) / 'source')
+            output = Path(directory) / 'site'
+            builder = importlib.import_module('build_docs')
+            with patch.object(builder, 'ROOT', root):
+                builder.build(output)
+            self.assertIn('href="reference-SECURITY.html#reporting"',
+                          (output / 'reference-README.html').read_text())
+            self.assertIn('id="reporting"',
+                          (output / 'reference-SECURITY.html').read_text())
+            check_html(output)
 
     @unittest.skipUnless(importlib.util.find_spec('mistune'), 'install the docs extra to test site rendering')
-    def test_site_builders_still_refuse_private_root_links(self):
-        for name in ('build_docs', 'build_quickstart_docs'):
-            with self.subTest(builder=name), tempfile.TemporaryDirectory() as directory:
-                root = self.site_source(Path(directory) / 'source')
-                (root / 'README.internal.md').write_text('# Private notes\n')
-                (root / 'README.md').write_text('# Overview\n[Private](README.internal.md)\n')
-                builder = importlib.import_module(name)
-                with patch.object(builder, 'ROOT', root):
-                    with self.assertRaisesRegex(ValueError, 'outside the public documentation roots'):
-                        builder.build(Path(directory) / 'site')
+    def test_site_builder_still_refuses_private_root_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.site_source(Path(directory) / 'source')
+            (root / 'README.internal.md').write_text('# Private notes\n')
+            (root / 'README.md').write_text('# Overview\n[Private](README.internal.md)\n')
+            builder = importlib.import_module('build_docs')
+            with patch.object(builder, 'ROOT', root):
+                with self.assertRaisesRegex(ValueError, 'outside the public documentation roots'):
+                    builder.build(Path(directory) / 'site')
 
     def source(self, directory):
         root = Path(directory)
         index = json.loads((ROOT / 'bindings/mcp/assets/documentation.json').read_text())
-        paths = {'Cargo.toml', 'bindings/mcp/assets/documentation.json',
-                 'bindings/python/python/qspquest/SECURITY.md'}
-        for entry in index['resources']:
-            paths.update((entry['source'], 'bindings/mcp/assets/' + entry['asset']))
+        paths = {'Cargo.toml', '.dockerignore', 'bindings/mcp/assets/documentation.json',
+                 'bindings/mcp/assets/documentation-links.json',
+                 'bindings/python/python/qspquest/SECURITY.md',
+                 'bindings/mcp/assets/fits/population.json'}
+        paths.update(entry['source'] for entry in index['resources'])
         for name in paths:
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,33 +86,34 @@ class DocumentationTests(unittest.TestCase):
         report = check(ROOT)
         self.assertEqual(report['status'], 'matched')
         index = json.loads((ROOT / 'bindings/mcp/assets/documentation.json').read_text())
-        self.assertEqual(report['generated_files'], len(index['resources']) + 2)
+        self.assertEqual(report['generated_files'], 4)
+        self.assertEqual(len(index['resources']), len({entry['source'] for entry in index['resources']}))
         self.assertGreaterEqual(report['local_links'], 179)
         self.assertGreaterEqual(report['embedded_resource_links'], 29)
 
-    def test_embedded_guide_drift_is_refused(self):
+    def test_guide_edit_without_regenerating_the_index_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
-            path = root / 'bindings/mcp/assets/guides/spec/language.md'
-            path.write_text(path.read_text() + '\nAltered copied guide.\n')
-            with self.assertRaisesRegex(ValueError, 'copies differ'):
+            path = root / 'spec/language.md'
+            path.write_text(path.read_text() + '\nChanged guide.\n')
+            with self.assertRaisesRegex(ValueError, 'index differs'):
                 check(root)
 
     def test_embedded_schema_drift_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
-            path = root / 'bindings/mcp/assets/run.schema.json'
+            path = root / 'spec/schema/run.schema.json'
             value = json.loads(path.read_text())
             value['definitions']['Solver']['enum'].append('not_a_solver')
             path.write_text(json.dumps(value))
-            with self.assertRaisesRegex(ValueError, 'copies differ'):
+            with self.assertRaisesRegex(ValueError, 'index differs'):
                 check(root)
 
     def test_installed_security_policy_drift_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
             (root / 'bindings/python/python/qspquest/SECURITY.md').write_text('# Wrong policy\n')
-            with self.assertRaisesRegex(ValueError, 'copies differ'):
+            with self.assertRaisesRegex(ValueError, 'index differs'):
                 check(root)
 
     def test_canonical_heading_typo_cannot_generate_a_resource(self):

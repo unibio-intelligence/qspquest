@@ -50,20 +50,12 @@ exported for both request and result.
 JSON examples are `conformance/models/synthetic-saturable-periodic.json`
 and `conformance/requests/synthetic-saturable-periodic.json`.
 
-## Bindings and qualification
+## Bindings
 
 - CLI: `qspquest iterate-periodic MODEL REQUEST.json`.
 - Python: `CompiledModel.iterate_periodic_state(request)` returns a dict.
 - WASM: `CompiledSimulation.iterate_periodic_state(request_json)` returns JSON.
 - Worker: `{kind: 'iterate-periodic', source, request}`.
 
-The installed macOS arm64 wheel passes four cases on CPython 3.11 and 3.12:
-three bolus starting guesses and an overlapping-infusion equilibrium. Results
-agree with the saturable-elimination closed forms within 2e-7 mg. Concurrent
-calls can share a compiled model, and an error does not affect later calls.
-Chrome and Firefox agree with native states within 1.560e-10 mg. CLI results
-match the library result. Test reports are in
-`conformance/evidence/nonlinear-steady-bindings-v1.json`.
-
-Only these test cases and platforms have been checked; Safari and other
-platforms have not.
+Concurrent calls can share a compiled model, and an error does not affect later
+calls.

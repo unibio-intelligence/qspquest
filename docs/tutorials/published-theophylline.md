@@ -9,12 +9,11 @@ You need Python 3.11 or newer, Git, a built QSPQuest CLI and the matching
 [validation repository](https://github.com/unibio-intelligence/qspquest-validation).
 No R installation or extra Python packages are needed. From the complete engine
 checkout, first follow [source installation](../installation.md), then select the
-validation revision recorded by the engine:
+validation revision this example reads:
 
 ```sh
 git clone https://github.com/unibio-intelligence/qspquest-validation.git ../qspquest-validation
-VALIDATION_REV=$(python3 -c 'import json; print(json.load(open(".github/suite-compatibility.json"))["components"]["validation"]["commit"])')
-git -C ../qspquest-validation checkout "$VALIDATION_REV"
+git -C ../qspquest-validation checkout 7b98a5613b39c6cfd535349b26e7740d51bf41e5
 python3 -B ../qspquest-validation/scripts/verify.py
 python3 -B docs/examples/published_theophylline.py \
   --validation ../qspquest-validation \

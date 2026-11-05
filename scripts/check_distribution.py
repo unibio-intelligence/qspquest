@@ -27,11 +27,10 @@ SOURCE_PATTERNS = (
     'crates/*/examples/**/*.rs', 'bindings/*/Cargo.toml', 'bindings/mcp/build.rs',
     'bindings/mcp/assets/**/*', 'bindings/*/src/**/*.rs',
     'bindings/r/src/rust/Cargo.toml', 'bindings/r/src/rust/src/**/*.rs',
-    'bindings/mcp/examples/parity_audit.rs', 'bindings/wasm/js/engine-worker.mjs',
+    'bindings/wasm/js/engine-worker.mjs',
     'bindings/wasm/LICENSE', 'bindings/wasm/LICENSE-APACHE',
     'bindings/python/python/**/*.py', 'bindings/python/python/**/*.pyi',
     'bindings/python/python/**/py.typed', 'bindings/python/python/qspquest/SECURITY.md',
-    'conformance/*.rs', 'conformance/tmdd-cases.json',
 )
 MAX_MEMBER_BYTES = 256 * 1024 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024 * 1024

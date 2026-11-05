@@ -367,32 +367,3 @@ __all__ += [
     "FixedResidualError", "AnalysisObservation", "AnalysisSubject", "CovariateSpec",
     "ProgressEvent",
 ]
-
-
-def model_library(root=None):
-    """Open the shared model catalog; Docker mounts it at QSPQUEST_LIBRARY_DIR.
-
-    The model-library loader must be installed or available on PYTHONPATH.
-    Archives and indexed members are verified before a named scenario runs.
-    """
-    import os
-    from pathlib import Path
-
-    root = root or os.environ.get("QSPQUEST_LIBRARY_DIR")
-    if not root or not (Path(root) / "catalog.json").is_file():
-        raise ValueError(
-            "Set QSPQUEST_LIBRARY_DIR to a model-library directory containing catalog.json, "
-            "or pass that directory to model_library(root)."
-        )
-    try:
-        from qspquest_models import Library
-    except ImportError as error:
-        raise ImportError(
-            "The model-library loader is unavailable. In Docker, mount the complete "
-            "library at /models and set PYTHONPATH=/models. For native Python, "
-            "install the model-library package into this environment."
-        ) from error
-    return Library(root)
-
-
-__all__ += ["model_library"]

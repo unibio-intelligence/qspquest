@@ -1,7 +1,7 @@
 //! Consume status from structuredContent; prose is never an input to these checks.
+mod common;
 use qspquest_mcp::{
     contract::{CapabilityDocument, Contract, Outcome, ToolOutput},
-    library::Library,
     policy::Tier,
     server::Server,
 };
@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 
 #[tokio::test]
 async fn discovery_schemas_capabilities_and_failure_variants_use_structured_content() {
-    let library = Library::embedded().unwrap();
+    let library = common::library();
     let expected_library = library.version.clone();
     let (a, b) = tokio::io::duplex(1_000_000);
     let task = tokio::spawn(async move {
@@ -131,7 +131,7 @@ async fn discovery_schemas_capabilities_and_failure_variants_use_structured_cont
 
 #[tokio::test]
 async fn hosted_capabilities_and_heavy_model_routing_do_not_claim_a_result() {
-    let server = Server::new(Library::embedded().unwrap(), true, Tier::Free, 2);
+    let server = Server::new(common::library(), true, Tier::Free, 2);
     let caps = server.capabilities();
     assert_eq!(caps["deployment"]["mode"], "hosted");
     assert_eq!(caps["deployment"]["csv_export_enabled"], false);
@@ -160,7 +160,7 @@ async fn hosted_capabilities_and_heavy_model_routing_do_not_claim_a_result() {
 async fn scalar_fit_iteration_limit_retains_diagnostics_without_claiming_success() {
     let (a, b) = tokio::io::duplex(1_000_000);
     let task = tokio::spawn(async move {
-        Server::new(Library::embedded().unwrap(), false, Tier::Free, 2)
+        Server::new(common::library(), false, Tier::Free, 2)
             .serve(a)
             .await
             .unwrap()

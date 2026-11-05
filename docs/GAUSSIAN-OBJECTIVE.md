@@ -125,11 +125,4 @@ return an explicit status.
 The WASM `CompiledSensitivities.fit(request_json)` method accepts the same
 versioned envelope. The conformance worker handles `kind: "fit"` and caches
 only the compiled model and parameter order. Cancelling terminates the worker;
-the next request starts a new one. The worker is currently built with the
-`m0-conformance` feature.
-
-Chrome 154 and Firefox 154 are tested with three individual fits, one pooled
-fit, structured failures, nonconvergence, cancellation and recovery.
-Parameters, objectives and gradients agree with native results within 1e-5
-(maximum observed absolute difference approximately 1.94e-12). Safari is not
-yet tested for fitting.
+the next request starts a new one.

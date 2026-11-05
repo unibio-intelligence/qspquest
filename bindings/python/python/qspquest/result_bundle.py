@@ -1,7 +1,6 @@
 """Save the bounded synthetic first-run result with replay inputs and table metadata.
 
-This module uses only the standard library and is also included in native
-first-run downloads. Checksums identify bytes; they do not authenticate or
+This module uses only the standard library. Checksums identify bytes; they do not authenticate or
 qualify a producer. This writer is limited to the stated synthetic trajectory.
 """
 import csv

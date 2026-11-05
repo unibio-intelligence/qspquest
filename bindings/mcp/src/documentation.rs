@@ -1,10 +1,12 @@
 //! Offline documentation metadata and canonical resource navigation.
-use include_dir::{include_dir, Dir};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 const INDEX: &str = include_str!("../assets/documentation.json");
-static GUIDES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/guides");
+/// Relative links in embedded Markdown, rewritten to resource URIs when served:
+/// `[byte_start, byte_end, original_target, replacement]` per resource.
+const LINKS: &str = include_str!("../assets/documentation-links.json");
+include!(concat!(env!("OUT_DIR"), "/documentation_sources.rs"));
 
 #[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -62,6 +64,21 @@ pub fn resources() -> Vec<(String, String)> {
     resources
 }
 
+/// The served text of one resource: its embedded source with links rewritten.
+fn served_text(uri: &str) -> Option<String> {
+    let (_, source) = SOURCES.iter().find(|(candidate, _)| *candidate == uri)?;
+    let links: std::collections::BTreeMap<String, Vec<(usize, usize, String, String)>> =
+        serde_json::from_str(LINKS).expect("Generated documentation links must be valid");
+    let mut text = (*source).to_owned();
+    for (start, end, original, replacement) in links.get(uri).into_iter().flatten().rev() {
+        if text.get(*start..*end) != Some(original.as_str()) {
+            return None;
+        }
+        text.replace_range(*start..*end, replacement);
+    }
+    Some(text)
+}
+
 pub fn read(uri: &str) -> Option<Result<(String, String), String>> {
     if uri == "qspquest://documentation" {
         return Some(Ok(("application/json".into(), INDEX.into())));
@@ -78,94 +95,9 @@ pub fn read(uri: &str) -> Option<Result<(String, String), String>> {
             "Documentation heading is not present in this version".into()
         ));
     }
-    let text = if let Some(path) = resource.asset.strip_prefix("guides/") {
-        GUIDES.get_file(path).and_then(|file| file.contents_utf8())
-    } else {
-        match resource.asset.as_str() {
-            "capability-catalog.schema.json" => {
-                Some(include_str!("../assets/capability-catalog.schema.json"))
-            }
-            "model.schema.json" => Some(include_str!("../assets/model.schema.json")),
-            "expression.schema.json" => Some(include_str!("../assets/expression.schema.json")),
-            "regimen.schema.json" => Some(include_str!("../assets/regimen.schema.json")),
-            "run.schema.json" => Some(include_str!("../assets/run.schema.json")),
-            "result.schema.json" => Some(include_str!("../assets/result.schema.json")),
-            "initial-values-request.schema.json" => {
-                Some(include_str!("../assets/initial-values-request.schema.json"))
-            }
-            "initial-values-plan.schema.json" => {
-                Some(include_str!("../assets/initial-values-plan.schema.json"))
-            }
-            "initial-values-result.schema.json" => {
-                Some(include_str!("../assets/initial-values-result.schema.json"))
-            }
-            "run-plan.schema.json" => Some(include_str!("../assets/run-plan.schema.json")),
-            "scan-plan.schema.json" => Some(include_str!("../assets/scan-plan.schema.json")),
-            "morris-plan.schema.json" => Some(include_str!("../assets/morris-plan.schema.json")),
-            "periodic-plan.schema.json" => {
-                Some(include_str!("../assets/periodic-plan.schema.json"))
-            }
-            "scalar-fit-plan.schema.json" => {
-                Some(include_str!("../assets/scalar-fit-plan.schema.json"))
-            }
-            "fit-plan.schema.json" => Some(include_str!("../assets/fit-plan.schema.json")),
-            "sensitivity-plan.schema.json" => {
-                Some(include_str!("../assets/sensitivity-plan.schema.json"))
-            }
-            "gaussian-objective-plan.schema.json" => Some(include_str!(
-                "../assets/gaussian-objective-plan.schema.json"
-            )),
-            "fit-request.schema.json" => Some(include_str!("../assets/fit-request.schema.json")),
-            "fit-result.schema.json" => Some(include_str!("../assets/fit-result.schema.json")),
-            "discrete-fit-result.schema.json" => {
-                Some(include_str!("../assets/discrete-fit-result.schema.json"))
-            }
-            "gamma-poisson-fit.schema.json" => {
-                Some(include_str!("../assets/gamma-poisson-fit.schema.json"))
-            }
-            "probit-normal-binomial-fit.schema.json" => Some(include_str!(
-                "../assets/probit-normal-binomial-fit.schema.json"
-            )),
-            "probit-normal-binomial-result.schema.json" => Some(include_str!(
-                "../assets/probit-normal-binomial-result.schema.json"
-            )),
-            "scalar-fit-request.schema.json" => {
-                Some(include_str!("../assets/scalar-fit-request.schema.json"))
-            }
-            "scalar-fit-result.schema.json" => {
-                Some(include_str!("../assets/scalar-fit-result.schema.json"))
-            }
-            "sensitivity-request.schema.json" => {
-                Some(include_str!("../assets/sensitivity-request.schema.json"))
-            }
-            "sensitivity-result.schema.json" => {
-                Some(include_str!("../assets/sensitivity-result.schema.json"))
-            }
-            "scan-request.schema.json" => Some(include_str!("../assets/scan-request.schema.json")),
-            "scan-result.schema.json" => Some(include_str!("../assets/scan-result.schema.json")),
-            "morris-request.schema.json" => {
-                Some(include_str!("../assets/morris-request.schema.json"))
-            }
-            "morris-result.schema.json" => {
-                Some(include_str!("../assets/morris-result.schema.json"))
-            }
-            "steady-state-request.schema.json" => {
-                Some(include_str!("../assets/steady-state-request.schema.json"))
-            }
-            "steady-state-result.schema.json" => {
-                Some(include_str!("../assets/steady-state-result.schema.json"))
-            }
-            "cycle-iteration-request.schema.json" => Some(include_str!(
-                "../assets/cycle-iteration-request.schema.json"
-            )),
-            "cycle-iteration-result.schema.json" => {
-                Some(include_str!("../assets/cycle-iteration-result.schema.json"))
-            }
-            _ => None,
-        }
-    };
+    let text = served_text(&resource.uri);
     Some(
-        text.map(|text| (resource.mime_type, text.to_owned()))
+        text.map(|text| (resource.mime_type, text))
             .ok_or_else(|| "Documentation asset is absent".into()),
     )
 }
@@ -186,6 +118,23 @@ mod tests {
                 resource.content_sha256,
                 "{}",
                 resource.uri
+            );
+        }
+    }
+    #[test]
+    fn embedded_sources_match_the_generated_index() {
+        let resources = index().resources;
+        assert_eq!(resources.len(), SOURCES.len());
+        for resource in resources {
+            let (_, source) = SOURCES
+                .iter()
+                .find(|(uri, _)| *uri == resource.uri)
+                .unwrap();
+            assert_eq!(
+                format!("{:x}", Sha256::digest(source.as_bytes())),
+                resource.source_sha256,
+                "{} is stale; run scripts/generate_mcp_resources.py",
+                resource.source
             );
         }
     }

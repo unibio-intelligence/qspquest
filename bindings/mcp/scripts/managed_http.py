@@ -56,7 +56,7 @@ threading.Thread(target=platform.serve_forever,daemon=True).start()
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
 base=f'http://127.0.0.1:{port}'
 api=f'http://127.0.0.1:{platform.server_port}'
-env={**os.environ,'QSPQUEST_LIBRARY_DIR':str(Path(__file__).resolve().parents[1]/'assets/library'),'QSPQUEST_MCP_PREWARM':'0','QSPQUEST_MANAGED_ENABLED':'1','QSPQUEST_PLATFORM_API_URL':api,'QSPQUEST_PLATFORM_SESSION_URL':api+'/session'}
+env={**os.environ,'QSPQUEST_LIBRARY_DIR':str(Path(__file__).resolve().parents[1]/'tests/library'),'QSPQUEST_MCP_PREWARM':'0','QSPQUEST_MANAGED_ENABLED':'1','QSPQUEST_PLATFORM_API_URL':api,'QSPQUEST_PLATFORM_SESSION_URL':api+'/session'}
 server_log=args.output.with_suffix('.server.log')
 server_output=server_log.open('w')
 process=subprocess.Popen([str(args.binary.resolve()),'--http',f'127.0.0.1:{port}'],env=env,stdout=server_output,stderr=subprocess.STDOUT)

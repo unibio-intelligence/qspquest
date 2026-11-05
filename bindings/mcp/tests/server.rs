@@ -1,3 +1,4 @@
+mod common;
 use qspquest_mcp::{
     core::{compute, requests, summary},
     library::Library,
@@ -12,7 +13,7 @@ use serde_json::{json, Value};
 #[tokio::test]
 async fn tools_through_real_mcp_client() {
     let (a, b) = tokio::io::duplex(1_000_000);
-    let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+    let server = Server::new(common::library(), false, Tier::Free, 2);
     let task = tokio::spawn(async move { server.serve(a).await.unwrap().waiting().await.unwrap() });
     let client = ().serve(b).await.unwrap();
     let info = client.peer_info().unwrap();
@@ -79,9 +80,8 @@ async fn tools_through_real_mcp_client() {
     assert_eq!(answer["qualified"], false);
     assert!(answer["model"]["archive_sha256"].as_str().is_some());
     assert!(answer["model"]["stored_request_sha256"].as_str().is_some());
-    let registry =
-        qspquest_mcp::server::Server::new(Library::embedded().unwrap(), false, Tier::Free, 2)
-            .capability_registry();
+    let registry = qspquest_mcp::server::Server::new(common::library(), false, Tier::Free, 2)
+        .capability_registry();
     let advertised: std::collections::BTreeSet<&str> = registry["entries"]
         .as_array()
         .unwrap()
@@ -143,7 +143,7 @@ async fn tools_through_real_mcp_client() {
 }
 #[tokio::test]
 async fn selected_output_response_keeps_a_valid_browser_request() {
-    let library = Library::embedded().unwrap();
+    let library = common::library();
     let record = library
         .records
         .iter()
@@ -194,7 +194,7 @@ fn template_validation_and_roundtrip() {
 }
 #[test]
 fn library_hashes_and_all_model_roundtrips() {
-    let lib = Library::embedded().unwrap();
+    let lib = common::library();
     assert_eq!(lib.records.len(), 8);
     assert_eq!(
         lib.records.iter().map(|r| r.scenarios.len()).sum::<usize>(),
@@ -243,7 +243,7 @@ fn summaries_preserve_event_sides_and_sampled_integral() {
 #[tokio::test]
 async fn compact_preview_links_to_the_complete_grid_and_keeps_full_grid_summaries() {
     let (a, b) = tokio::io::duplex(1_000_000);
-    let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+    let server = Server::new(common::library(), false, Tier::Free, 2);
     let task = tokio::spawn(async move { server.serve(a).await.unwrap().waiting().await.unwrap() });
     let client = ().serve(b).await.unwrap();
     let times: Vec<_> = (0..=300)
@@ -304,7 +304,7 @@ async fn compact_preview_links_to_the_complete_grid_and_keeps_full_grid_summarie
 #[tokio::test]
 async fn fitting_examples_through_mcp() {
     let (a, b) = tokio::io::duplex(1_000_000);
-    let server = Server::new(Library::embedded().unwrap(), false, Tier::Free, 2);
+    let server = Server::new(common::library(), false, Tier::Free, 2);
     let task = tokio::spawn(async move { server.serve(a).await.unwrap().waiting().await.unwrap() });
     let client = ().serve(b).await.unwrap();
     for raw in [
@@ -342,67 +342,6 @@ async fn fitting_examples_through_mcp() {
     client.cancel().await.unwrap();
     task.abort();
 }
-#[test]
-#[ignore = "Slow strict determinism diagnostic; independent accuracy and reviewed output bounds are checked separately"]
-fn all_scenarios_native_and_sandbox_parity() {
-    let lib = Library::embedded().unwrap();
-    #[cfg(feature = "sandbox")]
-    let wasm = qspquest_mcp::sandbox::Sandbox::embedded().unwrap();
-    for r in lib.records {
-        let source = r.model.to_string();
-        let document = serde_json::from_value(r.model.clone()).unwrap();
-        let wrapper = qspquest_modeling::document::CompiledDocument::from_json(&source).unwrap();
-        let compiled = qspquest_modeling::document::CompiledDocument::from_json(&source).unwrap();
-        for (id, request) in r.scenarios {
-            let native =
-                compute::execute_compiled(&wrapper, &document, "simulate", request.clone())
-                    .unwrap_or_else(|e| panic!("{} {id}: {e}", r.metadata["id"]));
-            let direct = serde_json::to_value(
-                compiled
-                    .execute(&serde_json::from_value(request.clone()).unwrap())
-                    .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(native, direct);
-            #[cfg(feature = "sandbox")]
-            {
-                let isolated = wasm
-                    .execute_library(r.model.clone(), "simulate", request)
-                    .unwrap_or_else(|e| panic!("{} {id}: {e}", r.metadata["id"]));
-                assert_eq!(native["times"], isolated["times"]);
-                assert_eq!(native["sides"], isolated["sides"]);
-                let a = native["outputs"].as_array().unwrap();
-                let b = isolated["outputs"].as_array().unwrap();
-                assert_eq!(a.len(), b.len());
-                for key in ["model_content_hash", "bound_value_hash", "run_request_hash"] {
-                    assert_eq!(native["identity"][key], isolated["identity"][key]);
-                }
-                for (a, b) in a.iter().zip(b) {
-                    assert_eq!(
-                        a["values"].as_array().unwrap().len(),
-                        b["values"].as_array().unwrap().len()
-                    );
-                    assert_eq!(a["name"], b["name"]);
-                    assert_eq!(a["unit"], b["unit"]);
-                    for (x, y) in a["values"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .zip(b["values"].as_array().unwrap())
-                    {
-                        let x = x.as_f64().unwrap();
-                        let y = y.as_f64().unwrap();
-                        assert!(
-                            (x - y).abs() <= 1e-9,
-                            "{} {id}: {x} vs {y}",
-                            r.metadata["id"]
-                        );
-                    }
-                }
-            }
-        }
-    }
-}
 #[cfg(feature = "sandbox")]
 #[test]
 fn sandbox_fuel_interrupts() {
@@ -420,7 +359,7 @@ fn sandbox_fuel_interrupts() {
 
 #[test]
 fn selected_readouts_preserve_dynamics_and_identity_and_skip_only_unselected_readouts() {
-    let library = Library::embedded().unwrap();
+    let library = common::library();
     let record = library
         .records
         .iter()

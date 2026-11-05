@@ -5,8 +5,8 @@ over local stdio or stateless Streamable HTTP. Start with one of these:
 
 - [Agent and Docker quickstart](../../docs/tutorials/agents-docker.md): a
   container with a synthetic model, connected to your own agent client.
-- [First-run journeys](../../docs/tutorials/first-run-journeys.md): a packaged
-  local first run with saved CSV, replay inputs and identity.
+- [First-run journeys](../../docs/tutorials/first-run-journeys.md): first runs
+  with the wheel, CLI or this image, with saved CSV, replay inputs and identity.
 - [Library fitting guide](../../docs/tutorials/library-fitting.md): archived
   synthetic fitting; inspect readiness before choosing an estimator.
 
@@ -39,6 +39,10 @@ sh scripts/build-mcp.sh --features sandbox,widget
 `analysis` adds steady-state and Morris tools. `sandbox` builds the isolated
 WASM ABI and `widget` the browser bindings; both need the wasm32 target and are
 the helper's defaults. `managed` needs its deployment configuration.
+
+The container image includes `sandbox,widget` by default. For a native image
+without them, build with `docker build -f bindings/mcp/Dockerfile --target public
+--build-arg MCP_FEATURES= -t qspquest-mcp:native .`
 
 ### Use a local library
 
@@ -106,7 +110,7 @@ Tools: `search_models`, `get_model`, `get_scenario_request`, `validate_model`,
 `fit_scalar`, `fit_individual`, `fit_population`. For long offline work, start
 with private `--jobs-dir` and `--artifact-dir` directories and use
 `submit_local_job`, `get_local_job`, `cancel_local_job` and `resume_local_job`
-(see the [local job tutorial](../../docs/tutorials/mcp-local-jobs.md)).
+(see the [local job tutorial](../../docs/tutorials/mcp-deploy.md#offline-mcp-jobs)).
 
 Read `qspquest://capabilities` for active tools, features, permissions, limits,
 library identity and qualification scope. Each tool advertises an
@@ -117,16 +121,16 @@ are hints; execution and export policies still apply.
 `qspquest://documentation` indexes the model, request, regimen, unit and error
 guides, the schemas and a synthetic model/request pair. Each entry has a MIME
 type and SHA-256, and heading fragments select sections. The
-[offline resource example](../../docs/tutorials/mcp-model-cards.md#navigate-offline-documentation)
+[offline resource example](../../docs/tutorials/mcp-results.md#navigate-offline-documentation)
 checks every indexed resource through a real client.
 
 `get_model` returns a compact card; `detail: full` adds equations and complete
 metadata, with a chunked `full_model_details_resource` when large. See the
-[model-card tutorial](../../docs/tutorials/mcp-model-cards.md). For known
+[model-card tutorial](../../docs/tutorials/mcp-results.md#inspect-model-cards-and-retrieve-full-details). For known
 output names and scenario IDs, `get_model.selection` returns declarations,
 column mappings and scenario requests in one response (1 to 32 items, 40,000
 bytes); see the
-[selection example](../../docs/tutorials/mcp-result-resources.md#select-exact-outputs-scenarios-and-inspection-resources).
+[selection example](../../docs/tutorials/mcp-results.md#select-exact-outputs-scenarios-and-inspection-resources).
 
 ## Results
 
@@ -137,7 +141,7 @@ Every tool result includes `structuredContent.contract`
 is false. Completeness is `inline_complete`, `resource_linked` or
 `summary_only`. A schema-valid result still needs its units, status and
 convergence checked. The runnable
-[result-resource tutorial](../../docs/tutorials/mcp-result-resources.md)
+[result-resource tutorial](../../docs/tutorials/mcp-results.md#read-a-complete-mcp-simulation-result)
 covers each contract.
 
 Compact simulation results are previews with event sides, sampled extrema and
@@ -150,22 +154,22 @@ skipped.
 For larger or longer-lived results, start with `--artifact-dir PATH` (an empty
 private directory). Results are kept as immutable JSON for 24 hours, across
 restarts, up to 128 MB each, 256 artifacts and 1 GB in total. See the
-[retained-result example](../../docs/tutorials/mcp-result-resources.md#retain-complete-results-across-local-server-restarts).
+[retained-result example](../../docs/tutorials/mcp-results.md#retain-complete-results-across-local-server-restarts).
 
 Related workflows:
 
 - `get_patient_parameters` evaluates outputs at the starting state, before any
   dose; see the
-  [initial-value example](../../docs/tutorials/mcp-result-resources.md#inspect-initial-patient-quantities).
+  [initial-value example](../../docs/tutorials/mcp-results.md#inspect-initial-patient-quantities).
 - `scheduled_boundary_receipt` shows forcing changes, events and observation
   sides; see the
-  [scheduled-boundary tutorial](../../docs/tutorials/mcp-result-resources.md#inspect-scheduled-boundaries-and-observation-sides).
+  [scheduled-boundary tutorial](../../docs/tutorials/mcp-results.md#inspect-scheduled-boundaries-and-observation-sides).
 - Numerical, conservation, source-fidelity and clinical status are reported
   separately; see the
-  [scientific assessment workflow](../../docs/tutorials/mcp-result-resources.md#inspect-separate-scientific-assessments).
+  [scientific assessment workflow](../../docs/tutorials/mcp-results.md#inspect-separate-scientific-assessments).
 - `format_response` maps computed columns into requested arrays with explicit
   units, times and `pre`/`post`/`both` sides; see the
-  [response guard tutorial](../../docs/tutorials/mcp-result-resources.md#format-complete-decision-responses).
+  [response guard tutorial](../../docs/tutorials/mcp-results.md#format-complete-decision-responses).
 
 ## Requests
 
@@ -206,7 +210,7 @@ takes `parameters_to_fit` with lower/upper quantities, or a complete native
 [profiled proportional errors](../../docs/tutorials/profiled-proportional-errors.md)).
 Population fitting offers FOCEI, Laplace and SAEM; see
 `qspquest://examples/fit/{scalar|individual-additive|individual-proportional|population}`
-and the [population-record workflow](../../docs/tutorials/mcp-population-records.md).
+and the [population-record workflow](../../docs/tutorials/mcp-results.md#prepare-and-fit-explicit-population-records).
 Missing observations are never imputed.
 
 ### Limits and repairs
@@ -244,13 +248,13 @@ target/release/qspquest-mcp --library-dir /absolute/path/qspquest-models --outpu
 Then call `simulate` with `save_csv: "study/run.csv"`. The reply's
 `saved_csv.path` and `saved_csv.manifest_path` are absolute, with SHA-256
 digests of both files. Keep the CSV and its `.manifest.json` together; read
-`qspquest://schema/table-manifest` and `qspquest://guide/tables` for the
+`qspquest://schema/table-manifest` and `qspquest://guide/results` for the
 format and reimport. Dose times can have two rows, `pre` then `post`.
 
 The server only creates new files and refuses existing files, links and unsafe
 directories (owned by the server user, mode `0700` on Unix). Comparisons write
 one bundle per regimen, such as `study/compare_first.csv`; see the
-[comparison example](../../docs/tutorials/mcp-result-resources.md#inspect-and-execute-a-regimen-comparison).
+[comparison example](../../docs/tutorials/mcp-results.md#inspect-and-execute-a-regimen-comparison).
 Because `save_csv` can write a file, `simulate` and `compare_regimens` advertise
 `readOnlyHint: false` and `idempotentHint: false`. Hosted servers refuse CSV
 export.
@@ -259,7 +263,7 @@ export.
 
 Choose `--profile local` (stdio), `--profile public` (bounded public HTTP) or
 `--profile managed` (HTTP with verified sessions). The
-[deployment tutorial](../../docs/tutorials/mcp-deployment-profiles.md) covers
+[deployment tutorial](../../docs/tutorials/mcp-deploy.md#choose-an-mcp-deployment-profile) covers
 Host and Origin allowlists, HTTPS ingress, trusted peers and managed
 configuration.
 
@@ -277,11 +281,7 @@ available. Hosted models with 64 or more states return `async_required`;
 once the platform supports that operation.
 
 HTTP startup precompiles up to eight library models; set
-`QSPQUEST_MCP_PREWARM=0` to measure cold requests. Native and WASM results passed
-47/47 output-parity checks with an earlier solver build; these have not been
-re-run with upstream Diffsol. See [numerical qualification](qualification/README.md).
-To measure latency, run
-`python scripts/benchmark-mcp-latency.py URL evidence.json` (needs jsonschema).
+`QSPQUEST_MCP_PREWARM=0` to measure cold requests.
 
 Set `QSPQUEST_WIDGET_WORKER_URL` to the absolute URL of
 `/assets/js/engine-worker.mjs` on a `sandbox,widget` build to enable on-device
@@ -310,7 +310,7 @@ registry load with `availability_record_status=unavailable` and null
 Managed builds add `preview_job`, `submit_simulation`, `submit_population_fit`,
 `submit_scan`, `get_job`, `wait_for_job` and `get_artifact`. They need a
 verified session resolver and platform support for the operation; see
-[managed HTTP](../../docs/tutorials/mcp-deployment-profiles.md#managed-http)
+[managed HTTP](../../docs/tutorials/mcp-deploy.md#managed-http)
 for configuration and the synthetic tests.
 
 1. `preview_job` sends an exact `platform_request` and returns
@@ -326,7 +326,7 @@ for configuration and the synthetic tests.
 4. `get_artifact` returns `managed_artifact` metadata. When
    `artifact_retrieval.state` is `available`, read and verify the chunks in
    `full_result_resource`; see the
-   [retrieval tutorial](../../docs/tutorials/managed-result-artifacts.md).
+   [retrieval tutorial](../../docs/tutorials/mcp-deploy.md#retrieve-a-complete-governed-result-artifact).
 
 Only `submit_*` tools create a priced Run. Free sessions are refused before
 private calls.

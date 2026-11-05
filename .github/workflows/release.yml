@@ -120,7 +120,6 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python -m qspquest.first_run --out first-run
-          qspquest-library --help
 
   sdist:
     needs: version

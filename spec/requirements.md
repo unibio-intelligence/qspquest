@@ -31,8 +31,7 @@ in linear algebra. Existing sparse symbolic products do not satisfy it.
 The gradient requirement refers to parameter gradients, not the directional
 state Jacobian used by the implicit solver.
 
-`qspquest_modeling::capabilities::validate_requirements` runs before equation compilation
-and binding. Unsupported requirements return `unsupported` with the requirement
+Requirement validation runs before equation compilation and binding. Unsupported requirements return `unsupported` with the requirement
 path; text diagnostics point to the declaration. This is a minimum-capability
 check, not proof that arbitrary stiff models or nonsmooth expressions will solve.
 

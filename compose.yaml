@@ -16,7 +16,7 @@ services:
     environment: *environment
     volumes:
       - *library
-    entrypoint: [qspquest-library]
+    entrypoint: [python3, -m, qspquest_models]
     command: [--search, rituximab]
     network_mode: none
   r:

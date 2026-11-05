@@ -47,30 +47,29 @@ regular fitting tools.
 
 ## Execute and retain the result
 
-The complete source archive provides the
-[client](../examples/mcp_library_fit.py) and its
-[stdio helper](../examples/stdio_rpc.py) in `docs/examples/`. Native MCP downloads
-include them as `library_fit.py` and `stdio_rpc.py`. With that download extracted,
-replace the model, version and workflow placeholders with values returned by
-`get_model`:
+From a source checkout, the [client](../examples/mcp_library_fit.py) and its
+[stdio helper](../examples/stdio_rpc.py) are in `docs/examples/`. Build the
+server, then replace the model, version and workflow placeholders with values
+returned by `get_model`:
 
 ```sh
-python3 library_fit.py ./qspquest-mcp \
+cargo build --release --locked -p qspquest-mcp
+python3 docs/examples/mcp_library_fit.py target/release/qspquest-mcp \
   --library /absolute/path/to/extracted-model-library \
   --model MODEL_ID --version MODEL_VERSION --workflow WORKFLOW_ID \
   --out library-fit-results
 ```
 
-On Windows PowerShell use `python`, `.\qspquest-mcp.exe`, and the absolute
-library path on one line. Keep the library download intact; it must contain
-`catalog.json` and its archives.
+On Windows PowerShell use `python`, `target\release\qspquest-mcp.exe`, and the
+absolute library path on one line. Keep the library download intact; it must
+contain `catalog.json` and its archives.
 
-For the normalized scalar example included in the complete source archive,
-from that archive's root with a matching built or downloaded native executable:
+For the normalized scalar example included in the source checkout, from the
+source root:
 
 ```sh
-python3 docs/examples/mcp_library_fit.py /absolute/path/to/qspquest-mcp \
-  --library bindings/mcp/assets/library \
+python3 docs/examples/mcp_library_fit.py target/release/qspquest-mcp \
+  --library bindings/mcp/tests/library \
   --model qspquest_diffdose_2026_idr_benchmark --version 0.3.1 \
   --workflow diffsol_bdf-start-1 \
   --out normalized-scalar-fit

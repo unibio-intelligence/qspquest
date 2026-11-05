@@ -19,7 +19,6 @@ notebook = ["numpy>=1.24,<3", "scipy>=1.11,<2", "pandas>=2,<4", "matplotlib>=3.7
 
 [project.scripts]
 qspquest-doctor = "qspquest.doctor:main"
-qspquest-library = "qspquest.library:main"
 
 [tool.maturin]
 manifest-path = "bindings/python/Cargo.toml"
@@ -53,15 +52,12 @@ include = [
   { path = "bindings/*/src/**/*.rs", format = "sdist" },
   { path = "bindings/r/src/rust/Cargo.toml", format = "sdist" },
   { path = "bindings/r/src/rust/src/**/*.rs", format = "sdist" },
-  { path = "bindings/mcp/examples/parity_audit.rs", format = "sdist" },
   { path = "bindings/wasm/js/engine-worker.mjs", format = "sdist" },
   { path = "bindings/wasm/LICENSE", format = "sdist" },
   { path = "bindings/wasm/LICENSE-APACHE", format = "sdist" },
   { path = "bindings/python/python/**/*.py", format = "sdist" },
   { path = "bindings/python/python/**/*.pyi", format = "sdist" },
   { path = "bindings/python/python/**/py.typed", format = "sdist" },
-  { path = "conformance/*.rs", format = "sdist" },
-  { path = "conformance/tmdd-cases.json", format = "sdist" },
 ]
 
 # Keep source distributions limited to installation inputs.
@@ -85,14 +81,11 @@ exclude = [
   {path = "/spec/**", format = "sdist"},
   {path = "/docs/**", format = "sdist"},
   {path = "/scripts/**", format = "sdist"},
-  {path = "/conformance/evidence/**", format = "sdist"},
   {path = "/examples/**", format = "sdist"},
   {path = "/crates/*/tests/**", format = "sdist"},
   {path = "/bindings/*/tests/**", format = "sdist"},
   {path = "/bindings/mcp/Dockerfile", format = "sdist"},
   {path = "/bindings/mcp/README.md", format = "sdist"},
-  {path = "/bindings/mcp/examples/reference_dump.rs", format = "sdist"},
-  {path = "/bindings/mcp/qualification/**", format = "sdist"},
   {path = "/bindings/mcp/scripts/**", format = "sdist"},
   {path = "/bindings/r/DESCRIPTION", format = "sdist"},
   {path = "/bindings/r/NAMESPACE", format = "sdist"},
@@ -113,8 +106,5 @@ exclude = [
   {path = "/bindings/wasm/js/index.d.mts", format = "sdist"},
   {path = "/bindings/wasm/js/index.mjs", format = "sdist"},
   {path = "/bindings/wasm/quickstart/**", format = "sdist"},
-  {path = "/conformance/FIXTURE-LICENSE.md", format = "sdist"},
-  {path = "/conformance/models/**", format = "sdist"},
-  {path = "/conformance/requests/**", format = "sdist"},
-  {path = "/conformance/references/**", format = "sdist"},
+  {path = "/conformance/**", format = "sdist"},
 ]

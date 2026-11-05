@@ -28,14 +28,7 @@ Nonfinite or negative inputs and invalid dimensions fail before execution.
 Overflow and nonfinite/negative propagated results return errors, without
 clamping.
 
-## Verification and remaining integration
-
-Tests use 48 independently assembled SciPy matrix-exponential cases:
-one, two and three compartments, with/without a depot, with/without elimination,
-and four durations. Further checks use one-compartment closed forms,
-coincident absorption/elimination rates, zero-rate infusion accumulation,
-mass conservation and split-interval consistency. These are numerical checks
-only.
+## Event handling
 
 `LinearPk::bind(initial_amounts)` returns a `BoundLinearPk` implementing the
 common `Model` contract. `simulate_with_budgets` uses its analytic interval
@@ -45,10 +38,6 @@ same way under both. Each interval observation is propagated from the same
 initial state, so adding samples does not accumulate propagation roundoff.
 Each analytic propagation consumes one solver work-budget unit; matrix size
 and scaling iterations are bounded. Failed runs return no partial trajectory.
-
-Shared-driver tests compare all compartment/depot combinations against BDF,
-check reset/infusion behavior against a closed form, and verify budget failures,
-recovery and unchanged results when additional samples are requested.
 
 ## Typed JSON models and explicit execution
 
@@ -81,23 +70,6 @@ The `synthetic-linear-pk.json` model/request pair demonstrates mixed volume and
 clearance units, delayed dosing and infusion, and tests compare both backends.
 The text format supports the same PK declarations; see `spec/language.md` for
 the block syntax.
-
-
-## Python and browser evidence
-
-The three-compartment/depot fixture passes six cases: both backends at
-clearances of 0, 0.7 and 1.4 L/h. It includes mixed units, a delayed bolus and
-an infusion. An independent SciPy event implementation gives maximum error
-1.910e-14 for the analytic backend and 8.488e-9 for BDF. Chrome 154.0.8037.58
-and Firefox 154.0.1 match native within 8.882e-16.
-
-The installed macOS arm64 abi3 wheel passes all nine integration tests on
-CPython 3.11 and 3.12, including concurrent runs with independent bindings and
-backend selection.
-
-Test records are in `conformance/evidence/linear-pk-bindings-v1.json`. Safari,
-other OS/architecture wheels, source-distribution builds and sensitivities have
-not been tested.
 
 
 ## Derived coefficient checks
@@ -169,8 +141,7 @@ The installed macOS arm64 wheel passes concurrent calls and failure recovery
 on CPython 3.11 and 3.12. Chrome and Firefox match native amounts exactly for
 three requests (two distinct clearance values plus a repeated binding).
 Each native result is checked by simulating one full cycle. The CLI matches the
-library result and prints no partial output on failure. Test records:
-`conformance/evidence/steady-state-bindings-v1.json`. Safari and other native
+library result and prints no partial output on failure. Safari and other native
 platforms are not yet tested.
 
 ### Infusions crossing a periodic boundary
@@ -201,11 +172,3 @@ every 12 hours against unsplit 100-cycle trajectories, with resets at three
 different phases. A typed three-compartment case matches constant-input
 equilibrium.
 
-### Multi-cycle binding qualification
-
-`conformance/evidence/steady-state-bindings-v2.json` records tests of the macOS
-arm64 wheel and WASM. Eight cases pass on CPython 3.11/3.12 and Chrome/Firefox,
-including boundary crossing, multi-period overlap and stop-target resets.
-Both browsers match native amounts exactly. Five crossing/overlap cases agree
-with 500 unsplit cycles to at most 1.244e-12 in model amount units. Errors do
-not affect later calls.
