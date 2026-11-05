@@ -85,7 +85,7 @@
     "bindings/python/python/qspquest/uncertainty.py": "31e0d3d76f5722761196e3cc31a75084be203297907a558da9a36e945cd6ca2c",
     "bindings/python/src/lib.rs": "49135ed91d45ba12fbeb1cd0e1aff3db8a7c5dcf3d4d8391eb211dac504b8a59",
     "bindings/r/NAMESPACE": "0983343cd518d0f9fb502ca332bc673e3db2d2e4aebd94f0ab41b7470d473f39",
-    "bindings/r/R/qspquest.R": "ce9c3ab0f93123cd0561b27a07dc2d4054a72c9c6e989a3b09b8534b3d034969",
+    "bindings/r/R/qspquest.R": "27758bf21f1682039cdec3bdd0d902cb31ffb49c1dc40a3036f3bc74be1db31b",
     "bindings/r/src/rust/src/lib.rs": "4522a5b5c654e87fa1d92ccdcd7d96bdff4dd28044d90c48dc8a8e9297fbb083",
     "bindings/wasm/Cargo.toml": "ff17b7ae4b8e65fe893b0e9dc810ddd6a50b4958c5ff90731770f4eb9859ffc5",
     "bindings/wasm/js/client.d.mts": "ef04db2c55ced9e407a5cb622a953fcc6dd2140ab99948823b3ebc213ae089b9",
@@ -4711,6 +4711,6 @@
     "fit_gamma_poisson": "Gamma–Poisson count fitting",
     "fit_probit_normal_binomial": "Probit-normal binomial fitting"
   },
-  "compiler_source_sha256": "sha256:e0ef7fdef651ba1da89f735055423be8c9bfd4d547df4567bb48e3b298cc13b7",
+  "compiler_source_sha256": "sha256:bb83813b58fc99fc42938546d5e321870eb2601e4240da54d825f2f5e3aa0712",
   "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2"
 }

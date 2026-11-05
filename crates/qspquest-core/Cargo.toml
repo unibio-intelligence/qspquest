@@ -7,7 +7,7 @@ publish = ["crates-io"]
 description = "Scientific request, event and result types for QSPQuest"
 repository = "https://github.com/unibio-intelligence/qspquest"
 readme = "README.md"
-rust-version = "1.98"
+rust-version = "1.89"
 include = ["Cargo.toml", "src/**", "test-data/**", "examples/export_schemas.rs", "README.md", "LICENSE"]
 
 [dependencies]

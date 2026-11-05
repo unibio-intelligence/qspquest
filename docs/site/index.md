@@ -1,6 +1,6 @@
 # QSPQuest guides
 
-New to QSPQuest? [Run the first simulation](../../README.md#try-the-cli), then
+New to QSPQuest? [Run the first simulation](../../README.md#install), then
 choose one workflow below. [Installation](../installation.md) covers prerequisites
 and alternative interfaces.
 

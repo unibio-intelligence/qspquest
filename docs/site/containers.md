@@ -7,8 +7,9 @@ Docker supplies the engine and its language dependencies. The `runtime` target c
 CLI/Python analysis and interchange, `notebook` adds Jupyter and plotting, and
 `r` adds R, jsonlite and the installed native R package. A separate MCP image
 serves clients over HTTP or stdio. You need Docker with Compose on the host;
-Rust, Python and R are supplied inside the images. Build from the complete public
-QSPQuest source. Registry images are not yet published.
+Rust, Python and R are supplied inside the images. Build the CLI/Python, notebook
+and R images from the complete public QSPQuest source. The MCP image is published
+as `ghcr.io/unibio-intelligence/qspquest-mcp`.
 
 ## Mount the model library once
 

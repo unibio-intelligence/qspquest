@@ -55,3 +55,44 @@ are rejected. The native engine performs model, unit, time and fitting checks.
 FOCEI and SAEM objectives differ and their numerical values are not directly
 interchangeable.}
 \seealso{\code{\link{nonmem_requests}}, \code{\link{fit_data_requests}}}
+\examples{
+q <- function(value, unit) list(value = value, unit = unit)
+model <- compile_model(paste(
+  "model one_compartment", "time_unit = h", "parameters",
+  "  cl = 0.6 [L/h] log", "  v = 4.5 [L] log", "states", "  central = 0 [mg]",
+  "dynamics", "  d/dt(central) = input_central - cl / v * central",
+  "outputs", "  cp = central / v [mg/L]", "dosing", "  central [mg] = 1",
+  "end", sep = "\n"))
+run_template <- list(schema = "qspquest.run/v0.1", solver = "diffsol_bdf",
+  budgets = list(solver_callbacks = 1000000L, events = 100L,
+                 output_values = 10000L),
+  regimen = list(end = q(4, "h"), samples = list(), administrations = list(),
+                 rtol = 1e-10, atol = 1e-12))
+etas <- c(-0.22, -0.08, 0.08, 0.22)
+rows <- do.call(rbind, lapply(seq_along(etas), function(i) data.frame(
+  ID = paste0("S", i), TIME = c(0, 1, 2, 4), EVID = c(1L, 0L, 0L, 0L),
+  CMT = c(1L, 2L, 2L, 2L), AMT = c(6, 0, 0, 0), MDV = c(1L, 0L, 0L, 0L),
+  DV = c(NA, 6 / 4.5 * exp(-0.6 * exp(etas[i]) * c(1, 2, 4) / 4.5)))))
+simulation <- list(schema = "qspquest.sensitivity/v0.1", run = run_template,
+  with_respect_to = list("cl"),
+  derivative_absolute_tolerances = list(cl = list(central = q(1e-12, "mg.h/L"))))
+simulation$run$parameters <- list(cl = q(0.5, "L/h"), v = q(4.5, "L"))
+template <- list(schema = "qspquest.fit/v0.1", problem = list(
+  kind = "focei", request = list(
+    subjects = list(list(simulation = simulation, observations = list(),
+                         priors = list())),
+    fixed_effects = list(list(parameter = "cl", lower = q(0.35, "L/h"),
+                              upper = q(0.85, "L/h"))),
+    random_effects = list(list(parameter = "cl")),
+    omega = list(list(0.04)), omega_diagonal_bounds = list(list(0.04, 0.04)),
+    eta_bound = 1.5, max_evaluations = 30000L, max_iterations = 80L,
+    gradient_tolerance = 0.005, seed = 17L)))
+endpoints <- list("2" = list(output = "cp", value_unit = "mg/L",
+  error = list(additive_sd = q(0.05, "mg/L"), proportional_sd = 0)))
+prepared <- population_fit_data_requests(rows, template, c("1" = "central"),
+  endpoints, time_unit = "h", amount_unit = "mg")
+fitted <- fit_population_data(model, prepared)
+stopifnot(fitted$result$population$status == "converged")
+print(population_fit_subject_data_frame(fitted))
+print(head(population_fit_observation_data_frame(fitted)))
+}

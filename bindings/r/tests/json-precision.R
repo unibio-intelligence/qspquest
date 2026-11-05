@@ -20,3 +20,7 @@ from_text <- simulate_model(model,request_json)
 from_list <- simulate_model(model,request)
 stopifnot(identical(from_text$identity,from_list$identity),
           identical(from_text$outputs,from_list$outputs))
+# A saved model has no native pointer; it must fail with a recompilation hint.
+saved <- tempfile(fileext = ".rds"); saveRDS(model, saved); restored <- readRDS(saved); unlink(saved)
+message <- tryCatch({simulate_model(restored, request); ""}, error = conditionMessage)
+stopifnot(grepl("recompile it with compile_model()", message, fixed = TRUE))

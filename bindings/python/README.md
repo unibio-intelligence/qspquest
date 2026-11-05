@@ -7,52 +7,32 @@ No model library is needed for the example below.
 
 ## Install
 
-Use CPython 3.10 or newer in a virtual environment. Install QSPQuest 0.1.0 using a matching wheel or the source archive. From the complete project checkout or extracted Python source
-archive, create an environment. On macOS or Linux:
+Use CPython 3.10 or newer, preferably in a virtual environment:
 
 ```sh
-python3 -m venv .venv
-. .venv/bin/activate
+python -m pip install qspquest
 ```
 
-On Windows PowerShell:
+Prebuilt wheels cover Linux x86_64 and ARM64 (glibc 2.28+), macOS Apple
+Silicon and Intel, and Windows x86_64, so no Rust compiler is needed. Optional
+extras add workflows: `qspquest[analysis]` (NumPy, SciPy), `qspquest[notebook]`
+(pandas, matplotlib, JupyterLab) and `qspquest[interchange]` (SBML/OMEX).
 
-```powershell
-py -3 -m venv .venv
-.venv\Scripts\Activate.ps1
-```
+### Build from source
 
-With Rust 1.98.1, Cargo and a native C/C++ compiler on `PATH`, install from
-the source root:
+On other platforms pip builds the source archive, which needs Rust 1.98.1,
+Cargo and a native C/C++ compiler on `PATH`, and network access to fetch locked
+dependencies (one from GitHub). From the complete project checkout or an
+extracted Python source archive:
 
 ```sh
 python -m pip install .
 ```
 
-The first build can take several minutes. Continue with the installation check
-and synthetic example below.
-
-### Downloaded installation files
-
-A wheel must match the operating system and processor. For the macOS Apple
-Silicon wheel, run from the directory containing that file:
-
-```sh
-python -m pip install ./qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl
-```
-
-For another platform, use its matching wheel filename. Wheels need no Rust
-compiler. If a wheel is unavailable, install the Python source archive with
-Rust 1.98.1, Cargo and a native C/C++ compiler on `PATH`:
-
-```sh
-python -m pip install ./qspquest-0.1.0.tar.gz
-```
-
-The source build downloads its dependencies, so it needs network access (unless
-they are already cached) and can take several minutes. This hyphenated archive is the Python distribution;
-`qspquest_0.1.0.tar.gz` is the separate R package. From an extracted Python source
-archive, `python -m pip install .` is equivalent.
+The first build can take several minutes. A downloaded wheel or source archive
+from the GitHub release installs the same way, by passing its path to `pip`.
+The hyphenated `qspquest-<version>.tar.gz` is the Python distribution;
+`qspquest_<version>.tar.gz` is the separate R package.
 
 Check the installation:
 

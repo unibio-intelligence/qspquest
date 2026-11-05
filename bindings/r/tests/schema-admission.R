@@ -52,3 +52,7 @@ for (tag in bad_tags(result$schema)) {
   invalid <- result; invalid$schema <- tag
   stopifnot(rejected(result_data_frame(invalid)))
 }
+empty <- result; empty$outputs <- list()
+empty_frame <- result_data_frame(empty)
+stopifnot(is.data.frame(empty_frame), nrow(empty_frame) == 0L,
+          identical(names(empty_frame), c("TIME", "SIDE", "OUTPUT", "VALUE", "UNIT")))

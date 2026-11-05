@@ -29,7 +29,8 @@ Expected version: `0.1.0`. The archive contains the Rust workspace and builds th
 native engine locally. Cargo downloads locked registry dependencies on the first
 installation. An offline installation requires those dependencies already cached;
 set `CARGO_NET_OFFLINE=true` to require offline operation. The package links to
-the installed R runtime and does not bundle R. `jsonlite` is required; `rxode2`
+the installed R runtime and does not bundle R. `jsonlite` >= 2.0.0 is required
+to preserve numeric request precision; `rxode2`
 is optional for exporting an rxode2 UI.
 
 See [installation](../../docs/installation.md#r) for terminal commands, platform
@@ -37,6 +38,22 @@ limits and preparing the archive, and the [R guide](../../docs/R-USER-GUIDE.md)
 for a complete simulation and fitting workflow. The archive route is checked on
 macOS ARM64 and in the Linux ARM64 R image; other platforms are untested. QSPQuest
 is not yet published to CRAN or R-universe.
+
+To prepare a Linux/macOS source candidate for CRAN, from the complete project
+checkout run:
+
+```sh
+python3 scripts/prepare-r-source.py /tmp/qspquest-cran --cran
+R CMD check --as-cran /tmp/qspquest-cran/qspquest_0.1.0.tar.gz
+```
+
+Preparation uses the existing Cargo cache to bundle the locked Rust dependency
+sources with their licenses and author credits. It refuses dependency version,
+source or checksum changes. The resulting archive compiles offline with at most
+two jobs and includes a complete installed tutorial at
+`system.file("doc", "quickstart.R", package = "qspquest")`. Its source package
+supports Unix platforms; Windows binaries are not bundled. Check the exact
+archive on the target platforms before submission. Rust 1.89 or newer is required; the release checks use 1.98.1.
 
 ## Count and correlated binomial fitting
 

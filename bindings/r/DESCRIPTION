@@ -2,12 +2,30 @@ Package: qspquest
 Type: Package
 Title: Pharmacology Model Simulation and Bounded Estimation
 Version: 0.1.0
-Authors@R: person("UniBio Intelligence", role = c("aut", "cre"), email = "unibiointelligence@users.noreply.github.com")
-Description: Run unit-aware pharmacology models and bounded individual or pooled
-    estimation using the QSPQuest Rust engine.
+Authors@R: c(person("Vivek", "Kohar", role = c("aut", "cre"),
+    email = "vivek.kohar@unibiointelligence.com"),
+    person("UniBio Intelligence", role = c("cph", "fnd")))
+Description: Compile pharmacokinetic, pharmacodynamic and quantitative systems
+    pharmacology models with explicit physical units, then simulate dosing
+    regimens, run parameter scans and Morris (1991)
+    <doi:10.1080/00401706.1991.10484804> elementary-effects screens. Parameters
+    are estimated within declared bounds by maximum likelihood or maximum a
+    posteriori fitting for individual and pooled data, and by first-order
+    conditional estimation with interaction (Wang 2007
+    <doi:10.1007/s10928-007-9060-6>) or stochastic approximation
+    expectation-maximization (Kuhn and Lavielle 2005
+    <doi:10.1016/j.csda.2004.07.002>) for population data. Count and correlated
+    binomial data can be fitted with Gamma-Poisson and probit-normal mixture
+    models. A documented subset of 'NONMEM'-style dosing and observation records
+    can be converted to model requests with source-row provenance. Computation
+    uses the 'QSPQuest' engine, written in 'Rust', with stiff ordinary
+    differential equation solvers from the 'diffsol' library.
 License: Apache License (== 2.0)
+URL: https://github.com/unibio-intelligence/qspquest,
+    https://unibiointelligence.com, https://biologics.unibiointelligence.com/
+BugReports: https://github.com/unibio-intelligence/qspquest/issues
 Encoding: UTF-8
-Imports: jsonlite
+Imports: jsonlite (>= 2.0.0)
 Suggests: rxode2
-SystemRequirements: Cargo, Rust (>= 1.98)
+SystemRequirements: Cargo (Rust's package manager; >= 1.89), rustc (>= 1.89)
 NeedsCompilation: yes

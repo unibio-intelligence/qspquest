@@ -1,0 +1,15 @@
+CARGO = @CARGO@
+RUSTC = @RUSTC@
+CARGO_TARGET_DIR = $(CURDIR)/rust-target
+PKG_LIBS = $(CARGO_TARGET_DIR)/release/libqspquest_r.a
+
+all: $(SHLIB)
+	rm -rf rust-target rust-vendor .cargo-home engine/.cargo
+$(SHLIB): rustlib
+.PHONY: rustlib
+rustlib:
+	CARGO_HOME="$(CURDIR)/.cargo-home" RUSTC="$(RUSTC)" CARGO_NET_OFFLINE=true \
+	  CARGO_BUILD_BUILD_DIR="$(CARGO_TARGET_DIR)/build" \
+	  "$(CARGO)" build --manifest-path engine/bindings/r/src/rust/Cargo.toml \
+	  --package qspquest-r --release --frozen --offline --jobs 2 \
+	  --target-dir "$(CARGO_TARGET_DIR)"

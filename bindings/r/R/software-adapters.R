@@ -2,9 +2,8 @@
 # It exports syntax and bindings, without running a QSPQuest or vendor fit.
 
 qspquest_export_rxode2_ui <- function(ui, path) {
-  if (!requireNamespace("jsonlite", quietly = TRUE) ||
-      !requireNamespace("rxode2", quietly = TRUE)) {
-    stop("Install jsonlite and rxode2 in your R environment")
+  if (!requireNamespace("rxode2", quietly = TRUE)) {
+    stop("Install rxode2 to export an rxode2 UI", call. = FALSE)
   }
   model <- ui$model
   if (!is.call(model) || !identical(model[[1L]], as.name("model")) ||
@@ -13,14 +12,17 @@ qspquest_export_rxode2_ui <- function(ui, path) {
     stop("Expected an rxode2 UI with an explicit model({}) block")
   }
   theta <- ui$theta
-  if (is.null(theta)) theta <- setNames(numeric(), character())
+  if (is.null(theta)) theta <- structure(numeric(), names = character())
   if (!is.numeric(theta) || any(!is.finite(theta)) ||
       is.null(names(theta)) || anyDuplicated(names(theta))) {
     stop("Expected finite, named scalar fixed-effect initial values")
   }
   package_names <- c("rxode2", "nlmixr2est", "nonmem2rx", "monolix2rx", "babelmixr2")
-  installed <- package_names[vapply(package_names, requireNamespace, logical(1), quietly = TRUE)]
-  versions <- setNames(lapply(installed, function(p) as.character(utils::packageVersion(p))), installed)
+  # Record installed versions without loading packages this one does not declare.
+  installed <- package_names[nzchar(vapply(package_names, function(p)
+    system.file(package = p), character(1)))]
+  versions <- structure(lapply(installed, function(p) as.character(utils::packageVersion(p))),
+                        names = installed)
   versions$R <- R.version.string
   result <- list(schema = "qspquest.rxode2-ui/v1",
                  model_source = paste(deparse(model[[2L]], width.cutoff = 500L), collapse = "\n"),

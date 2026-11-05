@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+# Keep compiler caches and generated files inside the package build directory.
+supported_tool() {
+    version=$("$1" --version 2>/dev/null | cut -d ' ' -f 2)
+    major=$(printf '%s' "$version" | cut -d . -f 1)
+    minor=$(printf '%s' "$version" | cut -d . -f 2)
+    case "$major:$minor" in *[!0-9:]*|:|*:) return 1 ;; esac
+    test "$major" -gt 1 || { test "$major" -eq 1 && test "$minor" -ge 89; }
+}
+find_tool() {
+    name=$1
+    override=$2
+    if test -n "$override"; then
+        path=$(command -v "$override" 2>/dev/null) || return 1
+        supported_tool "$path" || return 1
+        printf '%s\n' "$path"
+    else
+        path=$(command -v "$name" 2>/dev/null || true)
+        if test -n "$path" && supported_tool "$path"; then
+            printf '%s\n' "$path"
+        elif test -x "${HOME}/.cargo/bin/$name" && supported_tool "${HOME}/.cargo/bin/$name"; then
+            printf '%s\n' "${HOME}/.cargo/bin/$name"
+        else
+            return 1
+        fi
+    fi
+}
+CARGO=$(find_tool cargo "${CARGO:-}") || {
+    echo "qspquest requires Cargo and rustc >= 1.89. Install a suitable toolchain, or use https://rustup.rs, then reinstall." >&2
+    exit 1
+}
+RUSTC=$(find_tool rustc "${RUSTC:-}") || {
+    echo "rustc >= 1.89 is required. Install a suitable Rust toolchain and retry." >&2
+    exit 1
+}
+"$CARGO" --version
+"$RUSTC" --version
+if test ! -f src/rust-vendor.tar.xz; then
+    if test -f ../../Cargo.toml && test -f ../../Cargo.lock && test -f src/rust/Cargo.toml; then
+        echo "Building the R binding from the complete QSPQuest workspace."
+        exit 0
+    fi
+    echo "Use the standalone R source archive, containing rust-vendor.tar.xz." >&2
+    exit 1
+fi
+"${R_HOME}/bin/Rscript" --vanilla -e \
+    'utils::untar("src/rust-vendor.tar.xz", exdir = "src", tar = "internal")'
+mkdir -p src/.cargo-home
+mkdir -p src/engine/.cargo
+cp src/engine/cargo-config.toml src/engine/.cargo/config.toml
+vendor="$(pwd)/src/rust-vendor"
+# Cargo accepts forward slashes on Windows as well as Unix.
+vendor=$(printf '%s' "$vendor" | sed 's|\\|/|g')
+sed "s|@VENDOR@|$vendor|g" src/cargo-config.in > src/.cargo-home/config.toml
+sed -e "s|@CARGO@|$CARGO|g" -e "s|@RUSTC@|$RUSTC|g" \
+    src/Makevars.in > src/Makevars

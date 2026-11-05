@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+rm -rf src/rust-target src/rust-vendor src/.cargo-home src/engine/.cargo
+if test -f src/rust-vendor.tar.xz; then
+    rm -f src/Makevars src/Makevars.win
+fi
+rm -f src/*.o src/*.so src/*.dll

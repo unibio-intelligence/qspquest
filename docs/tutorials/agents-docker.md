@@ -6,34 +6,33 @@ observations. QSPQuest runs the numerical calculations and returns structured
 results with units. The container needs no AI account or provider configuration.
 
 Purpose: connect an MCP client and complete a synthetic one-compartment
-simulation. You need Docker Engine or Desktop running, an MCP client supporting
-Streamable HTTP or stdio, and a QSPQuest MCP image for your machine's Linux
-architecture: ARM64 for Apple Silicon, or AMD64 for most Intel/AMD machines.
-Python 3 is optional for the connection check below.
+simulation. You need Docker Engine or Desktop running and an MCP client
+supporting Streamable HTTP or stdio. Python 3 is optional for the connection
+check below.
 
 ## Get the image
 
-With a prebuilt image, loading it and making the first connection takes a few
-minutes. Registry images and public image archives are not yet distributed.
-If you have a supplied `qspquest-mcp-arm64.tar.gz` or
-`qspquest-mcp-amd64.tar.gz`, load the matching archive:
+The published image supports Linux AMD64 and ARM64 (including Apple Silicon);
+Docker selects the matching architecture:
 
 ```sh
-# Apple Silicon; use qspquest-mcp-amd64.tar.gz on Intel/AMD.
-docker load --input qspquest-mcp-arm64.tar.gz
-docker image inspect qspquest-mcp:local
+docker pull ghcr.io/unibio-intelligence/qspquest-mcp:latest
 ```
 
-Otherwise, build from the complete QSPQuest source root:
+Use `:latest` for the newest release, or pin a version such as
+`ghcr.io/unibio-intelligence/qspquest-mcp:0.1.0`. The image includes a small
+synthetic model, so no model library or extra arguments are needed for this
+first run.
+
+To build the same image from the complete QSPQuest source root instead (the
+first build compiles dependencies and can take tens of minutes):
 
 ```sh
 docker build --file bindings/mcp/Dockerfile --target public \
   --tag qspquest-mcp:local .
 ```
 
-The first build downloads and compiles dependencies and can take tens of
-minutes; later runs reuse the image. The image includes a small synthetic model,
-so no model library is needed for this first run.
+Then use `qspquest-mcp:local` in place of the published image name below.
 
 ## Connect over HTTP
 
@@ -43,7 +42,7 @@ Start the container in the background:
 docker run --detach --name qspquest-mcp --init \
   --publish 127.0.0.1:8080:8080 --read-only \
   --cap-drop ALL --security-opt no-new-privileges \
-  qspquest-mcp:local
+  ghcr.io/unibio-intelligence/qspquest-mcp:latest
 ```
 
 In your agent client's MCP settings, add a server named `qspquest`, choose
@@ -197,7 +196,7 @@ or `--tty`, because MCP uses stdin and stdout for protocol messages.
       "args": [
         "run", "--rm", "-i", "--network", "none", "--read-only",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-        "qspquest-mcp:local", "--profile", "local"
+        "ghcr.io/unibio-intelligence/qspquest-mcp:latest", "--profile", "local"
       ]
     }
   }
@@ -210,7 +209,7 @@ Windows. The server runs offline in this mode. You can check this exact
 container command from the source root:
 
 ```sh
-python3 bindings/mcp/scripts/quickstart.py --stdio-image qspquest-mcp:local
+python3 bindings/mcp/scripts/quickstart.py --stdio-image ghcr.io/unibio-intelligence/qspquest-mcp:latest
 ```
 
 Expect the same four calculated concentrations and `checks_passed: true`.
@@ -228,7 +227,7 @@ docker run --detach --name qspquest-mcp --init \
   --publish 127.0.0.1:8080:8080 --read-only \
   --cap-drop ALL --security-opt no-new-privileges \
   --mount type=bind,source=/absolute/path/to/models,target=/models,readonly \
-  --env QSPQUEST_LIBRARY_DIR=/models qspquest-mcp:local
+  --env QSPQUEST_LIBRARY_DIR=/models ghcr.io/unibio-intelligence/qspquest-mcp:latest
 ```
 
 Search the newly selected library and use the IDs, units and stored scenario

@@ -9,13 +9,49 @@ To use QSPQuest without installing anything, try the hosted service at
 Start with the synthetic model below. To explore a published model, use the
 [model catalog](https://github.com/unibio-intelligence/qspquest-models).
 
+## Install
+
+QSPQuest ships prebuilt wheels for CPython 3.10 and newer on Linux (x86_64 and
+ARM64, glibc 2.28+), macOS (Apple Silicon and Intel) and Windows (x86_64).
+No Rust toolchain or compiler is needed:
+
+```sh
+python3 -m pip install qspquest
+qspquest-doctor
+python3 -m qspquest.first_run --out first-run
+```
+
+The first run simulates a 6 mg bolus into a 3 L compartment, with clearance
+0.3 L/h, checks it against the analytic solution and saves the result in
+`first-run/`. The `cp` output holds the concentration (mg/L) at each sample time:
+
+| Time (h) | Concentration (mg/L) |
+| ---: | ---: |
+| 0 | 2.000000 |
+| 2 | 1.637462 |
+| 8 | 0.898658 |
+| 24 | 0.181436 |
+
+The concentration follows `cp(t) = 2 * exp(-0.1 * t)`. These synthetic parameters
+illustrate a one-compartment model; they are not a clinical dosing recommendation.
+Add `[analysis]`, `[notebook]` or `[interchange]` for optional workflows; see
+[installation](docs/installation.md) for extras, R and other platforms.
+
 ## Start with your agent
 
-Connect your own agent client to the QSPQuest MCP server. The Docker image
+Connect your own agent client to the QSPQuest MCP server. The published image
 includes a synthetic model, so you can inspect it and run a dose simulation
-without installing Rust or downloading a model library. Follow the complete
-[agent and Docker quickstart](docs/tutorials/agents-docker.md) for HTTP or stdio
-setup, a copyable agent prompt and expected results.
+without installing Rust or downloading a model library:
+
+```sh
+docker run --rm --init --publish 127.0.0.1:8080:8080 --read-only \
+  --cap-drop ALL --security-opt no-new-privileges \
+  ghcr.io/unibio-intelligence/qspquest-mcp:latest
+```
+
+Then add a Streamable HTTP MCP server at `http://127.0.0.1:8080/mcp` in your
+client. The [agent and Docker quickstart](docs/tutorials/agents-docker.md)
+covers stdio setup, a copyable agent prompt and expected results.
 
 ## Try it in your browser
 
@@ -23,9 +59,10 @@ Adjust dose, clearance and volume for the synthetic model, plot the concentratio
 and download a CSV, or load your own model. Everything runs on your device. See the
 [browser quickstart](docs/browser.md).
 
-## Try the CLI
+## Build the CLI from source
 
-You need Git, Rust 1.98.1/Cargo and a native compiler. On macOS or Linux:
+The command-line tool is built from source. You need Git, Rust 1.98.1/Cargo and a
+native compiler. On macOS or Linux:
 
 ```sh
 git clone https://github.com/unibio-intelligence/qspquest.git
@@ -37,21 +74,8 @@ target/release/qspquest run \
 ```
 
 The first build downloads locked dependencies and can take several minutes.
-For other interfaces and platform prerequisites, see [installation](docs/installation.md).
-
-This example gives a 6 mg bolus into a 3 L compartment, with clearance
-0.3 L/h. In `simulation.json`, the `cp` output holds the concentration (mg/L)
-at each sample time:
-
-| Time (h) | Concentration (mg/L) |
-| ---: | ---: |
-| 0 | 2.000000 |
-| 2 | 1.637462 |
-| 8 | 0.898658 |
-| 24 | 0.181436 |
-
-The concentration follows `cp(t) = 2 * exp(-0.1 * t)`. These synthetic parameters
-illustrate a one-compartment model; they are not a clinical dosing recommendation.
+`simulation.json` contains the same `cp` values as the table above. For
+source builds of the other interfaces, see [installation](docs/installation.md).
 
 ## Choose your next step
 

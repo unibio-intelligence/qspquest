@@ -23,6 +23,11 @@ RUN --mount=type=bind,source=docker/inventory.sh,target=/tmp/inventory.sh \
     sh /tmp/inventory.sh /build/inventories/builder builder "$RUST_IMAGE"
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS public
+LABEL org.opencontainers.image.title="QSPQuest MCP server" \
+      org.opencontainers.image.vendor="UniBio Intelligence" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/unibio-intelligence/qspquest" \
+      org.opencontainers.image.description="QSPQuest MCP server with a synthetic starter model"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home qspquest
 COPY --from=builder /build/inventories/ /opt/qspquest/inventories/
 COPY --from=builder /build/target/release/qspquest-mcp /usr/local/bin/qspquest-mcp
