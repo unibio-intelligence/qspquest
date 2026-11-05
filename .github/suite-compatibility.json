@@ -4,8 +4,8 @@
   "components": {
     "models": {
       "repository": "unibio-intelligence/qspquest-models",
-      "commit": "d452e30b85a6a278176d324ae9479a4dbc4686c2",
-      "catalog_sha256": "673b9ead5c8ef4114a4f728de45dae90e3185ed1c0ce330373be083ac5a159a2",
+      "commit": "d3f96f91f5c58bb03c391ab5da11a8af54dd6eec",
+      "catalog_sha256": "c0b3c0358173aef355f5f8a94de167b963199a82b37cf63906e52189fcefdd48",
       "version": "0.1.0"
     },
     "validation": {

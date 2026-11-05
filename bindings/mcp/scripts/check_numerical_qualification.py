@@ -136,7 +136,9 @@ def negative_controls(data,rule,references,case,event_data):
     for target in ('result','wasm_result'):
         wrong[target]['outputs'][column]['values']=[v*1.01 for v in wrong[target]['outputs'][column]['values']]
     row=check_case(wrong,rule,references,case,event_data)
-    assert row['strict_absolute_1e9_pass'] and not row['qualified'],'Shared wrong result escaped independent check'
+    # The shared error keeps native/WASM within their cross-target budget, so only
+    # the independent reference can reject it. Bit identity is not a precondition.
+    assert row['cross_target_max_budget_fraction']<=1 and not row['qualified'],'Shared wrong result escaped independent check'
     changed=copy.deepcopy(data);changed['request']['description']='stale-input-control'
     def rejected(d,e):
         try:

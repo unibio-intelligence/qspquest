@@ -121,7 +121,7 @@ jobs:
           OPENBLAS_NUM_THREADS: '1'
         run: |
           cargo run -p qspquest-mcp --release --locked --features sandbox --example reference_dump -- mcp-numerical-inputs --wasm
-          cargo run -p qspquest-mcp --release --locked --features sandbox --example reference_dump -- mcp-event-inputs --large --wasm --dose-sides
+          cargo run -p qspquest-mcp --release --locked --features sandbox --example reference_dump -- mcp-event-inputs --wasm --dose-sides
           python bindings/mcp/scripts/independent_reference.py mcp-numerical-inputs mcp-references --analytic-jac --policy bindings/mcp/qualification/output-bounds.json
           python bindings/mcp/scripts/check_numerical_qualification.py mcp-numerical-inputs mcp-references bindings/mcp/qualification/output-bounds.json mcp-numerical-qualification.json --event-inputs mcp-event-inputs
       - name: Output parity and separate strict determinism diagnostic

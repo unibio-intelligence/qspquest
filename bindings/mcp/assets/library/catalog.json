@@ -265,14 +265,14 @@
       "publication_status": "pending"
     },
     {
-      "archive": "models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1/model.omex",
+      "archive": "models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.2/model.omex",
       "description": "Links per-cell CD3\u00d75T4 trimer formation to resting-to-activated-to-effector T-cell dynamics and three-stage apoptotic tumor-cell loss across drug affinity, concentration, antigen density, and effector-to-target ratio.",
       "fit_ready": false,
       "fitting_supported": false,
       "id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
       "license": "Apache-2.0",
       "name": "CD3\u00d75T4 In Vitro Activation and Cytotoxicity QSP",
-      "omex_sha256": "461cca3ff38dcd97abf1fe3ebaf37f50ccb62580a4b200d66473560c491f498a",
+      "omex_sha256": "dd53f6655418a0327566cad3d069494995ac4d200e4304e04c543324610b146d",
       "scenario_ids": [
         "mda_mb_468_untreated_et4",
         "mda_mb_468_duobody_6_86nm_et4",
@@ -286,7 +286,7 @@
         "eplc_272h_duobody_6_86nm_et4",
         "sk_gt_4_duobody_6_86nm_et4"
       ],
-      "version": "2.0.1",
+      "version": "2.0.2",
       "publication_status": "pending"
     }
   ],
@@ -294,5 +294,5 @@
   "license": "Apache-2.0",
   "comparison_evidence": "separate_one_time_dump",
   "availability_schema": "qspquest.model-availability/v1",
-  "availability_sha256": "10886be6187392a97553740dc1eaabb06f81b7d51c348f815c06c865d5af42c2"
+  "availability_sha256": "3dbdf86390e520d957efcd7f1119f91123b3a4645b1ec2c816321f646053dd9c"
 }

@@ -1,0 +1,29 @@
+{
+  "schema": "qspquest.models.source-preparation-evidence/v1",
+  "model_id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
+  "model_version": "2.0.2",
+  "omex_sha256": "dd53f6655418a0327566cad3d069494995ac4d200e4304e04c543324610b146d",
+  "cases": [],
+  "source_scenarios": [
+    "bxpc_3_duobody_6_86nm_et4",
+    "eplc_272h_duobody_6_86nm_et4",
+    "mda_mb_231_duobody_6_86nm_et4",
+    "mda_mb_231_high_affinity_6_86nm_et8",
+    "mda_mb_468_duobody_6_86nm_et1",
+    "mda_mb_468_duobody_6_86nm_et2",
+    "mda_mb_468_duobody_6_86nm_et4",
+    "mda_mb_468_duobody_6_86nm_et8",
+    "mda_mb_468_high_affinity_6_86nm_et8",
+    "mda_mb_468_untreated_et4",
+    "sk_gt_4_duobody_6_86nm_et4"
+  ],
+  "unavailable_scenarios": [],
+  "current_engine_qualification": "not_assessed",
+  "numerical_qualification_accepted": false,
+  "scope": "Versioned execution inputs; scientific source and native equations are unchanged. Complete release qualification is not assessed.",
+  "archive_source_members_preserved": true,
+  "changed_members": [
+    "index.json",
+    "native/scenarios/mda_mb_468_duobody_6_86nm_et8.json"
+  ]
+}

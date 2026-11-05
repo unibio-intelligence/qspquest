@@ -96,11 +96,11 @@
       "evidence_id": "sha256:1544d154fb20da5535fe0b4a58abea014f45e13bf622f48a8ad111d083f3dce6",
       "current_engine_qualification": "not_assessed"
     },
-    "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.1": {
+    "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.2": {
       "model_id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
-      "archive_version": "2.0.1",
-      "selected_version": "2.0.1",
-      "archive_sha256": "461cca3ff38dcd97abf1fe3ebaf37f50ccb62580a4b200d66473560c491f498a",
+      "archive_version": "2.0.2",
+      "selected_version": "2.0.2",
+      "archive_sha256": "dd53f6655418a0327566cad3d069494995ac4d200e4304e04c543324610b146d",
       "availability": "dynamic",
       "publication_review": "pending",
       "preset_ids": [
@@ -119,7 +119,7 @@
       "unit_status": "source_scale_unqualified",
       "fitting_supported": false,
       "fit_ready": false,
-      "evidence_id": "sha256:5f5bc66430a82d7cea07d98b478e372826dfa03de77ae380e76eb164ad6cb1f3",
+      "evidence_id": "sha256:8939afb26a318c5b792c5fc7b71ee1ed2e87ccf4b8ebcbe774214be42b34410a",
       "current_engine_qualification": "not_assessed"
     },
     "qspquest_diffdose_2026_idr_benchmark/0.3.1": {

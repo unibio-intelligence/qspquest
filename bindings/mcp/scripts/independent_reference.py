@@ -1,5 +1,7 @@
 """Independent AST/SciPy Radau integration, without QSPQuest RHS or Jacobian.
-Supports the exact Liu/Rajwade archive subset; unsupported constructs fail closed.
+Supports the dimensionless-coordinate archive subset used by the bundled
+library: hour or day time, boluses and fixed-duration infusions. Unsupported
+constructs fail closed.
 """
 import argparse, collections, hashlib, json, math, re, time, zipfile
 from pathlib import Path
@@ -11,14 +13,14 @@ from scipy.integrate import solve_ivp
 from scipy.sparse import csr_matrix
 ANALYTIC_CACHE={}
 OPS={'add':'+','subtract':'-','multiply':'*','divide':'/','power':'**','gt':'>','ge':'>=','lt':'<','le':'<=','eq':'==','ne':'!='}
-COORD_UNITS={'1','h','(1)/(h)','(1)/(1)'}
 
 def dependencies(e):
     if e['kind']=='symbol':return {e['name']}
     return set().union(*(dependencies(a) for a in e.get('arguments',[])))
 
 def compile_model(d,q,analytic=False):
-    assert d['time_unit']=='h' and not d['covariates'] and not q['regimen']['covariate_changes']
+    tu=d['time_unit'];assert tu in ('h','d') and not d['covariates'] and not q['regimen']['covariate_changes']
+    COORD_UNITS={'1',tu,'(1)/('+tu+')','(1)/(1)'}
     assert not d.get('individual',[]) and not d.get('linear_pk') and not d.get('dose_switches',[]) and not d.get('dose_history',[])
     assert all(s['unit']=='1' and s['initial']['kind']=='quantity' for s in d['states'])
     params={}
@@ -73,14 +75,22 @@ def compile_model(d,q,analytic=False):
     for name,s in switches.items():
         assert s.get('comparison')=='lt' and dependencies(s['time'])<=set(params)
         switch_times[name]=float(eval(expression(s['time']),namespace))
-    doses=collections.defaultdict(list)
+    doses=collections.defaultdict(list);infusions=[]
     for dose in q['regimen']['administrations']:
-        assert dose['delivery']['kind']=='bolus' and dose['repeat'] is None and dose['lag']['value']==0.0
-        assert dose['amount']['unit']=='1' and dose['time']['unit']=='h' and dose['lag']['unit']=='h'
-        target=d['states'][states[dose['target']]];assert 'bolus' in target['dosing']['modes'] and target['dosing']['amount_unit']=='1'
+        kind=dose['delivery']['kind'];assert kind in ('bolus','infusion') and dose['repeat'] is None and dose['lag']['value']==0.0
+        assert dose['amount']['unit']=='1' and dose['time']['unit']==tu and dose['lag']['unit']==tu
+        target=d['states'][states[dose['target']]];assert kind in target['dosing']['modes'] and target['dosing']['amount_unit']=='1'
         assert dependencies(target['dosing']['scale'])<=set(params)
         amount=dose['amount']['value']*dose['bioavailability']*eval(expression(target['dosing']['scale']),namespace)
-        doses[dose['time']['value']].append((states[dose['target']],amount))
+        if kind=='bolus':
+            doses[dose['time']['value']].append((states[dose['target']],amount))
+        else:
+            # Zero-order input over the half-open interval [start, start+duration),
+            # supplied to the RHS through its explicit input_<state> symbol.
+            span=dose['delivery']['span'];assert span['kind']=='duration' and span['duration']['unit']==tu
+            duration=span['duration']['value'];assert duration>0
+            start=dose['time']['value'];infusions.append((start,start+duration,'input_'+dose['target'],amount/duration))
+    namespace['__infusions__']=infusions
     jac=None
     if analytic:
         import sympy as sp
@@ -98,18 +108,24 @@ def compile_model(d,q,analytic=False):
                 if k=='compare':return {'gt':sp.Gt,'ge':sp.Ge,'lt':sp.Lt,'le':sp.Le,'eq':sp.Eq,'ne':sp.Ne}[e['operator']](*a)
                 if k=='call':
                     if e['name']=='ifelse':return sp.Piecewise((a[1],a[0]),(a[2],True))
-                    return {'exp':sp.exp,'log':sp.log,'sqrt':sp.sqrt,'abs':sp.Abs,'min':sp.Min,'max':sp.Max,'pow':lambda x,y:x**y}[e['name']](*a)
+                    return {'exp':sp.exp,'log':sp.log,'sqrt':sp.sqrt,'abs':sp.Abs,'min':sp.Min,'max':sp.Max,'pow':lambda x,y:x**y,
+                            'hill':lambda x,n,k:sp.Piecewise((sp.Integer(0),x<=0),(x**n/(k**n+x**n),True))}[e['name']](*a)
                 raise ValueError(k)
             for name in order:syms[name]=sym(defs[name]['expression'])
             values=[];jr=[];jc=[]
             for i,st in enumerate(d['states']):
                 ex=sym(st['rhs'])
-                assert not any(str(n).startswith('input_') for n in ex.free_symbols)
                 for j in sorted(set().union(*(state_deps(n) for n in dependencies(st['rhs'])))):
                     derivative=sp.diff(ex,syms[d['states'][j]['name']])
+                    # Infusion inputs may enter only additively; the Jacobian takes no input argument.
+                    assert not any(str(n).startswith('input_') for n in derivative.free_symbols)
                     if derivative!=0:jr.append(i);jc.append(j);values.append(derivative)
             print('generating independent symbolic Jacobian',d['model_id'],len(values),flush=True)
-            function=sp.lambdify((syms['time'],[syms[n] for n in states],[syms[n] for n in params],[syms[n] for n in switches]),values,modules='math',cse=True,docstring_limit=0)
+            # hill(x,n,k) with n<1 has an unbounded derivative as x->0+. Common-subexpression
+            # elimination would hoist that branch out of its x<=0 guard, so it is disabled
+            # for models using hill; the guard then supplies the x<=0 branch derivative.
+            uses_hill='"name": "hill"' in json.dumps(d)
+            function=sp.lambdify((syms['time'],[syms[n] for n in states],[syms[n] for n in params],[syms[n] for n in switches]),values,modules='math',cse=not uses_hill,docstring_limit=0)
             ANALYTIC_CACHE[key]=(function,np.array(jr),np.array(jc))
         function,jr,jc=ANALYTIC_CACHE[key]
         parameters=list(params.values())
@@ -127,7 +143,8 @@ def integrate(data,rtol,atol,analytic=False):
     for obs in g['observations']:
         assert np.any((times==obs['time']['value'])&(sides==obs['side']))
     for name,b in switches.items():namespace[name]=float(begin<b)
-    bounds=sorted({begin,end,*[t for t in doses if begin<=t<=end],*[t for t in switches.values() if begin<=t<=end],*[c['value'] for c in g['checkpoints'] if begin<=c['value']<=end]})
+    infusions=namespace['__infusions__'];assert all(begin<=s and e<=end for s,e,_,_ in infusions)
+    bounds=sorted({begin,end,*[t for t in doses if begin<=t<=end],*[t for t in switches.values() if begin<=t<=end],*[c['value'] for c in g['checkpoints'] if begin<=c['value']<=end],*[t for s,e,_,_ in infusions for t in (s,e)]})
     refs=np.empty((len(times),len(d['outputs'])));sample_states=np.empty((len(times),len(state)));filled=np.zeros(len(times),dtype=bool)
     nfev=njev=nlu=0;jumps=[];start=time.perf_counter()
     def fill(mask,ys):
@@ -144,6 +161,9 @@ def integrate(data,rtol,atol,analytic=False):
         mask=(times==a)&(sides=='post')&~filled;fill(mask,[state]*np.count_nonzero(mask))
         if bi+1==len(bounds):continue
         b=bounds[bi+1]
+        for _,_,name,_ in infusions:namespace[name]=0.0
+        for s,e,name,rate in infusions:
+            if s<=a and b<=e:namespace[name]+=rate
         solution=solve_ivp(rhs,(a,b),state,method='Radau',rtol=rtol,atol=atol,jac=jac,jac_sparsity=sparsity,dense_output=True)
         if not solution.success:raise RuntimeError(solution.message)
         mask=(times>a)&(times<b)&~filled
@@ -165,7 +185,6 @@ def main():
                 assert hashlib.sha256(json.dumps(raw,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()==rules[path.stem][key]
             assert data['result']['identity']['model_content_hash']==rules[path.stem]['model_content_hash']
             assert data['result']['identity']['run_request_hash']==rules[path.stem]['run_request_hash']
-        assert any(s in d['model_id'] for s in ['qspquest_liu_','qspquest_rajwade_'])
         if data.get('result') is None:records.append({'case':path.stem,'native_error':data.get('native_error')});continue
         base_atol=np.array([g['absolute_tolerances'][s['name']]['value'] for s in d['states']]) if g.get('absolute_tolerances') else g['atol']
         record={'case':path.stem,'native_model_hash':data['result']['identity']['model_content_hash'],'native_request_hash':data['result']['identity']['run_request_hash'],'settings':[],'scipy_version':scipy.__version__,'numpy_version':np.__version__}
