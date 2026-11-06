@@ -92,3 +92,29 @@ OS packages and Python packages where applicable. These inventories describe
 the tested build; package-manager updates can produce a different inventory
 even when the base digest stays fixed. Consumer dependency ranges remain
 independent of the container build constraints.
+
+## Rust registry releases
+
+`qspquest-core` and `qspquest-modeling` are published together from a version tag
+through the Release workflow. Both crates inherit the Cargo workspace version,
+which must match the Python version and the `vMAJOR.MINOR.PATCH` tag. Before
+creating a release tag, review the complete source and run:
+
+```sh
+cargo publish --dry-run --locked --registry crates-io -p qspquest-core -p qspquest-modeling
+```
+
+A manual Release workflow run performs this package check without uploading.
+For a tag release, the `crates` job waits for the GitHub release, the package
+check and approval of the `crates-io` environment. It publishes core before
+modeling using a short-lived OIDC credential. No saved Cargo token or GitHub
+registry secret is required. Check both crates.io version pages and run a fresh
+consumer build from the registry after publication. If an upload partially
+succeeds, inspect the registry before retrying; published versions cannot be
+overwritten.
+
+Each crate's crates.io Trusted Publishing configuration must name owner
+`unibio-intelligence`, repository `qspquest`, workflow `release.yml` and
+environment `crates-io`. Keep the GitHub environment restricted to release tags
+with a required maintainer review. The authentication action's full source pin
+is maintained in the workflow with the other build inputs.
