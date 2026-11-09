@@ -110,6 +110,7 @@ class DistributionTests(unittest.TestCase):
             for name in ('Cargo.lock', 'crates/qspquest-modeling/build.rs',
                          'bindings/r/src/rust/Cargo.toml', 'bindings/r/src/rust/src/lib.rs',
                          'bindings/python/python/qspquest/adapters/_bridge.py',
+                         'bindings/python/python/qspquest/plot/figure-style.json',
                          'bindings/python/README.md', 'SECURITY.md', 'PKG-INFO'):
                 with self.subTest(name=name):
                     path = self.source_archive(directory, omitted=name)
@@ -118,7 +119,8 @@ class DistributionTests(unittest.TestCase):
 
     def test_source_rejects_changed_legal_or_source_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('THIRD-PARTY-NOTICES.txt', 'Cargo.lock', 'bindings/python/python/qspquest/control.py'):
+            for name in ('THIRD-PARTY-NOTICES.txt', 'Cargo.lock', 'bindings/python/python/qspquest/control.py',
+                         'bindings/python/python/qspquest/plot/figure-style.json'):
                 with self.subTest(name=name):
                     path = self.source_archive(directory, changed=name)
                     with self.assertRaisesRegex(ValueError, 'differs from selected source'):
@@ -162,6 +164,7 @@ class DistributionTests(unittest.TestCase):
     def test_wheel_requires_every_python_module_policy_and_native(self):
         with tempfile.TemporaryDirectory() as directory:
             for name in ('qspquest/adapters/_bridge.py', 'qspquest/individual.py',
+                         'qspquest/plot/figure-style.json',
                          'qspquest/SECURITY.md', 'qspquest/py.typed', 'qspquest/_native.abi3.so'):
                 with self.subTest(name=name):
                     path = self.wheel(directory, omitted=name)
@@ -170,7 +173,8 @@ class DistributionTests(unittest.TestCase):
 
     def test_wheel_rejects_altered_source_even_with_consistent_record(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('qspquest/control.py', f'qspquest-{VERSION}.dist-info/licenses/LICENSE'):
+            for name in ('qspquest/control.py', 'qspquest/plot/figure-style.json',
+                         f'qspquest-{VERSION}.dist-info/licenses/LICENSE'):
                 with self.subTest(name=name):
                     path = self.wheel(directory, changed=name)
                     with self.assertRaisesRegex(ValueError, 'differs from selected source'):

@@ -15,7 +15,8 @@ use std::{
     sync::Arc,
 };
 const INPUT_LIMIT: u64 = 1_000_000;
-const HELP: &str = "qspquest — offline pharmacology modeling\n\nUsage:\n  qspquest run MODEL REQUEST.json\n  qspquest plan MODEL REQUEST.json\n  qspquest morris MODEL REQUEST.json\n  qspquest scan MODEL REQUEST.json\n  qspquest fit MODEL REQUEST.json\n  qspquest fit-data REQUEST.json\n  qspquest sensitivities MODEL REQUEST.json\n  qspquest plan-steady-state MODEL REQUEST.json\n  qspquest plan-iterate-periodic MODEL REQUEST.json\n  qspquest steady-state MODEL REQUEST.json\n  qspquest iterate-periodic MODEL REQUEST.json\n  qspquest validate MODEL\n  qspquest format MODEL\n  qspquest --version\n\nMODEL is a .qsp text or model JSON file (detected by content).\nJSON models are limited to 4,000,000 bytes; text models and requests\nare limited to 1,000,000 bytes. Results go to stdout;\nstructured errors go to stderr. Files are never modified.\nplan prepares run/scan/sensitivity/fit requests without numerical execution.\n";
+const HELP: &str = "qspquest — offline pharmacology modeling\n\nUsage:\n  qspquest run MODEL REQUEST.json\n  qspquest plan MODEL REQUEST.json\n  qspquest morris MODEL REQUEST.json\n  qspquest scan MODEL REQUEST.json\n  qspquest fit MODEL REQUEST.json\n  qspquest fit-data REQUEST.json\n  qspquest analyze [MODEL] REQUEST.json\n  qspquest sensitivities MODEL REQUEST.json\n  qspquest plan-steady-state MODEL REQUEST.json\n  qspquest plan-iterate-periodic MODEL REQUEST.json\n  qspquest steady-state MODEL REQUEST.json\n  qspquest iterate-periodic MODEL REQUEST.json\n  qspquest validate MODEL\n  qspquest format MODEL\n  qspquest --version\n\nMODEL is a .qsp text or model JSON file (detected by content).\nJSON models are limited to 4,000,000 bytes; text models and requests\nare limited to 1,000,000 bytes. Results go to stdout;\nstructured errors go to stderr. Files are never modified.\nplan prepares run/scan/sensitivity/fit requests without numerical execution.\nanalyze runs a qspquest.analysis/v0.2 request (limit 50,000,000 bytes);\nexposure_summary and fit_diagnostics need no MODEL.\n";
+const ANALYSIS_INPUT_LIMIT: u64 = 50_000_000;
 struct Failure {
     exit: u8,
     value: Value,
@@ -121,6 +122,35 @@ fn command(args: &[OsString]) -> Result<String, Failure> {
             }
             _=>return Err(Failure::new(2,"invalid_input","fit-data requires a supported Gamma-Poisson or probit-normal-binomial request schema")),
         }.map_err(|error|Failure::new(2,"serialization",error))?;
+        return serde_json::to_string_pretty(&result)
+            .map(|text| text + "\n")
+            .map_err(|error| Failure::new(2, "serialization", error));
+    }
+    if action == "analyze" {
+        if !(2..=3).contains(&args.len()) {
+            return Err(Failure::new(2, "usage", HELP));
+        }
+        let compiled = if args.len() == 3 {
+            let source = read(
+                Path::new(&args[1]),
+                qspquest_modeling::document::MODEL_DOCUMENT_BYTE_LIMIT as u64,
+            )?;
+            Some(model(&source)?.1)
+        } else {
+            None
+        };
+        let request = read(Path::new(&args[args.len() - 1]), ANALYSIS_INPUT_LIMIT)?;
+        let value: Value = serde_json::from_str(&request)
+            .map_err(|error| Failure::new(2, "invalid_json", error))?;
+        let result = qspquest_modeling::analysis::execute_request(
+            compiled.as_ref(),
+            &value,
+            &mut qspquest_modeling::analysis::NoControl,
+        )
+        .map_err(|error| Failure {
+            exit: 3,
+            value: json!({"schema":"qspquest.cli-error/v0.1","error":error.to_value()}),
+        })?;
         return serde_json::to_string_pretty(&result)
             .map(|text| text + "\n")
             .map_err(|error| Failure::new(2, "serialization", error));

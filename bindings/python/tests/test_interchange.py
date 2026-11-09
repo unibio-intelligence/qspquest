@@ -8,7 +8,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 import pytest
 import libsbml
-import qspquest as pf
+import qspquest as qq
 from qspquest.interchange import (
     InterchangeError,
     export_sbml,
@@ -26,18 +26,18 @@ MODEL = json.loads((ROOT / "examples/synthetic/absorption.model.json").read_text
 
 def request():
     # Coincident infusion stop and bolus, pre/post observations, lag and F.
-    result = pf.run_request(
+    result = qq.run_request(
         end=8,
         times=[0, 1, 2, 4, 8],
         administrations=[
-            pf.infusion("central", 100, "mg", duration=2),
-            pf.bolus("central", 50, "mg", at=1, lag=1, bioavailability=0.8),
+            qq.infusion("central", 100, "mg", duration=2),
+            qq.bolus("central", 50, "mg", at=1, lag=1, bioavailability=0.8),
         ],
         rtol=1e-10,
         atol=1e-12,
     )
     result["regimen"]["observations"] = [
-        {"time": pf.quantity(t, "h"), "side": s}
+        {"time": qq.quantity(t, "h"), "side": s}
         for t, s in [
             (0, "post"),
             (1, "post"),
@@ -120,7 +120,7 @@ def test_unannotated_assignment_rules_and_time_coordinates():
     imported = import_sbml(libsbml.writeSBMLToString(doc))
     assert imported.warnings and imported.model["time_unit"] == "h"
     answer = imported.compile().run(
-        pf.run_request(end=8, times=[0, 1, 8], rtol=1e-10, atol=1e-12)
+        qq.run_request(end=8, times=[0, 1, 8], rtol=1e-10, atol=1e-12)
     )
     assert answer["outputs"][0]["unit"] == "1"
     assert (
@@ -342,10 +342,10 @@ def test_native_archive_requires_current_schemas_without_mutation():
         for invalid in (tag.replace('qspquest.', 'other.'), tag.replace('v0.1', 'v99'), None, [tag], 1):
             document['schema'] = invalid
             rejected_input = deepcopy((model, run))
-            with pytest.raises((InterchangeError, pf.QSPQuestError)):
+            with pytest.raises((InterchangeError, qq.QSPQuestError)):
                 export_omex(model, {'dose': run})
             assert (model, run) == rejected_input
         del document['schema']
-        with pytest.raises((InterchangeError, pf.QSPQuestError)):
+        with pytest.raises((InterchangeError, qq.QSPQuestError)):
             export_omex(model, {'dose': run})
         document['schema'] = tag

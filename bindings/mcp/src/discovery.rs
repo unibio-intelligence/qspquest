@@ -302,8 +302,13 @@ fn families(records: &[Record]) -> Result<BTreeMap<String, FullSourceFamily>, St
             .iter()
             .filter(|member| &member.model == canonical)
             .collect();
+        // A canonical archive withheld at load stays a family member without
+        // execution; its hold, not the family declaration, explains why.
+        let held = records.iter().any(|record| {
+            reference(record) == *canonical && record.metadata.get("archive_hold").is_some()
+        });
         if matches.len() != 1
-            || !matches[0].execution_available
+            || !(matches[0].execution_available || held)
             || matches[0].fidelity != Fidelity::Full
         {
             return Err("source_family canonical_model must resolve to exactly one executable full model in the same family and version".into());

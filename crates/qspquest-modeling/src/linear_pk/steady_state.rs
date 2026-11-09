@@ -168,8 +168,12 @@ fn solve(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Result<Vec<f64>, Error> {
         b.swap(k, pivot);
         for i in k + 1..n {
             let factor = a[i][k] / a[k][k];
-            for j in k + 1..n {
-                a[i][j] -= factor * a[k][j];
+            let (pivot_rows, remaining_rows) = a.split_at_mut(i);
+            for (value, pivot_value) in remaining_rows[0][k + 1..]
+                .iter_mut()
+                .zip(&pivot_rows[k][k + 1..])
+            {
+                *value -= factor * pivot_value;
             }
             b[i] -= factor * b[k];
         }

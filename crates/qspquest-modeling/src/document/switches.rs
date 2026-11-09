@@ -158,12 +158,10 @@ impl CompiledDocument {
             .parameters
             .iter()
             .map(|p| {
-                (|| {
-                    quantity_in_declared_unit(
-                        parameters.get(&p.name).unwrap_or(&p.default),
-                        &p.default.unit,
-                    )
-                })()
+                quantity_in_declared_unit(
+                    parameters.get(&p.name).unwrap_or(&p.default),
+                    &p.default.unit,
+                )
                 .map_err(|mut e| {
                     if e.expression.is_none() {
                         e.expression = Some(format!("parameters.{}", p.name));

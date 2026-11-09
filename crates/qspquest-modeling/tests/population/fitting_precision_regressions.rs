@@ -65,21 +65,20 @@ fn autonomous_repeated_infusion_sensitivities_match_closed_form() {
         .bind(&req.run.parameters, &req.run.regimen.covariates)
         .unwrap()
         .rhs_depends_on_time());
-    for solver in [Solver::DiffsolBdf] {
-        req.run.solver = solver;
-        let result = c.run(&req).unwrap();
-        for (time, value) in result
-            .result
-            .times
-            .iter()
-            .zip(&result.result.outputs[0].values)
-        {
-            let expected = concentration(*time, 0.5);
-            assert!(
-                (value - expected).abs() < 1e-7,
-                "{solver:?} at {time}: {value} vs {expected}"
-            );
-        }
+    let solver = Solver::DiffsolBdf;
+    req.run.solver = solver;
+    let result = c.run(&req).unwrap();
+    for (time, value) in result
+        .result
+        .times
+        .iter()
+        .zip(&result.result.outputs[0].values)
+    {
+        let expected = concentration(*time, 0.5);
+        assert!(
+            (value - expected).abs() < 1e-7,
+            "{solver:?} at {time}: {value} vs {expected}"
+        );
     }
 }
 #[test]
@@ -91,53 +90,52 @@ fn broad_box_noisy_fit_meets_requested_gradient_or_reports_limits() {
     let mut req = request();
     let c = CompiledSensitivityDocument::compile(&model, &req.with_respect_to).unwrap();
     let times = c.run(&req).unwrap().result.times;
-    for solver in [Solver::DiffsolBdf] {
-        req.run.solver = solver;
-        let fit = GaussianFitRequest {
-            objective: GaussianObjectiveRequest {
-                simulation: req.clone(),
-                observations: times
-                    .iter()
-                    .enumerate()
-                    .map(|(row, t)| GaussianObservation {
-                        row,
-                        output: "cp".into(),
-                        value: q(
-                            concentration(*t, 0.6) + if row % 2 == 0 { 0.03 } else { -0.03 },
-                            "mg/L",
-                        ),
-                        error: GaussianError {
-                            model: GaussianErrorModel::Normal,
-                            additive_sd: q(0.2, "mg/L"),
-                            proportional_sd: 0.,
-                        },
-                        censoring: None,
-                    })
-                    .collect(),
-                priors: vec![],
-            },
-            bounds: vec![FitBound {
-                parameter: "cl".into(),
-                lower: q(0.03, "L/h"),
-                upper: q(12., "L/h"),
-            }],
-            max_evaluations: 3000,
-            max_iterations: 300,
-            gradient_tolerance: 1e-5,
-        };
-        let result = c.fit_gaussian(&fit).unwrap();
-        assert_eq!(
-            result.status,
-            FitStatus::Converged,
-            "{solver:?}: {result:?}"
-        );
-        assert!(result.projected_gradient_norm <= fit.gradient_tolerance);
-        assert!((result.parameters["cl"].value - 0.6).abs() < 0.03);
-        let mut limited = fit.clone();
-        limited.max_evaluations = 1;
-        assert_eq!(
-            c.fit_gaussian(&limited).unwrap().status,
-            FitStatus::EvaluationLimit
-        );
-    }
+    let solver = Solver::DiffsolBdf;
+    req.run.solver = solver;
+    let fit = GaussianFitRequest {
+        objective: GaussianObjectiveRequest {
+            simulation: req.clone(),
+            observations: times
+                .iter()
+                .enumerate()
+                .map(|(row, t)| GaussianObservation {
+                    row,
+                    output: "cp".into(),
+                    value: q(
+                        concentration(*t, 0.6) + if row % 2 == 0 { 0.03 } else { -0.03 },
+                        "mg/L",
+                    ),
+                    error: GaussianError {
+                        model: GaussianErrorModel::Normal,
+                        additive_sd: q(0.2, "mg/L"),
+                        proportional_sd: 0.,
+                    },
+                    censoring: None,
+                })
+                .collect(),
+            priors: vec![],
+        },
+        bounds: vec![FitBound {
+            parameter: "cl".into(),
+            lower: q(0.03, "L/h"),
+            upper: q(12., "L/h"),
+        }],
+        max_evaluations: 3000,
+        max_iterations: 300,
+        gradient_tolerance: 1e-5,
+    };
+    let result = c.fit_gaussian(&fit).unwrap();
+    assert_eq!(
+        result.status,
+        FitStatus::Converged,
+        "{solver:?}: {result:?}"
+    );
+    assert!(result.projected_gradient_norm <= fit.gradient_tolerance);
+    assert!((result.parameters["cl"].value - 0.6).abs() < 0.03);
+    let mut limited = fit.clone();
+    limited.max_evaluations = 1;
+    assert_eq!(
+        c.fit_gaussian(&limited).unwrap().status,
+        FitStatus::EvaluationLimit
+    );
 }

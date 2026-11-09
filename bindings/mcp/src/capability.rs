@@ -71,7 +71,7 @@ fn catalog() -> &'static Catalog {
             .all(|e| e.evidence_status == "untested" && e.evidence_ids.is_empty()));
         Catalog {
             entries,
-            compiler: value["compiler_source_sha256"].as_str().unwrap().into(),
+            compiler: qspquest_modeling::COMPILER_SOURCE_SHA256.into(),
             digest: crate::library::hash(text.as_bytes()),
         }
     })
@@ -196,8 +196,13 @@ pub fn answer(query: &Query, runtime: &Runtime<'_>, record: Option<&Record>) -> 
                 blockers.push("Hosted user candidates require a configured sandbox.".into());
             }
             if scientific && record.model.is_null() {
-                blockers
-                    .push("This archive is inspection only and has no executable model.".into());
+                blockers.push(match record.metadata["archive_hold"]["scope"].as_str() {
+                    Some("archive") => record.metadata["execution_blocker"]
+                        .as_str()
+                        .unwrap_or("This archive is withheld.")
+                        .into(),
+                    _ => "This archive is inspection only and has no executable model.".into(),
+                });
             }
             if query.scenario_id.is_some() && scenario.is_none() {
                 blockers.push("Stored scenario is absent from this model/version.".into());
@@ -216,9 +221,14 @@ pub fn answer(query: &Query, runtime: &Runtime<'_>, record: Option<&Record>) -> 
                     || record.metadata["fitting_supported"] != true
                     || !crate::fitting::supports_operation(&record.fitting, &key.operation))
             {
-                blockers.push(
-                    "The released archive has no ready fitting contract for this operation.".into(),
-                );
+                blockers.push(match record.metadata["archive_hold"]["scope"].as_str() {
+                    Some("fitting") => record.fitting["reason"]
+                        .as_str()
+                        .unwrap_or("Fitting is withheld for this archive.")
+                        .into(),
+                    _ => "The released archive has no ready fitting contract for this operation."
+                        .into(),
+                });
             }
             if runtime.mode != "local_stdio" && scientific {
                 if let Some(route) = crate::policy::async_route(&record.model, &key.operation) {
@@ -363,6 +373,10 @@ mod tests {
         assert_eq!(result.executable, None);
         assert!(!result.qualified);
         assert!(result.evidence_ids.is_empty());
+        assert_eq!(
+            result.compiler_source_sha256,
+            qspquest_modeling::COMPILER_SOURCE_SHA256
+        );
         query.scenario_id = Some("absent-scenario".into());
         assert!(matches!(
             answer(&query, &runtime, Some(&record)).assessment,

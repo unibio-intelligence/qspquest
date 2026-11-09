@@ -1,0 +1,207 @@
+{
+  "archive_sha256": "f1dd609fdae37bd1de8907ac56049b3389176233d1586c2e2bac33faa86bcd41",
+  "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+  "model_version": "2.2.0",
+  "native_model_sha256": "257b9259c36763cd3fd96b497f7b1e7d964916c9acda32479bb73d2791c721aa",
+  "normalizations": [
+    {
+      "basis": "declared_reference_input",
+      "canonical_output": "source_output_20",
+      "denominator_input": "source_symbol_892",
+      "interpretation": "Use the archived baseline parameter input for target_csf_pct_baseline. Explicit overrides change the denominator; no trajectory-based or condition-specific rebaselining is performed.",
+      "multiplier": 100,
+      "numerator_state": "source_symbol_534"
+    },
+    {
+      "basis": "declared_reference_input",
+      "canonical_output": "source_output_22",
+      "denominator_input": "source_symbol_894",
+      "interpretation": "Use the archived baseline parameter input for target_isf_pct_baseline. Explicit overrides change the denominator; no trajectory-based or condition-specific rebaselining is performed.",
+      "multiplier": 100,
+      "numerator_state": "source_symbol_535"
+    },
+    {
+      "basis": "declared_reference_input",
+      "canonical_output": "source_output_24",
+      "denominator_input": "source_symbol_893",
+      "interpretation": "Use the archived baseline parameter input for target_lv_pct_reported_baseline. Explicit overrides change the denominator; no trajectory-based or condition-specific rebaselining is performed.",
+      "multiplier": 100,
+      "numerator_state": "source_symbol_536"
+    },
+    {
+      "basis": "declared_reference_input",
+      "canonical_output": "source_output_26",
+      "denominator_input": "source_symbol_895",
+      "interpretation": "Use the archived baseline parameter input for target_plasma_pct_baseline. Explicit overrides change the denominator; no trajectory-based or condition-specific rebaselining is performed.",
+      "multiplier": 100,
+      "numerator_state": "source_symbol_576"
+    }
+  ],
+  "scenarios": {
+    "figure3_mab_iv_100mgkg": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "2a905eb9fd63bf4377626324d7aceea1377a5fe09d759160b0f1f08b3d0912e1"
+    },
+    "figure3_mab_iv_10mgkg": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "24031e0b78b6359e79f9ddccf35b56c0471ad54986a51b5d9f6564e3d5464c44"
+    },
+    "figure3_mab_iv_30mgkg": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "91555f96cc83609640e119e6429652726edf34d0178103f08a8d1d9336caaae8"
+    },
+    "figure3_mab_iv_3mgkg": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "b1ff372ec12a9e684355310c2d5bc4de2f0edfca5fb93e29c23737f1d7dae7b5"
+    },
+    "figure3a_exogenous_targetx_shape": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "interpretation": "Initialize the archived literal source states at 0.0 h. The declared scenario has no pre-dose integration interval. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "faed0d8c0db571256c702817d5177345ff1de5a5ab0fb649755de35ab2af48ed"
+    },
+    "figure3b_targetx_steady_state": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -504.0
+      },
+      "interpretation": "Initialize the archived literal source states at -504.0 h. The declared scenario has no pre-dose integration interval. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": null,
+      "native_request_sha256": "9bfeb5139a23f94cd64dbd2916d6a85997802a906cc94a5727509b3727e2b551"
+    },
+    "icm_1e12_aav9": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "369a7e26cb55991fe0aee2da8d4df091c1404e345f36bdc88e48e3aa7d7a81d7"
+    },
+    "icm_5e11_aav9": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "7a815b68d416dbf34f91802a79bfb19b294a7f56004fcb3d0dcca99fac6925ac"
+    },
+    "icm_5e12_aav5": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "9177861d6b6c1c57e16238ebaf349be261084fc1901f34e91df23992bb2e9634"
+    },
+    "icm_5e12_aav9": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "e844337afdfd98ba4d08de415bf47d443290ff2a365570a5b75e29f6f65ac6d1"
+    },
+    "ist_2_5e11_aav9": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "2e1ad6cf54912ddfdcf69fa5bdee46c1420d034f1a6dfccb90574422c0c72f29"
+    },
+    "iv_5e12_aav9": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": -1000.0
+      },
+      "interpretation": "Initialize the archived literal source states at -1000.0 h. Integrate before the first administration at 0.0 h. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "native_request_sha256": "601f2af5658b5f7882274bcb24f5680ba1d94989c258de43064fa3ed588bb86a"
+    },
+    "source_structure_no_dose_smoke": {
+      "explicit_initial_override_count": 725,
+      "integration_start": {
+        "unit": "h",
+        "value": 0.0
+      },
+      "interpretation": "Initialize the archived literal source states at 0.0 h. The declared scenario has no pre-dose integration interval. Starting parameter overrides apply from integration start; timed changes apply after their specified boundary. Changes to receptor totals alone do not recompute literal free-receptor initial states; use the coupled preset or supply intended initials explicitly. No convergence assertion.",
+      "intervention_time": null,
+      "native_request_sha256": "a219fbc89397abbd0b702c96c67246d5ab7a04c3fe79d35c45085e9464b5c774"
+    }
+  },
+  "schema": "qspquest.protocol-initialization/v1",
+  "scope": "Source-coordinate initialization and explicit percentage denominator semantics for the sealed native archive. A pre-dose integration interval is not a convergence or equilibrium assertion. Native unit 1 and friendly source labels do not establish physical or biological qualification."
+}

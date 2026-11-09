@@ -70,7 +70,7 @@ def main():
         for row, value in zip(observations, values):
             observed = float(row['DV']);writer.writerow([row['TIME'], observed, value, observed - value])
     receipt = {'dataset': 'theo_sd', 'subject': 1, 'observations': len(observations),
-               'validation_commit': pin['commit'], 'validation_manifest_sha256': pin['manifest_sha256'],
+               'validation_commit': VALIDATION_COMMIT, 'validation_manifest_sha256': VALIDATION_MANIFEST_SHA256,
                'inputs': {name: digest(value) for name, value in inputs.items()},
                'fit': result['fit'], 'prediction_identity': prediction['identity'],
                'units': 'Source numerical coordinates retained; see the tutorial before assigning physical units.'}

@@ -1,6 +1,6 @@
 # Software adapters
 
-`qspquest.adapters` imports and exports deterministic individual ODE models
+`qspquest.adapters` imports and exports deterministic individual ordinary differential equation (ODE) models
 for NONMEM, nlmixr2, rxode2, Pumas, Monolix Mlxtran, Phoenix PML and WinNonlin
 ASCII. Imported models run on the QSPQuest engine. The adapters do not call a vendor executable, fit populations, infer missing
 units, evaluate source programs or open proprietary project containers.
@@ -17,7 +17,7 @@ raises `QSPQuestError`.
 | Pumas | Explicit `@dynamics` ODEs, four supported linear PK dynamics, scalar `RealDomain` initial values/bindings, `@pre`, `@vars`, `@init`, deterministic `@derived`/`@observed` and scalar covariate bindings | Other built-in dynamics, reactions, dosecontrol, general Julia, matrix domains and population estimation |
 | Monolix | `[LONGITUDINAL]`, named inputs, explicit ODEs, zero `t_0`, initial conditions, deterministic outputs and direct `depot(target=state)` | Full `.mlxtran` projects, `pkmodel`, absorption/lag/duration depot options, regressors, stochastic definitions and delays |
 | Phoenix NLME | PML `name(){}`, explicit `deriv`, scalar `fixef`, `stparm`, scalar covariates and plain `dosepoint(state)` | Phoenix project archives, `fMicro`/other analytic macros, dosing options, procedural programs and population estimation |
-| Phoenix WinNonlin | ASCII `COMMANDS`, `TEMPORARY`, `STARTING`, `DIFFERENTIAL`, one `FUNCTION`; numeric INITIAL/CONSTANTS and indexed P/CON/Z/DZ | Built-in model numbers, NCA configurations, PNAMES aliases, data transformations, multiple functions, command abbreviations and project archives |
+| Phoenix WinNonlin | ASCII `COMMANDS`, `TEMPORARY`, `STARTING`, `DIFFERENTIAL`, one `FUNCTION`; numeric INITIAL/CONSTANTS and indexed P/CON/Z/DZ | Built-in model numbers, noncompartmental analysis (NCA) configurations, PNAMES aliases, data transformations, multiple functions, command abbreviations and project archives |
 
 The arithmetic subset includes addition, subtraction, multiplication, division,
 powers, `exp`, `log`, `log10`, `sqrt`, trigonometric functions, `abs`, and binary
@@ -48,11 +48,11 @@ answer = dataset.run()
 print(answer["results"]["synthetic"]["outputs"][0]["values"])
 ```
 
-**Units are numerical coordinates.** State, parameter, dose and output units are
+**Physical units are not imported.** State, parameter, dose and output units are
 `1`, with the explicitly supplied source time unit `s`, `min`, `h` or `d`
 (`day` is accepted as an alias for `d`). Numbers are kept as written; QSPQuest
-does not know whether they mean mg, L or mg/L. Use a native unit-bearing model
-or SBML/OMEX when you need physical units. Inspect `warnings`, `symbol_map`,
+does not record whether they represent mg, L or mg/L. Use a native unit-bearing model
+or Systems Biology Markup Language (SBML)/OMEX when physical units are required. Inspect `warnings`, `symbol_map`,
 `output_map`, `compartment_map` and `source_sha256` before using an import.
 
 Statistical declarations are rejected by default. `structural_only=True` keeps
@@ -165,7 +165,7 @@ The relevant primary documentation is [NONMEM Users Guide VIII](https://nonmem.i
 Run `python -m pytest bindings/python/tests/test_software_adapters.py` for
 independent analytic PK, explicit individual effects, event and rejection checks.
 `bindings/r/tests/testthat/test-software-adapters.R` additionally evaluates
-generated rxode2 and nlmixr2 syntax in an actual rxode2 runtime:
+generated rxode2 and nlmixr2 syntax in an rxode2 runtime:
 
 ```sh
 python bindings/python/tests/test_software_adapters.py /tmp/qspquest-adapter-checks

@@ -67,6 +67,45 @@ fn problem(line: usize, column: usize, message: &str) -> Diagnostic {
         "Use the documented block syntax; unsupported features must be declared in a later supported version.",
     )
 }
+/// An identifier diagnostic that states the rule and suggests a legal spelling.
+fn invalid_name(line: usize, column: usize, kind: &str, name: &str) -> Diagnostic {
+    let mut suggestion = String::new();
+    let mut underscore = false;
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            suggestion.push(c.to_ascii_lowercase());
+            underscore = false;
+        } else if !underscore && !suggestion.is_empty() {
+            suggestion.push('_');
+            underscore = true;
+        }
+    }
+    let mut suggestion = suggestion.trim_end_matches('_').to_owned();
+    if suggestion
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_digit)
+    {
+        suggestion.insert_str(0, "p_");
+    }
+    if matches!(suggestion.as_str(), "true" | "false") {
+        suggestion.push_str("_value");
+    }
+    suggestion.truncate(128);
+    let hint = if suggestion.is_empty() || suggestion == name {
+        "Rename it using lowercase ASCII letters, digits after the first character and underscores."
+            .to_owned()
+    } else {
+        format!("Rename it, for example to '{suggestion}', and update every reference.")
+    };
+    Diagnostic::new(
+        line,
+        column,
+        "language_syntax",
+        &format!("Invalid {kind} name '{name}': identifiers use lowercase ASCII snake_case (a-z and _, digits after the first character), at most 128 bytes, and cannot be true or false"),
+        &hint,
+    )
+}
 fn identifier(name: &str) -> bool {
     !name.is_empty()
         && !matches!(name, "true" | "false")
@@ -355,7 +394,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid parameter name"));
+                    return Err(invalid_name(n, 1, "parameter", name));
                 }
                 let (default, mut tail) = quantity(value, n, col)?;
                 let mut transform = Transform::Identity;
@@ -435,7 +474,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                     .ok_or_else(|| problem(n, 1, "Missing covariate unit closing bracket"))?;
                 let name = line[..open].trim();
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid covariate name"));
+                    return Err(invalid_name(n, 1, "covariate", name));
                 }
                 let unit = line[open + 1..close].trim();
                 let tail = line[close + 1..].trim();
@@ -475,7 +514,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid individual parameter name"));
+                    return Err(invalid_name(n, 1, "individual parameter", name));
                 }
                 let (expr, unit) = if value.contains('[') {
                     let (expr, unit, tail) = unit_value(value, n, col)?;
@@ -626,7 +665,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, col, "Invalid dose-switch name"));
+                    return Err(invalid_name(n, col, "dose-switch", name));
                 }
                 let (predicate, policy) = value.rsplit_once(" simultaneous ").ok_or_else(|| {
                     problem(n, col, "Expected explicit simultaneous first|last policy")
@@ -679,7 +718,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid dose-history name"));
+                    return Err(invalid_name(n, 1, "dose-history", name));
                 }
                 let (kind, rest) = value.split_once('(').ok_or_else(|| {
                     problem(n, col, "Expected quantity(target) simultaneous first|last")
@@ -729,7 +768,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
             "switches" => {
                 let (name, value, col) = assignment(line, n)?;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid switch name"));
+                    return Err(invalid_name(n, 1, "switch", name));
                 }
                 let parsed = expression::parse(value, n, col + indent)?;
                 let (time, comparison) = match parsed {
@@ -758,7 +797,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid definition name"));
+                    return Err(invalid_name(n, 1, "definition", name));
                 }
                 let (expr, unit) = if value.contains('[') {
                     let (expr, unit, tail) = unit_value(value, n, col)?;
@@ -786,7 +825,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid state name"));
+                    return Err(invalid_name(n, 1, "state", name));
                 }
                 let (initial, initial_unit, mut tail) = unit_value(value, n, col)?;
                 let mut unit = initial_unit.clone();
@@ -868,7 +907,7 @@ pub fn parse(source: &str) -> Result<ParsedModel, Diagnostic> {
                 let (name, value, col) = assignment(line, n)?;
                 let col = col + indent;
                 if !identifier(name) {
-                    return Err(problem(n, 1, "Invalid output name"));
+                    return Err(invalid_name(n, 1, "output", name));
                 }
                 let (expr, unit, tail) = unit_value(value, n, col)?;
                 if !tail.is_empty() {

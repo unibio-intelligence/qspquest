@@ -45,9 +45,8 @@ pub fn generate_morris_design(input: &MorrisDesignRequest) -> Result<GeneratedMo
         || input.trajectory_count < 2
         || input.trajectory_count > 12
         || input.trajectory_count * (d + 1) > 25
-        || p < 4
-        || p > 100
-        || p % 2 != 0
+        || !(4..=100).contains(&p)
+        || !p.is_multiple_of(2)
     {
         return Err(invalid("Morris design requires 1..11 parameters, at least two trajectories, at most 25 points and even 4..100 grid levels"));
     }

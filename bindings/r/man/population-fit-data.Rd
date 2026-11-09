@@ -54,7 +54,7 @@ unmapped compartments/endpoints, extra columns, covariate records and censoring
 are rejected. The native engine performs model, unit, time and fitting checks.
 FOCEI and SAEM objectives differ and their numerical values are not directly
 interchangeable.}
-\seealso{\code{\link{nonmem_requests}}, \code{\link{fit_data_requests}}}
+\seealso{\code{\link{nonmem_requests}}, \code{\link{individual_fit_data_requests}}}
 \examples{
 q <- function(value, unit) list(value = value, unit = unit)
 model <- compile_model(paste(

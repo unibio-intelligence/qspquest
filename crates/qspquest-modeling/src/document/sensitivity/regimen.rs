@@ -278,6 +278,15 @@ impl Model for ScheduledSensitivity {
     fn check_state(&self, time: f64, state: &[f64]) -> Result<(), Error> {
         self.binding().check_state(time, state)
     }
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        self.binding()
+            .check_integrated_state(time, state, absolute_tolerances)
+    }
     fn dose_scale(&self, target: usize) -> Option<f64> {
         self.binding().dose_scale(target)
     }

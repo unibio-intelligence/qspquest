@@ -48,6 +48,35 @@ impl Trajectory {
     }
 }
 
+fn analyze(
+    model: Option<&std::sync::Arc<qspquest_modeling::document::CompiledDocument>>,
+    request_json: &str,
+) -> Result<String, JsValue> {
+    let failure = |value: serde_json::Value| JsValue::from_str(&value.to_string());
+    if request_json.len() > 50_000_000 {
+        return Err(failure(
+            serde_json::json!({"code":"invalid_input","message":"analysis request exceeds fifty million bytes"}),
+        ));
+    }
+    let request: serde_json::Value = serde_json::from_str(request_json).map_err(|e| {
+        failure(serde_json::json!({"code":"invalid_input","message":e.to_string()}))
+    })?;
+    let result = qspquest_modeling::analysis::execute_request(
+        model,
+        &request,
+        &mut qspquest_modeling::analysis::NoControl,
+    )
+    .map_err(|e| failure(e.to_value()))?;
+    serde_json::to_string(&result)
+        .map_err(|e| failure(serde_json::json!({"code":"invalid_input","message":e.to_string()})))
+}
+/// Run a `qspquest.analysis/v0.2` request on an existing result record
+/// (`exposure_summary` or `fit_diagnostics`); no model is needed.
+#[wasm_bindgen]
+pub fn analyze_record(request_json: &str) -> Result<String, JsValue> {
+    analyze(None, request_json)
+}
+
 /// Versioned simulation-document API used by the browser engine package.
 #[wasm_bindgen]
 pub struct CompiledSimulation {
@@ -152,6 +181,11 @@ impl CompiledSimulation {
         let request = serde_json::from_str(request_json).map_err(|e| invalid(e.to_string()))?;
         let result = self.model.execute_morris(&request).map_err(diagnostic)?;
         serde_json::to_string(&result).map_err(|e| invalid(e.to_string()))
+    }
+    /// Run one `qspquest.analysis/v0.2` request. Browser analyses are
+    /// single-threaded; `workers` is accepted and ignored.
+    pub fn analyze(&self, request_json: &str) -> Result<String, JsValue> {
+        analyze(Some(&self.model), request_json)
     }
     pub fn scan(&self, request_json: &str) -> Result<String, JsValue> {
         let invalid = |message: String| {

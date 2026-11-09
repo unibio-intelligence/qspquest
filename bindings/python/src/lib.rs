@@ -141,6 +141,17 @@ impl PythonModel {
             serde_json::to_string(&result).map_err(invalid)
         })
     }
+    /// Run one native analysis; arguments and result are JSON text.
+    #[pyo3(signature = (operation, arguments, control=None))]
+    fn analysis_json(
+        &self,
+        py: Python<'_>,
+        operation: String,
+        arguments: String,
+        control: Option<Py<PyAny>>,
+    ) -> PyResult<String> {
+        run_analysis(py, Some(self.inner.clone()), operation, arguments, control)
+    }
     #[getter]
     fn model_content_hash(&self) -> String {
         self.inner.model_content_hash().into()
@@ -389,8 +400,177 @@ fn convert_interchange_quantity(value: f64, from_unit: String, to_unit: String) 
         .and_then(|source| Unit::parse(&to_unit).and_then(|target| source.convert(value, target)));
     result.map_err(|error| NativeError::new_err(scientific(error).to_string()))
 }
+/// Cooperative cancellation flag shared with native analysis workers.
+#[pyclass(frozen, name = "CancelToken", module = "qspquest._native")]
+struct CancelToken {
+    flag: qspquest_modeling::analysis::CancelFlag,
+}
+#[pymethods]
+impl CancelToken {
+    #[new]
+    fn new() -> Self {
+        Self {
+            flag: Default::default(),
+        }
+    }
+    fn cancel(&self) {
+        self.flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    #[getter]
+    fn cancelled(&self) -> bool {
+        self.flag.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// Bridges native analysis hooks to a Python `AnalysisControl`. Hooks run on
+/// the calling thread with the GIL reacquired; a Python exception raised by a
+/// hook is kept and re-raised after the native call returns.
+struct PythonControl {
+    control: Py<PyAny>,
+    flag: Option<qspquest_modeling::analysis::CancelFlag>,
+    raised: Option<PyErr>,
+}
+impl PythonControl {
+    fn call(
+        &mut self,
+        method: &str,
+        arguments: impl for<'py> FnOnce(Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyTuple>>,
+    ) -> Result<Option<String>, qspquest_modeling::analysis::AnalysisError> {
+        let outcome = Python::attach(|py| -> PyResult<Option<String>> {
+            let args = arguments(py)?;
+            let value = self.control.bind(py).call_method1(method, args)?;
+            if value.is_none() {
+                Ok(None)
+            } else if let Ok(flag) = value.extract::<bool>() {
+                Ok(Some(flag.to_string()))
+            } else {
+                Ok(Some(value.extract::<String>()?))
+            }
+        });
+        outcome.map_err(|error| {
+            self.raised = Some(error);
+            qspquest_modeling::analysis::AnalysisError::new(
+                "callback",
+                "analysis control callback raised an exception",
+            )
+        })
+    }
+}
+impl qspquest_modeling::analysis::Control for PythonControl {
+    fn start(
+        &mut self,
+        operation: &str,
+        context: &Value,
+    ) -> Result<Option<Value>, qspquest_modeling::analysis::AnalysisError> {
+        let (operation, context) = (operation.to_string(), context.to_string());
+        match self.call("_native_start", move |py| {
+            pyo3::types::PyTuple::new(py, [operation, context])
+        })? {
+            None => Ok(None),
+            Some(text) => serde_json::from_str(&text).map(Some).map_err(|error| {
+                qspquest_modeling::analysis::AnalysisError::new("checkpoint", error.to_string())
+            }),
+        }
+    }
+    fn wants_state(&self, completed: usize, final_boundary: bool) -> bool {
+        Python::attach(|py| {
+            self.control
+                .bind(py)
+                .call_method1("_wants_state", (completed, final_boundary))
+                .and_then(|v| v.extract::<bool>())
+                .unwrap_or(false)
+        })
+    }
+    fn boundary(
+        &mut self,
+        progress: &Value,
+        state: Option<Value>,
+    ) -> Result<(), qspquest_modeling::analysis::AnalysisError> {
+        let progress = progress.to_string();
+        let state = state.map(|s| s.to_string());
+        self.call("_native_boundary", move |py| {
+            (progress, state).into_pyobject(py)
+        })?;
+        Ok(())
+    }
+    fn retain(&mut self, state: Value) -> Result<(), qspquest_modeling::analysis::AnalysisError> {
+        let state = state.to_string();
+        self.call("_native_retain", move |py| {
+            pyo3::types::PyTuple::new(py, [state])
+        })?;
+        Ok(())
+    }
+    fn cancel_flag(&self) -> Option<qspquest_modeling::analysis::CancelFlag> {
+        self.flag.clone()
+    }
+}
+
+fn run_analysis(
+    py: Python<'_>,
+    model: Option<Arc<CompiledDocument>>,
+    operation: String,
+    arguments: String,
+    control: Option<Py<PyAny>>,
+) -> PyResult<String> {
+    if arguments.len() > 50_000_000 {
+        return Err(NativeError::new_err(
+            invalid("analysis arguments exceed fifty million bytes").to_string(),
+        ));
+    }
+    let mut bridge = match control {
+        None => None,
+        Some(control) => {
+            let flag = control
+                .bind(py)
+                .getattr("_token")?
+                .cast_into::<CancelToken>()
+                .map_err(PyErr::from)?
+                .get()
+                .flag
+                .clone();
+            Some(PythonControl {
+                control,
+                flag: Some(flag),
+                raised: None,
+            })
+        }
+    };
+    let outcome = py.detach(|| {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let arguments: Value = serde_json::from_str(&arguments).map_err(|e| {
+                qspquest_modeling::analysis::AnalysisError::new("invalid_input", e.to_string())
+            })?;
+            let mut none = qspquest_modeling::analysis::NoControl;
+            let control: &mut dyn qspquest_modeling::analysis::Control = match bridge.as_mut() {
+                Some(bridge) => bridge,
+                None => &mut none,
+            };
+            qspquest_modeling::analysis::execute(model.as_ref(), &operation, &arguments, control)
+        }))
+    });
+    if let Some(error) = bridge.and_then(|b| b.raised) {
+        return Err(error);
+    }
+    match outcome {
+        Ok(Ok(value)) => {
+            serde_json::to_string(&value).map_err(|e| NativeError::new_err(invalid(e).to_string()))
+        }
+        Ok(Err(error)) => Err(NativeError::new_err(error.to_value().to_string())),
+        Err(_) => Err(NativeError::new_err(
+            json!({"code":"internal","message":"Rust execution panicked; no result returned"})
+                .to_string(),
+        )),
+    }
+}
+/// Run an analysis of an existing result record; no model is required.
+#[pyfunction]
+fn analysis_record_json(py: Python<'_>, operation: String, arguments: String) -> PyResult<String> {
+    run_analysis(py, None, operation, arguments, None)
+}
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<CancelToken>()?;
+    m.add_function(wrap_pyfunction!(analysis_record_json, m)?)?;
     m.add_class::<PythonModel>()?;
     m.add_class::<PythonSensitivities>()?;
     m.add_function(wrap_pyfunction!(format_model, m)?)?;

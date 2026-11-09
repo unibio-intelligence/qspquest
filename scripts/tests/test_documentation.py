@@ -1,9 +1,12 @@
 """Refuse documentation drift and links missing from their delivery context."""
+import re
 import importlib
 import importlib.util
 import json
 from pathlib import Path
 import shutil
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -35,7 +38,8 @@ class DocumentationTests(unittest.TestCase):
         paths['examples/synthetic/README.md'] = '# Synthetic model\n'
         for name in ('__init__', 'friendly', 'control', 'doctor', 'dataset',
                      'estimation', 'population', 'diagnostics', 'uncertainty',
-                     'exposure', 'derivatives', 'report', 'interchange', 'individual'):
+                     'exposure', 'nca', 'derivatives', 'report', 'interchange',
+                     'individual', 'tables', 'plot/__init__', 'plot/style', 'plot/pkpd'):
             paths[f'bindings/python/python/qspquest/{name}.py'] = '"""API fixture."""\n'
         for name, text in paths.items():
             path = root / name
@@ -76,6 +80,11 @@ class DocumentationTests(unittest.TestCase):
                  'bindings/python/python/qspquest/SECURITY.md',
                  'bindings/mcp/assets/fits/population.json'}
         paths.update(entry['source'] for entry in index['resources'])
+        # Embedded pages may show figures; the generator checks that each image exists.
+        for name in [p for p in paths if p.endswith('.md')]:
+            for image in re.findall(r'!\[[^\]\n]+\]\(([^\s()]+)\)', (ROOT / name).read_text()):
+                if '://' not in image:
+                    paths.add(str((Path(name).parent / image).as_posix()))
         for name in paths:
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,21 +100,26 @@ class DocumentationTests(unittest.TestCase):
         self.assertGreaterEqual(report['local_links'], 179)
         self.assertGreaterEqual(report['embedded_resource_links'], 29)
 
-    def test_guide_edit_without_regenerating_the_index_is_refused(self):
+    def test_body_edits_need_no_regenerated_index(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
             path = root / 'spec/language.md'
-            path.write_text(path.read_text() + '\nChanged guide.\n')
-            with self.assertRaisesRegex(ValueError, 'index differs'):
-                check(root)
-
-    def test_embedded_schema_drift_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = self.source(directory)
+            path.write_text(path.read_text() + '\nAn added paragraph.\n')
             path = root / 'spec/schema/run.schema.json'
             value = json.loads(path.read_text())
-            value['definitions']['Solver']['enum'].append('not_a_solver')
+            value['description'] = 'Edited schema description.'
             path.write_text(json.dumps(value))
+            path = root / 'spec/capabilities.json'
+            value = json.loads(path.read_text())
+            value['scope'] += ' Edited.'
+            path.write_text(json.dumps(value))
+            self.assertEqual(check(root)['status'], 'matched')
+
+    def test_heading_edit_without_regenerating_the_index_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.source(directory)
+            path = root / 'spec/language.md'
+            path.write_text(path.read_text() + '\n## Added section\n')
             with self.assertRaisesRegex(ValueError, 'index differs'):
                 check(root)
 
@@ -142,6 +156,58 @@ class DocumentationTests(unittest.TestCase):
     def test_duplicate_headings_and_fenced_links(self):
         self.assertEqual(anchors('# Guide\n## Units\n## Units\n```md\n# Ignored\n```\n'),
                          {'guide', 'units', 'units-1'})
+
+
+class TutorialExecutionTests(unittest.TestCase):
+    def run_tutorials(self, directory, failure=None):
+        root = Path(directory)
+        scripts = root / 'scripts'
+        scripts.mkdir()
+        runner = scripts / 'check_tutorial_outputs.py'
+        shutil.copyfile(ROOT / 'scripts/check_tutorial_outputs.py', runner)
+        examples = root / 'docs/examples'
+        examples.mkdir(parents=True)
+        tutorials = root / 'docs/tutorials'
+        tutorials.mkdir()
+        for name in ('single-dose-pk', 'multiple-dose-pk'):
+            stem = name.replace('-', '_')
+            (tutorials / (name + '.md')).write_text(
+                f'```sh\npython docs/examples/{stem}.py --out output\n```\n'
+                'prints:\n\n```text\nvalue 1.0\n```\n')
+            (examples / (stem + '.py')).write_text('print("value 1.0")\n')
+        figure_source = """import os
+from pathlib import Path
+assert os.environ['MPLBACKEND'] == 'Agg'
+Path(os.environ['MPLCONFIGDIR'], 'cache-probe').write_text('writable')
+Path(os.environ['QSPQUEST_FIGURE_DIR']).mkdir(parents=True, exist_ok=True)
+Path(os.environ['QSPQUEST_FIGURE_DIR'], 'figure.txt').write_text('synthetic figure')
+"""
+        for name in ('single_dose_pk', 'multiple_dose_pk', 'oral_pk_analysis',
+                     'parallel_predictive_checks', 'population_log_wald',
+                     'profiled_proportional_errors', 'paired_endpoint_fitting',
+                     'discrete_data_fitting', 'inverse_gaussian_input'):
+            (examples / (name + '_figures.py')).write_text(figure_source)
+        if failure:
+            (examples / failure).write_text('import sys\nprint("synthetic failure", file=sys.stderr)\nsys.exit(7)\n')
+        return subprocess.run([sys.executable, str(runner)], capture_output=True, text=True,
+                              env={**os.environ, 'MPLBACKEND': 'macosx',
+                                   'MPLCONFIGDIR': str(root / 'missing/cache')})
+
+    def test_tutorial_figures_override_desktop_backend_and_unwritable_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_tutorials(directory)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('2 tutorials match their documented output', result.stdout)
+
+    def test_example_and_both_figure_loops_propagate_child_failures(self):
+        for filename in ('single_dose_pk.py', 'single_dose_pk_figures.py',
+                         'oral_pk_analysis_figures.py'):
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as directory:
+                result = self.run_tutorials(directory, filename)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('exit 7', result.stderr)
+                self.assertIn('synthetic failure', result.stderr)
+                self.assertNotIn('tutorials match', result.stdout)
 
 
 if __name__ == '__main__':

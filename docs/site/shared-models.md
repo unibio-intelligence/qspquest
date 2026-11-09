@@ -2,7 +2,7 @@
 
 Use the [public model library](https://github.com/unibio-intelligence/qspquest-models)
 for OMEX archives, named presets, model cards and stored results. With Docker,
-[mount the library once](containers.md#mount-the-model-library-once),
+[mount the library once](containers.md#mount-the-model-library),
 then discover and run models through CLI/Python, R, notebooks or MCP. All use the
 same catalog and selected archive versions.
 
@@ -95,7 +95,7 @@ a pinned HTTPS library archive with its SHA-256. A hosted download URL is not
 yet available. Local Docker workflows
 use the extracted companion archive and run offline after image construction.
 
-## Explore local versus systemic receptor occupancy
+## Local and systemic receptor occupancy
 
 The [Target-Gated Cargo QSP tutorial](https://github.com/unibio-intelligence/qspquest-models/blob/main/tutorials/qsp-gated-cargo.md)
 uses a synthetic 11-state mechanism, with [Python](https://github.com/unibio-intelligence/qspquest-models/blob/main/tutorials/qsp-gated-cargo.ipynb)

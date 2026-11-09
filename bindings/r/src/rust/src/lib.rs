@@ -92,4 +92,36 @@ fn qspquest_fit_probit_normal_binomial(request: &str) -> NativeResult<String> {
         .map_err(scientific)?;
     serde_json::to_string(&result).map_err(invalid)
 }
-extendr_module! {mod qspquest; fn qspquest_compile; fn qspquest_execute; fn qspquest_fit_gamma_poisson; fn qspquest_fit_probit_normal_binomial;}
+fn analysis(
+    model: Option<&Arc<CompiledDocument>>,
+    operation: &str,
+    arguments: &str,
+) -> NativeResult<String> {
+    if arguments.len() > 50_000_000 {
+        return Err(invalid("analysis arguments exceed fifty million bytes"));
+    }
+    let arguments: serde_json::Value = serde_json::from_str(arguments).map_err(invalid)?;
+    let result = qspquest_modeling::analysis::execute(
+        model,
+        operation,
+        &arguments,
+        &mut qspquest_modeling::analysis::NoControl,
+    )
+    .map_err(|error| error.to_value().to_string())?;
+    serde_json::to_string(&result).map_err(invalid)
+}
+/// Native analysis of a compiled model; arguments and result are JSON text.
+#[extendr]
+fn qspquest_analysis(
+    model: ExternalPtr<RModel>,
+    operation: &str,
+    arguments: &str,
+) -> NativeResult<String> {
+    analysis(Some(&model.compiled), operation, arguments)
+}
+/// Native analysis of an existing result record.
+#[extendr]
+fn qspquest_analysis_record(operation: &str, arguments: &str) -> NativeResult<String> {
+    analysis(None, operation, arguments)
+}
+extendr_module! {mod qspquest; fn qspquest_compile; fn qspquest_execute; fn qspquest_analysis; fn qspquest_analysis_record; fn qspquest_fit_gamma_poisson; fn qspquest_fit_probit_normal_binomial;}

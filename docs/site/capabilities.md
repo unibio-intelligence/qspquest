@@ -8,6 +8,7 @@ qualification.
 
 | Workflow | Rust | Python | R | CLI | Direct WASM | Browser Worker | Sandbox ABI | MCP |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Analysis SAEM with 1–8 effects | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Bounded experiment archive export | — | Requires `interchange` | — | — | — | — | — | — |
 | Bounded experiment archive import | — | Requires `interchange` | — | — | — | — | — | — |
 | Bounded periodic-state iteration | Declared | Declared | — | Declared | Declared | — | — | — |
@@ -15,12 +16,16 @@ qualification.
 | Bounded SBML import | — | Requires `interchange` | — | — | — | — | — | — |
 | Cancel offline local job | — | — | — | — | — | — | — | Declared |
 | Compile model | — | — | — | — | — | — | Requires `sandbox-abi` | — |
-| Conditional fit diagnostics | — | Requires `analysis` | — | — | — | — | — | — |
+| Conditional fit diagnostics | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
+| Edit a model by mechanism | — | — | — | — | — | — | — | Declared |
 | Evaluate initial patient quantities | — | — | — | — | — | — | — | Declared |
+| Find a dose meeting a readout requirement | — | — | — | — | — | — | — | Declared |
+| Fork a library model into readable editable source | — | — | — | — | — | — | — | Declared |
 | Format complete decision responses | — | — | — | — | — | — | — | Declared |
 | Gamma–Poisson count fitting | Declared | Declared | Declared | Declared | — | — | — | — |
 | Inspect model interface | — | — | — | — | — | — | — | Declared |
 | Inspect offline local job | — | — | — | — | — | — | — | Declared |
+| Likelihood fit with fitted errors, M3 and event quantities | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Native bounded population fit | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Native bounded scalar Gaussian fit | Declared | Declared | — | Declared | — | — | Requires `sandbox-abi` | Declared |
 | Native fixed-event sensitivities | Declared | Declared | — | Declared | Declared | — | — | — |
@@ -28,8 +33,8 @@ qualification.
 | Native Morris screening | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Native parameter scans | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Native simulation | Declared | Declared | Declared | Declared | Declared | Declared | Requires `sandbox-abi` | Declared |
-| Numerical moving-event sensitivities | — | Requires `analysis` | — | — | — | — | — | — |
-| Paired regimen comparison | — | Requires `analysis` | — | — | — | — | — | Declared |
+| Numerical moving-event sensitivities | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
+| Paired regimen comparison | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Declared |
 | Parse model without compilation | — | — | — | — | — | — | Requires `sandbox-abi` | — |
 | Periodic linear PK steady state | Declared | Declared | — | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Plan periodic BDF iteration | Declared | — | — | Declared | — | — | — | — |
@@ -43,31 +48,33 @@ qualification.
 | Prepare native fitting workflows | Declared | — | — | Declared | — | — | — | Declared |
 | Preview governed job | — | — | — | — | — | — | — | Requires `managed` |
 | Probit-normal binomial fitting | Declared | Declared | Declared | Declared | — | — | — | — |
-| Profile likelihood | — | Requires `analysis` | — | — | — | — | — | — |
-| Progress, cancellation and restart checkpoints | — | Requires `analysis` | — | — | — | — | — | — |
-| Python likelihood fit with fitted errors and M3 | — | Requires `analysis` | — | — | — | — | — | — |
-| Python SAEM with 1–8 effects | — | Requires `analysis` | — | — | — | — | — | — |
+| Profile likelihood | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
+| Progress, cancellation and restart checkpoints | — | Declared | — | — | — | — | — | — |
 | Query capability and model blockers | — | — | — | — | — | — | — | Declared |
+| Rank parameter influence on readouts | — | — | — | — | — | — | — | Declared |
 | Read governed artifact | — | — | — | — | — | — | — | Requires `managed` |
 | Read governed job | — | — | — | — | — | — | — | Requires `managed` |
 | Resume offline local job | — | — | — | — | — | — | — | Declared |
 | Retrieve stored scenario request | — | — | — | — | — | — | — | Declared |
 | Retrieve synthetic model template | — | — | — | — | — | — | — | Declared |
-| Sampled-grid exposure summaries | — | Requires `analysis` | — | — | — | — | — | — |
+| Sampled-grid exposure summaries | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Search model catalog | — | — | — | — | — | — | — | Declared |
-| Subject bootstrap | — | Requires `analysis` | — | — | — | — | — | — |
+| Single-dose noncompartmental analysis | — | Declared | — | — | — | — | — | — |
+| Steady state by repeated intervals for any model | — | — | — | — | — | — | — | Declared |
+| Subject bootstrap | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Submit governed population fit | — | — | — | — | — | — | — | Requires `managed` |
 | Submit governed scan | — | — | — | — | — | — | — | Requires `managed` |
 | Submit governed simulation | — | — | — | — | — | — | — | Requires `managed` |
 | Submit offline local job | — | — | — | — | — | — | — | Declared |
 | Summarize supplied sampled profile | — | — | — | — | — | — | — | Declared |
 | Validate model | — | — | — | — | — | — | Requires `sandbox-abi` | Declared |
-| VPC and prediction-corrected VPC | — | Requires `analysis` | — | — | — | — | — | — |
+| VPC and prediction-corrected VPC | Declared | Declared | Declared | Declared | Declared | — | Requires `sandbox-abi` | Requires `analysis` |
 | Wait for governed job | — | — | — | — | — | — | — | Requires `managed` |
 
-The Python column combines the native binding and the optional analysis helpers
-(`python_analysis`, installed with the `analysis` extra). Native and Python SAEM
-are different estimators. Direct WASM browser classes are absent in `sandbox-abi`
+The Python column combines the native binding and the analysis workflows
+(`python_analysis`), which run in the native engine and need no extra. The
+`saem` fit request and the analysis `fit_population` run the same SAEM
+engine. Direct WASM browser classes are absent in `sandbox-abi`
 builds, and the browser Worker runs BDF simulation only.
 
 ## Solvers

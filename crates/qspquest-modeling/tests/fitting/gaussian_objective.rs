@@ -534,26 +534,25 @@ fn pooled_solver_identity_matches_each_subject_and_rejects_seeds() {
     let FitProblem::Individual(individual) = base.problem else {
         panic!()
     };
-    for (primary_solver, secondary_solver, algorithm) in [(
+    let (primary_solver, secondary_solver, algorithm) = (
         Solver::DiffsolBdf,
         Solver::DiffsolBdf,
         "bdf_forward_pooled_gaussian_objective",
-    )] {
-        let mut primary = individual.clone();
-        primary.objective.simulation.run.solver = primary_solver;
-        let mut other = primary.objective.clone();
-        other.simulation.run.solver = secondary_solver;
-        let result = compiled
-            .fit_pooled_gaussian(&PooledGaussianFitRequest {
-                fit: primary,
-                additional_subjects: vec![other],
-            })
-            .unwrap();
-        assert_eq!(result.status, FitStatus::Converged);
-        assert_eq!(result.objective.identity.algorithm, algorithm);
-        assert!((result.parameters["cl"].value - 0.6).abs() < 1e-5);
-        assert!((result.parameters["v"].value - 4.5).abs() < 1e-5);
-    }
+    );
+    let mut primary = individual.clone();
+    primary.objective.simulation.run.solver = primary_solver;
+    let mut other = primary.objective.clone();
+    other.simulation.run.solver = secondary_solver;
+    let result = compiled
+        .fit_pooled_gaussian(&PooledGaussianFitRequest {
+            fit: primary,
+            additional_subjects: vec![other],
+        })
+        .unwrap();
+    assert_eq!(result.status, FitStatus::Converged);
+    assert_eq!(result.objective.identity.algorithm, algorithm);
+    assert!((result.parameters["cl"].value - 0.6).abs() < 1e-5);
+    assert!((result.parameters["v"].value - 4.5).abs() < 1e-5);
     let mut seeded = individual.objective.simulation;
     seeded.run.solver = Solver::DiffsolBdf;
     seeded.run.seed = Some(17);

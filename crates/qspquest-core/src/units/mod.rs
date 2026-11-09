@@ -94,6 +94,56 @@ pub enum Entity {
 }
 impl Dimension {
     pub const NONE: Self = Self([0; 10]);
+    /// A readable description such as "amount/(volume.time)" or "dimensionless".
+    pub fn describe(self) -> String {
+        const NAMES: [&str; 10] = [
+            "mass",
+            "length",
+            "time",
+            "amount",
+            "temperature",
+            "current",
+            "luminous intensity",
+            "activity",
+            "cells",
+            "genomes",
+        ];
+        let mut numerator = Vec::new();
+        let mut denominator = Vec::new();
+        for (i, exponent) in self.0.iter().enumerate() {
+            if *exponent == 0 {
+                continue;
+            }
+            let (name, power) = if i == 1 && exponent % 3 == 0 {
+                ("volume", exponent / 3)
+            } else {
+                (NAMES[i], *exponent)
+            };
+            let term = |p: i16| {
+                if p.abs() == 1 {
+                    name.to_owned()
+                } else {
+                    format!("{name}^{}", p.abs())
+                }
+            };
+            if power > 0 {
+                numerator.push(term(power));
+            } else {
+                denominator.push(term(power));
+            }
+        }
+        let top = if numerator.is_empty() {
+            "1".to_owned()
+        } else {
+            numerator.join(".")
+        };
+        match denominator.len() {
+            0 if numerator.is_empty() => "dimensionless".into(),
+            0 => top,
+            1 => format!("{top}/{}", denominator[0]),
+            _ => format!("{top}/({})", denominator.join(".")),
+        }
+    }
     /// Stable planning coordinates: seven SI dimensions and international activity.
     pub fn physical_activity(self) -> [i16; 8] {
         self.0[..8]
@@ -295,10 +345,27 @@ fn atom(code: &str) -> Result<Unit, Error> {
         "Gy" | "Sv" => ([0, 2, -2, 0, 0, 0, 0], 1, 1),
         "kat" => ([0, 0, -1, 1, 0, 0, 0], 1, 1),
         _ => {
+            let hint = match code {
+                "nM" => " (write nmol/L)",
+                "uM" | "µM" | "μM" => " (write umol/L)",
+                "pM" => " (write pmol/L)",
+                "mM" => " (write mmol/L)",
+                "M" => " (write mol/L)",
+                "Da" => " (molar mass: write g/mol)",
+                "kDa" => " (molar mass: write kg/mol)",
+                "day" | "days" => " (write d)",
+                "hr" | "hour" | "hours" => " (write h)",
+                "sec" => " (write s)",
+                "week" | "weeks" => " (write wk)",
+                "mcg" | "µg" | "μg" => " (write ug)",
+                "cells" | "cell" => " (write [cell])",
+                "IU" => " (write [IU])",
+                _ => " (see the units guide for the supported atoms)",
+            };
             return Err(failure(
                 ErrorCode::UnknownUnit,
-                "unit atom is outside the supported UCUM subset",
-            ))
+                &format!("unit atom '{code}' is outside the supported UCUM subset{hint}"),
+            ));
         }
     };
     Ok(Unit {
@@ -343,7 +410,7 @@ impl Parser<'_> {
             self.position += 1;
             let value = self.term(depth + 1)?;
             if self.bytes.get(self.position) != Some(&b')') {
-                return Err(failure(ErrorCode::UnknownUnit, "unclosed unit group"));
+                return Err(failure(ErrorCode::UnknownUnit, "unclosed unit group: a '(' has no matching ')', or the group contains an operator other than . and / (write mg.d, not mg*d)"));
             }
             self.position += 1;
             value

@@ -11,209 +11,6 @@ pub(super) fn exact_unit(unit: Unit, declared: Option<&str>) -> ExactUnit {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::{json, Value};
-
-    fn fixture() -> (Value, RunRequest) {
-        (
-            serde_json::from_str(include_str!(
-                "../../../../conformance/models/synthetic-one-compartment.json"
-            ))
-            .unwrap(),
-            serde_json::from_str(include_str!(
-                "../../../../conformance/requests/synthetic-one-compartment.json"
-            ))
-            .unwrap(),
-        )
-    }
-
-    #[test]
-    fn typed_plan_reports_bound_values_exact_inferred_units_and_real_delivery() {
-        let (mut document, mut run) = fixture();
-        document["individual"] = json!([{"name":"rate","expression":{"kind":"binary","operator":"divide","arguments":[{"kind":"symbol","name":"cl"},{"kind":"symbol","name":"v"}]}}]);
-        run.parameters.insert(
-            "cl".into(),
-            Quantity {
-                value: 300.,
-                unit: "mL/h".into(),
-            },
-        );
-        run.initial_states.insert(
-            "central".into(),
-            Quantity {
-                value: 3000.,
-                unit: "ug".into(),
-            },
-        );
-        run.regimen.administrations[0].delivery = qspquest_core::regimen::Delivery::Infusion {
-            span: qspquest_core::regimen::InfusionSpan::Duration {
-                duration: Quantity {
-                    value: 60.,
-                    unit: "min".into(),
-                },
-            },
-        };
-        let compiled =
-            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
-        let plan = compiled.plan_run(&run).unwrap();
-        let cl = plan.binding_phases[0]
-            .inputs
-            .iter()
-            .find(|p| p.name == "cl")
-            .unwrap();
-        assert_eq!(cl.value, 0.3);
-        assert_eq!(cl.unit.declared.as_deref(), Some("L/h"));
-        let rate = plan.binding_phases[0]
-            .inputs
-            .iter()
-            .find(|p| p.name == "rate")
-            .unwrap();
-        let base_rate = rate.value * rate.unit.scale_numerator.parse::<f64>().unwrap()
-            / rate.unit.scale_denominator.parse::<f64>().unwrap();
-        assert!((base_rate - 0.1 / 3600.).abs() < 1e-18);
-        assert_eq!(rate.unit.dimensions, [0, 0, -1, 0, 0, 0, 0, 0]);
-        assert_eq!(rate.unit.scale_numerator, "1");
-        assert_eq!(rate.unit.scale_denominator, "1");
-        assert!(rate.unit.declared.is_none());
-        assert_eq!(plan.states[0].initial, 3.);
-        assert!(matches!(
-            plan.events[0].event,
-            crate::Event::Infusion {
-                duration: 1.,
-                amount: 6.,
-                ..
-            }
-        ));
-        let executed = compiled.execute(&run).unwrap();
-        assert_eq!(plan.prospective_identity, executed.identity);
-        let mut value = serde_json::to_value(&plan).unwrap();
-        assert_eq!(value["schema"], "qspquest.run-plan/v0.1");
-        assert!(value["outputs"][0].get("values").is_none());
-        value["executed"] = json!(true);
-        assert!(serde_json::from_value::<RunPlan>(value).is_err());
-    }
-
-    #[test]
-    fn entity_units_reach_the_plan_and_reject_wrong_entity_overrides() {
-        let (mut document, mut run) = fixture();
-        document["states"][0]["unit"] = json!("[cell]");
-        document["states"][0]["initial"]["quantity"]["unit"] = json!("[cell]");
-        document["states"][0]["dosing"]["amount_unit"] = json!("[cell]");
-        document["outputs"][0]["unit"] = json!("[cell]/L");
-        run.regimen.administrations[0].amount.unit = "[cell]".into();
-        let compiled =
-            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
-        let plan = compiled.plan_run(&run).unwrap();
-        assert_eq!(
-            plan.events[0]
-                .quantity_unit
-                .entities
-                .get(&qspquest_core::units::Entity::Cell),
-            Some(&1)
-        );
-        assert_eq!(plan.events[0].quantity_unit.dimensions, [0; 8]);
-        assert_eq!(plan.states[0].unit, "[cell]");
-        run.initial_states.insert(
-            "central".into(),
-            Quantity {
-                value: 1.,
-                unit: "[genome]".into(),
-            },
-        );
-        let error = compiled.plan_run(&run).unwrap_err();
-        assert_eq!(error.code, ErrorCode::Unit);
-        assert!(!error.message.contains("molar mass"));
-    }
-
-    #[test]
-    fn plan_does_not_integrate_or_certify_future_domain_success() {
-        for invalid_rhs in [false, true] {
-            let (mut document, run) = fixture();
-            let undefined = json!({"kind":"binary","operator":"divide","arguments":[{"kind":"literal","value":0},{"kind":"literal","value":0}]});
-            if invalid_rhs {
-                document["states"][0]["rhs"] = json!({"kind":"binary","operator":"multiply","arguments":[document["states"][0]["rhs"].clone(),undefined]});
-            } else {
-                document["outputs"]
-                    .as_array_mut()
-                    .unwrap()
-                    .push(json!({"name":"undefined","unit":"1","expression":undefined}));
-            }
-            let compiled =
-                CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
-            let plan = compiled.plan_run(&run).unwrap();
-            assert_eq!(plan.deferred_checks.len(), 4);
-            assert_eq!(compiled.execute(&run).unwrap_err().code, ErrorCode::Domain);
-        }
-    }
-
-    #[test]
-    fn plan_reports_actual_pointwise_readout_inputs_and_selection() {
-        let (mut document, run) = fixture();
-        document["parameters"].as_array_mut().unwrap().push(json!({
-            "name":"boundary","default":{"value":2,"unit":"h"},
-            "transform":"identity","fixed":true,"description":""
-        }));
-        document["switches"] =
-            json!([{"name":"phase","time":{"kind":"symbol","name":"boundary"},"comparison":"le"}]);
-        document["dose_switches"] = json!([{"name":"recent","target":"central","offset":{"kind":"symbol","name":"boundary"},"comparison":"le","simultaneous":"first"}]);
-        for name in ["phase", "recent"] {
-            document["outputs"]
-                .as_array_mut()
-                .unwrap()
-                .push(json!({"name":name,"unit":"1","expression":{"kind":"symbol","name":name}}));
-        }
-        let compiled =
-            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
-        let selected = ["phase".into(), "recent".into()];
-        let plan = compiled.plan_run_selected(&run, Some(&selected)).unwrap();
-        let at_two = plan
-            .readout_overrides
-            .iter()
-            .find(|p| plan.observations[p.observation].time == 2.)
-            .unwrap();
-        assert_eq!(at_two.covariates["phase"].value, 1.);
-        assert!(at_two
-            .covariates
-            .iter()
-            .any(|(name, q)| name.ends_with("_value") && q.value == 1.));
-        assert_eq!(plan.selected_outputs.as_deref(), Some(selected.as_slice()));
-        let result = compiled.execute_selected(&run, Some(&selected)).unwrap();
-        assert_eq!(plan.prospective_identity, result.identity);
-        assert_eq!(result.outputs[0].values[2], 1.);
-        assert_eq!(result.outputs[1].values[2], 1.);
-        assert!(plan
-            .binding_phases
-            .iter()
-            .flat_map(|p| &p.inputs)
-            .filter(|i| i.name == "phase" || i.name.starts_with("dose_switch_internal_"))
-            .all(|i| matches!(i.kind, BindingKind::DerivedCovariate)));
-    }
-    #[test]
-    fn pointwise_plan_metadata_is_bounded_before_retention() {
-        let (mut document, mut run) = fixture();
-        document["parameters"].as_array_mut().unwrap().push(json!({
-            "name":"offset","default":{"value":100,"unit":"h"},"transform":"identity","fixed":true,"description":""
-        }));
-        document["dose_switches"]=json!((0..5).map(|i|json!({"name":format!("recent_{i}"),"target":"central","offset":{"kind":"symbol","name":"offset"},"comparison":"le","simultaneous":"first"})).collect::<Vec<_>>());
-        run.regimen.observations = None;
-        run.regimen.samples = (0..300)
-            .map(|i| Quantity {
-                value: i as f64 * 12. / 299.,
-                unit: "h".into(),
-            })
-            .collect();
-        run.budgets.output_values = 2_000;
-        let compiled =
-            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
-        compiled.prepare_selected(&run, None).unwrap();
-        let error = compiled.plan_run(&run).unwrap_err();
-        assert_eq!(error.code, ErrorCode::OutputBudget);
-        assert_eq!(error.expression.as_deref(), Some("plan.readout_overrides"));
-    }
-}
-
 impl CompiledDocument {
     /// Prepare a run without integration or readout evaluation.
     /// The prospective identity is shared with execution; future domain and convergence
@@ -468,5 +265,208 @@ impl CompiledDocument {
             });
         }
         Ok(inputs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    fn fixture() -> (Value, RunRequest) {
+        (
+            serde_json::from_str(include_str!(
+                "../../../../conformance/models/synthetic-one-compartment.json"
+            ))
+            .unwrap(),
+            serde_json::from_str(include_str!(
+                "../../../../conformance/requests/synthetic-one-compartment.json"
+            ))
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn typed_plan_reports_bound_values_exact_inferred_units_and_real_delivery() {
+        let (mut document, mut run) = fixture();
+        document["individual"] = json!([{"name":"rate","expression":{"kind":"binary","operator":"divide","arguments":[{"kind":"symbol","name":"cl"},{"kind":"symbol","name":"v"}]}}]);
+        run.parameters.insert(
+            "cl".into(),
+            Quantity {
+                value: 300.,
+                unit: "mL/h".into(),
+            },
+        );
+        run.initial_states.insert(
+            "central".into(),
+            Quantity {
+                value: 3000.,
+                unit: "ug".into(),
+            },
+        );
+        run.regimen.administrations[0].delivery = qspquest_core::regimen::Delivery::Infusion {
+            span: qspquest_core::regimen::InfusionSpan::Duration {
+                duration: Quantity {
+                    value: 60.,
+                    unit: "min".into(),
+                },
+            },
+        };
+        let compiled =
+            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
+        let plan = compiled.plan_run(&run).unwrap();
+        let cl = plan.binding_phases[0]
+            .inputs
+            .iter()
+            .find(|p| p.name == "cl")
+            .unwrap();
+        assert_eq!(cl.value, 0.3);
+        assert_eq!(cl.unit.declared.as_deref(), Some("L/h"));
+        let rate = plan.binding_phases[0]
+            .inputs
+            .iter()
+            .find(|p| p.name == "rate")
+            .unwrap();
+        let base_rate = rate.value * rate.unit.scale_numerator.parse::<f64>().unwrap()
+            / rate.unit.scale_denominator.parse::<f64>().unwrap();
+        assert!((base_rate - 0.1 / 3600.).abs() < 1e-18);
+        assert_eq!(rate.unit.dimensions, [0, 0, -1, 0, 0, 0, 0, 0]);
+        assert_eq!(rate.unit.scale_numerator, "1");
+        assert_eq!(rate.unit.scale_denominator, "1");
+        assert!(rate.unit.declared.is_none());
+        assert_eq!(plan.states[0].initial, 3.);
+        assert!(matches!(
+            plan.events[0].event,
+            crate::Event::Infusion {
+                duration: 1.,
+                amount: 6.,
+                ..
+            }
+        ));
+        let executed = compiled.execute(&run).unwrap();
+        assert_eq!(plan.prospective_identity, executed.identity);
+        let mut value = serde_json::to_value(&plan).unwrap();
+        assert_eq!(value["schema"], "qspquest.run-plan/v0.1");
+        assert!(value["outputs"][0].get("values").is_none());
+        value["executed"] = json!(true);
+        assert!(serde_json::from_value::<RunPlan>(value).is_err());
+    }
+
+    #[test]
+    fn entity_units_reach_the_plan_and_reject_wrong_entity_overrides() {
+        let (mut document, mut run) = fixture();
+        document["states"][0]["unit"] = json!("[cell]");
+        document["states"][0]["initial"]["quantity"]["unit"] = json!("[cell]");
+        document["states"][0]["dosing"]["amount_unit"] = json!("[cell]");
+        document["outputs"][0]["unit"] = json!("[cell]/L");
+        run.regimen.administrations[0].amount.unit = "[cell]".into();
+        let compiled =
+            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
+        let plan = compiled.plan_run(&run).unwrap();
+        assert_eq!(
+            plan.events[0]
+                .quantity_unit
+                .entities
+                .get(&qspquest_core::units::Entity::Cell),
+            Some(&1)
+        );
+        assert_eq!(plan.events[0].quantity_unit.dimensions, [0; 8]);
+        assert_eq!(plan.states[0].unit, "[cell]");
+        run.initial_states.insert(
+            "central".into(),
+            Quantity {
+                value: 1.,
+                unit: "[genome]".into(),
+            },
+        );
+        let error = compiled.plan_run(&run).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unit);
+        assert!(!error.message.contains("molar mass"));
+    }
+
+    #[test]
+    fn plan_does_not_integrate_or_certify_future_domain_success() {
+        for invalid_rhs in [false, true] {
+            let (mut document, run) = fixture();
+            let undefined = json!({"kind":"binary","operator":"divide","arguments":[{"kind":"literal","value":0},{"kind":"literal","value":0}]});
+            if invalid_rhs {
+                document["states"][0]["rhs"] = json!({"kind":"binary","operator":"multiply","arguments":[document["states"][0]["rhs"].clone(),undefined]});
+            } else {
+                document["outputs"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"name":"undefined","unit":"1","expression":undefined}));
+            }
+            let compiled =
+                CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
+            let plan = compiled.plan_run(&run).unwrap();
+            assert_eq!(plan.deferred_checks.len(), 4);
+            assert_eq!(compiled.execute(&run).unwrap_err().code, ErrorCode::Domain);
+        }
+    }
+
+    #[test]
+    fn plan_reports_actual_pointwise_readout_inputs_and_selection() {
+        let (mut document, run) = fixture();
+        document["parameters"].as_array_mut().unwrap().push(json!({
+            "name":"boundary","default":{"value":2,"unit":"h"},
+            "transform":"identity","fixed":true,"description":""
+        }));
+        document["switches"] =
+            json!([{"name":"phase","time":{"kind":"symbol","name":"boundary"},"comparison":"le"}]);
+        document["dose_switches"] = json!([{"name":"recent","target":"central","offset":{"kind":"symbol","name":"boundary"},"comparison":"le","simultaneous":"first"}]);
+        for name in ["phase", "recent"] {
+            document["outputs"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"name":name,"unit":"1","expression":{"kind":"symbol","name":name}}));
+        }
+        let compiled =
+            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
+        let selected = ["phase".into(), "recent".into()];
+        let plan = compiled.plan_run_selected(&run, Some(&selected)).unwrap();
+        let at_two = plan
+            .readout_overrides
+            .iter()
+            .find(|p| plan.observations[p.observation].time == 2.)
+            .unwrap();
+        assert_eq!(at_two.covariates["phase"].value, 1.);
+        assert!(at_two
+            .covariates
+            .iter()
+            .any(|(name, q)| name.ends_with("_value") && q.value == 1.));
+        assert_eq!(plan.selected_outputs.as_deref(), Some(selected.as_slice()));
+        let result = compiled.execute_selected(&run, Some(&selected)).unwrap();
+        assert_eq!(plan.prospective_identity, result.identity);
+        assert_eq!(result.outputs[0].values[2], 1.);
+        assert_eq!(result.outputs[1].values[2], 1.);
+        assert!(plan
+            .binding_phases
+            .iter()
+            .flat_map(|p| &p.inputs)
+            .filter(|i| i.name == "phase" || i.name.starts_with("dose_switch_internal_"))
+            .all(|i| matches!(i.kind, BindingKind::DerivedCovariate)));
+    }
+    #[test]
+    fn pointwise_plan_metadata_is_bounded_before_retention() {
+        let (mut document, mut run) = fixture();
+        document["parameters"].as_array_mut().unwrap().push(json!({
+            "name":"offset","default":{"value":100,"unit":"h"},"transform":"identity","fixed":true,"description":""
+        }));
+        document["dose_switches"]=json!((0..5).map(|i|json!({"name":format!("recent_{i}"),"target":"central","offset":{"kind":"symbol","name":"offset"},"comparison":"le","simultaneous":"first"})).collect::<Vec<_>>());
+        run.regimen.observations = None;
+        run.regimen.samples = (0..300)
+            .map(|i| Quantity {
+                value: i as f64 * 12. / 299.,
+                unit: "h".into(),
+            })
+            .collect();
+        run.budgets.output_values = 2_000;
+        let compiled =
+            CompiledDocument::compile(&serde_json::from_value(document).unwrap()).unwrap();
+        compiled.prepare_selected(&run, None).unwrap();
+        let error = compiled.plan_run(&run).unwrap_err();
+        assert_eq!(error.code, ErrorCode::OutputBudget);
+        assert_eq!(error.expression.as_deref(), Some("plan.readout_overrides"));
     }
 }

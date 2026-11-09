@@ -22,6 +22,7 @@ MorrisResultSchema = Literal['qspquest.morris-result/v0.1']
 MorrisSchema = Literal['qspquest.morris/v0.1']
 ObservationSide = Literal['pre', 'post']
 PeriodicTimeBasis = Literal['cycle_phase']
+PopulationCovariance = Literal['full', 'diagonal']
 PopulationObjectiveKind = Union[Literal['laplace_negative_log_likelihood', 'saem_complete_data_surrogate'], Literal['focei_objective_function_value'], Literal['saem_marginal_objective_function_value']]
 PopulationUncertaintyMethod = Union[Literal['focei_observed_outer_hessian'], Literal['saem_marginal_observed_hessian']]
 PositiveFixedEffectIntervalMethod = Literal['positive_fixed_effect_log_wald_delta_v1']
@@ -422,7 +423,10 @@ class _PopulationFitRequestRequired(TypedDict):
 class PopulationFitRequest(_PopulationFitRequestRequired, total=False):
     additive_error_fit: Union[PopulationAdditiveErrorFit, None]
     burn_in_iterations: Union[int, None]
+    covariance: Union[PopulationCovariance, None]
     covariate_effect: Union[PopulationCovariateEffect, None]
+    proportional_error_fit: Union[PopulationProportionalErrorFit, None]
+    sweeps: Union[int, None]
     uncertainty: bool
 
 class _PopulationFitResultRequired(TypedDict):
@@ -462,12 +466,21 @@ class PopulationFittedObservation(TypedDict):
     time: Quantity
     value: Quantity
 
+class PopulationProportionalErrorFit(TypedDict):
+    initial: float
+    lower: float
+    output: str
+    upper: float
+
 class PopulationRandomEffect(TypedDict):
     parameter: str
 
-class PopulationResidualErrorEstimate(TypedDict):
+class _PopulationResidualErrorEstimateRequired(TypedDict):
     additive_sd: Quantity
     output: str
+
+class PopulationResidualErrorEstimate(_PopulationResidualErrorEstimateRequired, total=False):
+    proportional_sd: Union[float, None]
 
 class _PopulationSaemDiagnosticsRequired(TypedDict):
     accepted_proposals: int

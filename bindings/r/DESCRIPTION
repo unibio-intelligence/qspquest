@@ -1,7 +1,7 @@
 Package: qspquest
 Type: Package
 Title: Pharmacology Model Simulation and Bounded Estimation
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(person("Vivek", "Kohar", role = c("aut", "cre"),
     email = "vivek.kohar@unibiointelligence.com"),
     person("UniBio Intelligence", role = c("cph", "fnd")))
@@ -25,8 +25,8 @@ URL: https://github.com/unibio-intelligence/qspquest,
     https://unibiointelligence.com, https://biologics.unibiointelligence.com/
 BugReports: https://github.com/unibio-intelligence/qspquest/issues
 Encoding: UTF-8
-Imports: jsonlite (>= 2.0.0)
-Suggests: rxode2, testthat (>= 3.0.0)
+Imports: grDevices, jsonlite (>= 2.0.0), tools
+Suggests: ggplot2 (>= 3.5.0), rxode2, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 SystemRequirements: Cargo (Rust's package manager; >= 1.89), rustc (>= 1.89)
 NeedsCompilation: yes

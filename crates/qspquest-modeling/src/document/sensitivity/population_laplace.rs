@@ -262,6 +262,15 @@ impl CompiledSensitivityDocument {
                 "Laplace does not support the SAEM covariate-effect request",
             ));
         }
+        if request.covariance.is_some()
+            || request.sweeps.is_some()
+            || request.proportional_error_fit.is_some()
+        {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Laplace does not support the SAEM covariance, sweeps or proportional-error fields",
+            ));
+        }
         if request.uncertainty {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -468,6 +477,9 @@ mod grid_tests {
             })
             .collect();
         let request = PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects,
             fixed_effects: vec![FitBound {
                 parameter: "cl".into(),

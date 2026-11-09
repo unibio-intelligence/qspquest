@@ -539,6 +539,14 @@
         },
         "output": {
           "type": "string"
+        },
+        "proportional_sd": {
+          "description": "Fitted dimensionless proportional SD of a combined normal residual.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [
@@ -594,12 +602,12 @@
           "type": "integer"
         },
         "post_burn_acceptance_by_axis": {
-          "description": "Acceptance per coordinate after burn-in, including out-of-bound proposals. One entry per random-effect coordinate (one or two).",
+          "description": "Acceptance per coordinate after burn-in, including out-of-bound proposals. One entry per random-effect coordinate (one to eight).",
           "items": {
             "format": "double",
             "type": "number"
           },
-          "maxItems": 2,
+          "maxItems": 8,
           "minItems": 1,
           "type": [
             "array",
@@ -607,12 +615,12 @@
           ]
         },
         "post_burn_max_lag_one_correlation_by_axis": {
-          "description": "Largest positive within-subject lag-one correlation per coordinate. This is a mixing warning, not an effective sample size estimate. One entry per random-effect coordinate (one or two).",
+          "description": "Largest positive within-subject lag-one correlation per coordinate. This is a mixing warning, not an effective sample size estimate. One entry per random-effect coordinate (one to eight).",
           "items": {
             "format": "double",
             "type": "number"
           },
-          "maxItems": 2,
+          "maxItems": 8,
           "minItems": 1,
           "type": [
             "array",
@@ -629,12 +637,12 @@
           ]
         },
         "post_burn_min_subject_acceptance_by_axis": {
-          "description": "Lowest subject-level acceptance per coordinate after burn-in. One entry per random-effect coordinate (one or two).",
+          "description": "Lowest subject-level acceptance per coordinate after burn-in. One entry per random-effect coordinate (one to eight).",
           "items": {
             "format": "double",
             "type": "number"
           },
-          "maxItems": 2,
+          "maxItems": 8,
           "minItems": 1,
           "type": [
             "array",

@@ -1316,11 +1316,18 @@
       ],
       "type": "object"
     },
+    "PopulationCovariance": {
+      "enum": [
+        "full",
+        "diagonal"
+      ],
+      "type": "string"
+    },
     "PopulationCovariateEffect": {
       "additionalProperties": false,
       "properties": {
         "additional": {
-          "description": "Additional independent, subject-constant exponential effects on the same parameter. Nested `additional` entries are invalid.",
+          "description": "Additional independent, subject-constant exponential effects. Nested `additional` entries are invalid.",
           "items": {
             "$ref": "#/definitions/PopulationCovariateEffect"
           },
@@ -1393,6 +1400,17 @@
             "null"
           ]
         },
+        "covariance": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationCovariance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "SAEM eta covariance structure; full when omitted."
+        },
         "covariate_effect": {
           "anyOf": [
             {
@@ -1402,7 +1420,7 @@
               "type": "null"
             }
           ],
-          "description": "One estimable exponential covariate effect on a one-effect SAEM model."
+          "description": "Estimable exponential covariate effects for SAEM: the first effect, with any further ones in `additional`. Each names one random effect."
         },
         "eta_bound": {
           "description": "Absolute bound on each subject eta during conditional optimization.",
@@ -1416,7 +1434,7 @@
           "type": "array"
         },
         "gradient_tolerance": {
-          "description": "Laplace and FOCEI stop when normalized coordinate-search steps fall below this value. SAEM uses it in a windowed, Monte Carlo-aware drift check on the log fixed effect and log eta variance; its effective threshold is capped.",
+          "description": "Laplace and FOCEI stop when normalized coordinate-search steps fall below this value. SAEM uses it in marginal refinement where supported. Surrogate-only SAEM applies it to the median relative change of the latest 20 M-step updates.",
           "format": "double",
           "type": "number"
         },
@@ -1454,6 +1472,17 @@
           },
           "type": "array"
         },
+        "proportional_error_fit": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationProportionalErrorFit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opt-in SAEM estimation of a common proportional SD, alone or with `additive_error_fit` as a combined normal residual model. Every observed row must use this output, the normal model and this initial SD."
+        },
         "random_effects": {
           "items": {
             "$ref": "#/definitions/PopulationRandomEffect"
@@ -1471,6 +1500,15 @@
             "$ref": "#/definitions/GaussianObjectiveRequest"
           },
           "type": "array"
+        },
+        "sweeps": {
+          "description": "SAEM Metropolis sweeps per subject and iteration (1..=20). Defaults to three for one effect and one otherwise.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "uncertainty": {
           "description": "Estimate local observed-objective covariance after a converged fit. SAEM currently supports one random effect with fixed residual error; estimates at active parameter bounds are rejected.",
@@ -1547,6 +1585,17 @@
           },
           "type": "array"
         },
+        "proportional_residual": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PopulationProportionalErrorFit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Common fitted dimensionless proportional SD and its admitted bounds."
+        },
         "residual": {
           "anyOf": [
             {
@@ -1564,6 +1613,34 @@
         "initial_covariate_coefficients",
         "omega",
         "omega_diagonal_bounds"
+      ],
+      "type": "object"
+    },
+    "PopulationProportionalErrorFit": {
+      "additionalProperties": false,
+      "properties": {
+        "initial": {
+          "description": "Dimensionless relative SD.",
+          "format": "double",
+          "type": "number"
+        },
+        "lower": {
+          "format": "double",
+          "type": "number"
+        },
+        "output": {
+          "type": "string"
+        },
+        "upper": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "initial",
+        "lower",
+        "output",
+        "upper"
       ],
       "type": "object"
     },

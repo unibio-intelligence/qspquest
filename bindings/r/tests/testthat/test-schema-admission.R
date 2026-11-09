@@ -27,14 +27,14 @@ test_that("individual fit data require current fit and sensitivity schemas", {
     objective = list(simulation = list(schema = "qspquest.sensitivity/v0.1", run = list()),
                      observations = list()))))
   original <- fit
-  fit_data_requests(prepared, fit, endpoint)
+  individual_fit_data_requests(prepared, fit, endpoint)
   expect_identical(fit, original)
   for (level in c("fit", "sensitivity")) {
     for (tag in bad_tags(paste0("qspquest.", level, "/v0.1"))) {
       invalid <- fit
       if (level == "fit") invalid$schema <- tag
       else invalid$problem$request$objective$simulation$schema <- tag
-      expect_error(fit_data_requests(prepared, invalid, endpoint))
+      expect_error(individual_fit_data_requests(prepared, invalid, endpoint))
     }
   }
 })

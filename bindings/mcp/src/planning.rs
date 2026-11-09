@@ -24,6 +24,8 @@ pub enum PlanRequest {
     MorrisScreening(MorrisAnalysis),
     #[cfg(feature = "analysis")]
     SteadyState(NativeAnalysis),
+    #[cfg(feature = "analysis")]
+    Analyze(AnalysisWorkflow),
 }
 impl PlanRequest {
     pub fn into_parts(self) -> (String, Value) {
@@ -116,6 +118,9 @@ pub enum NativePreparation {
     MorrisScreening(qspquest_core::planning::MorrisPlan),
     #[cfg(feature = "analysis")]
     SteadyState(qspquest_core::planning::PeriodicPlan),
+    /// A qspquest.analysis-plan/v0.2 record from the native analysis core.
+    #[cfg(feature = "analysis")]
+    Analyze(Value),
 }
 impl NativePreparation {
     pub fn parse(operation: &str, value: Value) -> Result<Self, Value> {
@@ -380,6 +385,7 @@ impl ComparisonInputReceipt {
     pub(crate) fn from_plan(arguments: &Value, plan: &RequestPlan) -> Result<Self, Value> {
         let requested_inputs = json!({
             "parameters":arguments["parameters"], "initial_states":arguments["initial_states"],
+            "covariates":arguments["covariates"],
             "parameter_changes":arguments["parameter_changes"],
             "native_request_inputs":{"parameters":arguments["request"]["parameters"],
                 "covariates":arguments["request"]["covariates"],
@@ -426,4 +432,8 @@ pub struct PlannedRegimen {
 pub struct ComparisonPreparation {
     pub regimens: Vec<PlannedRegimen>,
     pub deferred_checks: Vec<String>,
+    /// Native qspquest.analysis-plan/v0.2 of a paired population comparison.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<JsonValueSchema>")]
+    pub population: Option<Value>,
 }

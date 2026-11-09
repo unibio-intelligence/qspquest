@@ -4,7 +4,7 @@ from copy import deepcopy
 import math
 
 import pytest
-import qspquest as pf
+import qspquest as qq
 from qspquest.adapters import (
     AdapterError,
     SOFTWARE,
@@ -122,11 +122,11 @@ def imported(software):
 
 def run(model, administrations=None, observations=None):
     target = next(s["name"] for s in model.model["states"] if s.get("dosing"))
-    req = pf.run_request(
+    req = qq.run_request(
         end=8,
         times=[0, 0.25, 1, 2, 4, 8],
         time_unit="h",
-        administrations=administrations or [pf.bolus(target, 6, "1")],
+        administrations=administrations or [qq.bolus(target, 6, "1")],
         rtol=1e-10,
         atol=1e-12,
     )
@@ -230,17 +230,17 @@ def test_time_coordinate_nonzero_initials_and_pre_post_dose():
             source, "rxode2", time_unit=unit, parameters={"k": 0.2}, outputs={"y": "y"}
         )
         target = model.compartment_map[1]
-        req = pf.run_request(
+        req = qq.run_request(
             end=2,
             times=[1],
             time_unit=unit,
-            administrations=[pf.bolus(target, 3, "1", at=1, time_unit=unit)],
+            administrations=[qq.bolus(target, 3, "1", at=1, time_unit=unit)],
             rtol=1e-10,
             atol=1e-12,
         )
         req["regimen"]["samples"] = []
         req["regimen"]["observations"] = [
-            {"time": pf.quantity(1, unit), "side": side} for side in ("pre", "post")
+            {"time": qq.quantity(1, unit), "side": side} for side in ("pre", "post")
         ]
         result = model.compile().run(req)
         assert result["outputs"][0]["values"] == pytest.approx(
@@ -280,7 +280,7 @@ def test_time_coordinate_nonzero_initials_and_pre_post_dose():
 )
 def test_unsupported_constructs_return_no_partial_model(software, source):
     parameters = {"ka": 1.1, "cl": 0.3, "v": 3} if software == "monolix" else None
-    with pytest.raises((AdapterError, pf.QSPQuestError)):
+    with pytest.raises((AdapterError, qq.QSPQuestError)):
         import_model(source, software, time_unit="h", parameters=parameters)
 
 

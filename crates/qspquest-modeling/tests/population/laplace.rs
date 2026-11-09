@@ -62,6 +62,9 @@ fn fixture() -> (Arc<CompiledSensitivityDocument>, PopulationFitRequest) {
     (
         compiled,
         PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects,
             fixed_effects: vec![FitBound {
                 parameter: "cl".into(),

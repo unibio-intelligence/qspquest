@@ -202,13 +202,13 @@ def scientific_status(answer):
         warnings.append(
             "The population objective is a complete-data surrogate, not a marginal likelihood or model-comparison statistic."
         )
-    if answer.get("schema") == "qspquest.vpc/v0.1" and answer.get(
+    if str(answer.get("schema", "")).startswith("qspquest.vpc/") and answer.get(
         "lloq_coverage", 0
     ) < answer.get("total_observations", 0):
         warnings.append(
             "LLOQ coverage is incomplete; BLQ checks describe supplied limits only."
         )
-    if answer.get("schema") == "qspquest.vpc/v0.1" and answer.get("failed_replicates", 0):
+    if str(answer.get("schema", "")).startswith("qspquest.vpc/") and answer.get("failed_replicates", 0):
         warnings.append("Failed VPC replicates remain in the denominator. Confidence intervals are suppressed; successful-draw summaries are diagnostic only.")
     return {
         "status": status,
@@ -259,15 +259,24 @@ class AnalysisResult(dict):
             return deepcopy(self["fitted_observations"])
         fail("this result has no trajectory or fitted-observation table", "unsupported")
 
-    def to_frame(self):
-        """Create a pandas DataFrame; requires qspquest[notebook]."""
+    def to_frame(self, table=None):
+        """Create a pandas DataFrame; requires pandas (qspquest[plot]).
+
+        Without ``table``, trajectories and fitted observations give the rows
+        of ``rows()``. Other results, or a named ``table``, use
+        ``qspquest.to_frame``.
+        """
         try:
             import pandas as pd
         except ImportError as e:
             raise ImportError(
-                "Install qspquest[notebook] for DataFrame helpers"
+                "Install qspquest[plot] for DataFrame helpers"
             ) from e
-        return pd.DataFrame(self.rows())
+        if table is None and ("outputs" in self or "fitted_observations" in self):
+            return pd.DataFrame(self.rows())
+        from .tables import to_frame
+
+        return to_frame(dict(self), table)
 
     def plot(self, output=None, *, ax=None):
         """Plot a trajectory or observed/predicted fit; requires matplotlib."""

@@ -6,21 +6,26 @@ on:
   workflow_dispatch:
     inputs:
       cache_only:
-        description: Run only release-cache platform checks
+        description: Run only the Ubuntu release-cache checks
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      release_platforms:
         type: boolean
         default: false
 permissions:
   contents: read
 concurrency:
   group: ci-mcp-${{ github.event_name == 'push' && github.ref || format('qualification-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !inputs.release_platforms }}
 
 jobs:
   release-cache:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15, windows-latest]
+        runner: ${{ fromJSON(inputs.release_platforms && '["macos-15", "windows-latest"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -44,7 +49,7 @@ jobs:
         if: runner.os != 'Windows'
         run: python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --csv-output "$RUNNER_TEMP/qspquest-csv-results"
   contracts:
-    if: ${{ inputs.cache_only != true }}
+    if: ${{ !inputs.release_platforms && inputs.cache_only != true }}
     runs-on: ubuntu-24.04
     env:
       QSPQUEST_LIBRARY_DIR: bindings/mcp/tests/library
@@ -93,16 +98,8 @@ jobs:
             mcp-widget.*
             mcp-http.log
   container:
-    if: ${{ inputs.cache_only != true }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            architecture: amd64
-          - runner: ubuntu-24.04-arm
-            architecture: arm64
-    runs-on: ${{ matrix.runner }}
+    if: ${{ !inputs.release_platforms && inputs.cache_only != true }}
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -111,12 +108,12 @@ jobs:
           context: .
           file: bindings/mcp/Dockerfile
           target: public
-          platforms: linux/${{ matrix.architecture }}
+          platforms: linux/amd64
           load: true
           push: false
           tags: qspquest-mcp:ci
-          cache-from: type=gha,scope=qspquest-mcp-${{ matrix.architecture }}
-          cache-to: type=gha,mode=max,scope=qspquest-mcp-${{ matrix.architecture }}
+          cache-from: type=gha,scope=qspquest-mcp-amd64
+          cache-to: type=gha,mode=max,scope=qspquest-mcp-amd64
       - name: Packaged agent quickstart over HTTP and offline stdio
         run: |
           docker tag qspquest-mcp:ci qspquest-mcp:local
@@ -124,7 +121,9 @@ jobs:
           trap 'docker logs mcp-starter > mcp-starter.log 2>&1; docker rm -f mcp-starter' EXIT
           python3 bindings/mcp/scripts/quickstart.py --url http://127.0.0.1:18766/mcp > mcp-starter-http.json
           python3 bindings/mcp/scripts/quickstart.py --stdio-image qspquest-mcp:local > mcp-starter-stdio.json
-          docker save qspquest-mcp:local | gzip > qspquest-mcp-${{ matrix.architecture }}.tar.gz
+      - name: Save the image for an explicit qualification run
+        if: github.event_name != 'push'
+        run: docker save qspquest-mcp:local | gzip > qspquest-mcp-amd64.tar.gz
       - name: Stateless HTTP tools and fitting in the exact image
         run: |
           docker run -d --name mcp-check -p 18765:8080 -v "$PWD/bindings/mcp/tests/library:/opt/qspquest/library:ro" -e QSPQUEST_LIBRARY_DIR=/opt/qspquest/library -e QSPQUEST_MCP_PREWARM=0 qspquest-mcp:ci
@@ -135,12 +134,12 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: mcp-container-${{ matrix.architecture }}
+          name: mcp-container-amd64
           path: |
             mcp-container.json
             mcp-starter-http.json
             mcp-starter-stdio.json
             mcp-starter.log
-            qspquest-mcp-${{ matrix.architecture }}.tar.gz
+            qspquest-mcp-amd64.tar.gz
             mcp-image.json
             mcp-inventories.tar

@@ -48,4 +48,4 @@ data <- data.frame(ID = c("A", "A"), TIME = c(0, 1),
 prepared <- nonmem_requests(data, request, c("1" = "central"), "h", "mg")
 prepared$subjects[[1]]$observation_rows
 }
-\seealso{\code{\link{fit_data_requests}}, \code{\link{result_data_frame}}}
+\seealso{\code{\link{individual_fit_data_requests}}, \code{\link{result_data_frame}}}

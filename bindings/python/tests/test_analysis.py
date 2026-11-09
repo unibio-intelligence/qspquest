@@ -6,7 +6,6 @@ import math
 from pathlib import Path
 import numpy as np
 import pytest
-from scipy import special
 from scipy.integrate import solve_ivp
 from scipy.linalg import expm
 from qspquest import (
@@ -14,33 +13,11 @@ from qspquest import (
     QSPQuestError,
     exposure_summary,
     fit_diagnostics,
+    quantity,
     write_analysis_report,
 )
-from qspquest._analysis import likelihood
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples" / "synthetic"
-
-
-def test_saem_stability_window_does_not_hide_drift_as_gain_shrinks():
-    from qspquest.population import _stability_history
-
-    trace, clock = [], 0.0
-    for iteration in range(1, 10001):
-        clock += iteration ** -0.7
-        trace.append({"iteration": iteration, "coordinates": [0.02 * clock]})
-    old = np.asarray([row["coordinates"] for row in trace[-50:]])
-    assert np.max(abs(old[:20].mean(axis=0) - old[-20:].mean(axis=0))) < 0.001
-    history = np.asarray(_stability_history(trace, 0))
-    end_count = len(history) * 2 // 5
-    assert (
-        np.max(abs(history[:end_count].mean(axis=0) - history[-end_count:].mean(axis=0)))
-        > 0.001
-    )
-
-    # A short post-burn history cannot borrow its span from burn-in records.
-    assert _stability_history(trace[:70], 30) is None
-    flat = [{"iteration": row["iteration"], "coordinates": [1.0]} for row in trace]
-    assert _stability_history(flat, 0) is not None
 
 
 def model(name="absorption"):
@@ -130,27 +107,6 @@ def test_synthetic_equations_match_independent_solutions():
     )
     np.testing.assert_allclose(
         mm["outputs"][0]["values"], solution.y[0] / 4, rtol=2e-7, atol=1e-8
-    )
-
-
-def test_combined_and_censored_likelihood_matches_independent_formula():
-    y, p, cens = np.array([1.0, 0.2]), np.array([1.2, 0.7]), np.array([False, True])
-    error = {"model": "normal", "additive": 0.1, "proportional": 0.2}
-    sd = np.sqrt(0.1**2 + (0.2 * p) ** 2)
-    expected = (
-        0.5 * ((y[0] - p[0]) / sd[0]) ** 2
-        + np.log(sd[0])
-        + 0.5 * np.log(2 * np.pi)
-        - special.log_ndtr((y[1] - p[1]) / sd[1])
-    )
-    assert likelihood(y, p, cens, error)[0] == pytest.approx(expected, abs=1e-12)
-    assert math.isfinite(
-        likelihood(
-            np.array([-50.0]),
-            np.array([1.0]),
-            np.array([True]),
-            {"model": "normal", "additive": 0.1, "proportional": 0},
-        )[0]
     )
 
 
@@ -571,3 +527,33 @@ def test_two_effect_covariate_combined_error_and_blq():
     assert fit["parameters"]["cl"]["value"] == pytest.approx(0.8, rel=0.2)
     censored = [r for r in fit["fitted_observations"] if r["censoring"] == "left"]
     assert censored and all(r["residual"] is None for r in censored)
+
+
+def test_name_keyed_maps_keep_the_declared_order_at_every_depth():
+    names = list(parameters())
+    assert names != sorted(names)
+    m, run = model(), request()
+    obs = observations(m.run(run))
+
+    def keyed(value, keys, path="result"):
+        if isinstance(value, dict):
+            if set(value) == set(keys):
+                assert list(value) == keys, path
+            for k, v in value.items():
+                keyed(v, keys, f"{path}.{k}")
+        elif isinstance(value, list):
+            for i, v in enumerate(value):
+                keyed(v, keys, f"{path}[{i}]")
+
+    fit = m.fit_data(run, obs, parameters(), {"additive": 0.1})
+    keyed(fit, names)
+    keyed(fit_diagnostics(fit), names)
+    keyed(m.profile_likelihood(run, obs, parameters(), {"additive": 0.1}, "cl", [1.8, 2.0, 2.2]), names)
+    doubled = request()
+    doubled["regimen"]["administrations"][0]["amount"]["value"] *= 2
+    fixed = {"cl": quantity(2.7, "L/h"), "vc": quantity(31.0, "L"), "ka": quantity(1.6, "1/h")}
+    comparison = m.compare_regimens({"base": request(), "double": doubled, "alt": request()}, fixed,
+                                    (np.eye(3) * 0.04).tolist(), "cp",
+                                    subjects=5, seed=3)
+    assert list(comparison["regimens"]) == ["base", "double", "alt"]
+    keyed(comparison, names)

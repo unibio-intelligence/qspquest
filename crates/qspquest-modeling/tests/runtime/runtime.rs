@@ -1,8 +1,7 @@
+use super::tmdd;
 use qspquest_core::expression::{Binary, Expr};
 use qspquest_modeling::runtime::{CompiledModel, ModelDefinition, StateDefinition};
 use qspquest_modeling::{simulate, Event, Model, Protocol};
-#[path = "../../../../conformance/tmdd.rs"]
-mod tmdd;
 #[path = "../../../../conformance/tmdd_vm.rs"]
 mod tmdd_vm;
 fn b(op: Binary, a: Expr, b: Expr) -> Expr {

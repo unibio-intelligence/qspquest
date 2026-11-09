@@ -1,0 +1,92 @@
+{
+  "cases": [
+    {
+      "engine_identity": {
+        "model_content_hash": "sha256:9c7585748d3f4c0cb51e7827ed97d0e171cf8dd5a0d9eb1e72c8f6ca57b7b566",
+        "spec_version": "qspquest.spec/0.1",
+        "compiler_version": "qspquest/0.1.1",
+        "compiler_source_sha256": "sha256:b6921ae338d830b25a7e4d4d6cc803a86a5bf6185745f2e878d13d4a434c1905",
+        "rustc_version": "rustc 1.98.1 (48a229cea 2026-09-01) (Homebrew)",
+        "target": "aarch64-apple-darwin",
+        "build_profile": "debug",
+        "rustflags_sha256": "sha256:c413dbb143aa3e09845350d664f4abc382d6f94ce0f8c67a2f6c6aff8d68656b",
+        "bound_value_hash": "sha256:2d3e511fde41721629cff21796835d361c6e533892b859088fd4e14abfbad71d",
+        "run_request_hash": "sha256:76b8964fd2018e0e98ea410d40bfe281f3436c66562b3a96172952c00741fb85",
+        "backend": "diffsol",
+        "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2",
+        "algorithm": "bdf"
+      },
+      "files": {
+        "qspquest_csv": {
+          "compression": "gzip",
+          "path": "results/figure3_5_iv_aav8_2e10_vg_mouse/qspquest.csv.gz",
+          "sha256": "b04b12d2ef5dd83a8af87775eb25260c8d8e76b1cd7a982ef81dff7b70dba5cf",
+          "uncompressed_sha256": "d87d817ed73156c48fd62c9066f78e997d4824a8b42b983477fbc5f98ac60fc1"
+        }
+      },
+      "scenario_id": "figure3_5_iv_aav8_2e10_vg_mouse",
+      "status": "executed"
+    },
+    {
+      "engine_identity": {
+        "model_content_hash": "sha256:9c7585748d3f4c0cb51e7827ed97d0e171cf8dd5a0d9eb1e72c8f6ca57b7b566",
+        "spec_version": "qspquest.spec/0.1",
+        "compiler_version": "qspquest/0.1.1",
+        "compiler_source_sha256": "sha256:b6921ae338d830b25a7e4d4d6cc803a86a5bf6185745f2e878d13d4a434c1905",
+        "rustc_version": "rustc 1.98.1 (48a229cea 2026-09-01) (Homebrew)",
+        "target": "aarch64-apple-darwin",
+        "build_profile": "debug",
+        "rustflags_sha256": "sha256:c413dbb143aa3e09845350d664f4abc382d6f94ce0f8c67a2f6c6aff8d68656b",
+        "bound_value_hash": "sha256:f9d346171125820472c3ea5ed90dd5701813572ad6c567af8c6c09fb678e50c7",
+        "run_request_hash": "sha256:957c3a56b16aba8ea7e0e24f59e22a42aaa820cea75d14e34853cb1744f1aa19",
+        "backend": "diffsol",
+        "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2",
+        "algorithm": "bdf"
+      },
+      "files": {
+        "qspquest_csv": {
+          "compression": "gzip",
+          "path": "results/figure3_5_iv_aav8_1e11_vg_mouse/qspquest.csv.gz",
+          "sha256": "e9fd26e4c1b9a94589f5c60bf2d3db0fe2318656b305c5d1e77e24fb76163a5c",
+          "uncompressed_sha256": "089da20dd8376fdd3026c3f656fd9df764800e85ae0f42b4cc700888c41977ee"
+        }
+      },
+      "scenario_id": "figure3_5_iv_aav8_1e11_vg_mouse",
+      "status": "executed"
+    },
+    {
+      "engine_identity": {
+        "model_content_hash": "sha256:9c7585748d3f4c0cb51e7827ed97d0e171cf8dd5a0d9eb1e72c8f6ca57b7b566",
+        "spec_version": "qspquest.spec/0.1",
+        "compiler_version": "qspquest/0.1.1",
+        "compiler_source_sha256": "sha256:b6921ae338d830b25a7e4d4d6cc803a86a5bf6185745f2e878d13d4a434c1905",
+        "rustc_version": "rustc 1.98.1 (48a229cea 2026-09-01) (Homebrew)",
+        "target": "aarch64-apple-darwin",
+        "build_profile": "debug",
+        "rustflags_sha256": "sha256:c413dbb143aa3e09845350d664f4abc382d6f94ce0f8c67a2f6c6aff8d68656b",
+        "bound_value_hash": "sha256:ad8f19b390a19e55d2fafb959e1c57b8674f2d060ce17978311bf5095c38a778",
+        "run_request_hash": "sha256:d18c7c7ac4cf0f123706ed4fde981f19bf04072f0602e796b1e0c42a147e4bd2",
+        "backend": "diffsol",
+        "backend_version": "0.18.0+git:883d9a09238c2e0b465f0f1549c462b8c38ea1b2",
+        "algorithm": "bdf"
+      },
+      "files": {
+        "qspquest_csv": {
+          "compression": "gzip",
+          "path": "results/figure3_5_iv_aav8_2e11_vg_mouse/qspquest.csv.gz",
+          "sha256": "de08ada83105b35d9e29b730a31abde5f6cccd2e1358e06ea834cefc301589df",
+          "uncompressed_sha256": "f7fb84fce45328632e03d0f3db399d0fe4abc204473b89588a527904e2076c63"
+        }
+      },
+      "scenario_id": "figure3_5_iv_aav8_2e11_vg_mouse",
+      "status": "executed"
+    }
+  ],
+  "fit_ready": false,
+  "fitting_supported": false,
+  "model_id": "qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk",
+  "model_version": "0.2.0",
+  "omex_sha256": "2b4a7e45ac06a8de0b9ec3a4c106d6318c3f52a03fb9517dfa60e0b491d20d53",
+  "publication_status": "review_pending",
+  "schema": "qspquest.models.simulation-evidence/v2"
+}

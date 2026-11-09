@@ -1,3 +1,9 @@
 # Scientific source notices
 
-Ubi-owned contributions are Apache-2.0. All 65 selected additional scientific-source implementations retain CC BY 4.0 source terms and attribution; they are not relicensed as solely Apache. Original scientific documents remain byte-pinned. NC/ND, unresolved, unknown and restricted executable source material is absent. The unreleased candidate inventory remains private. Parser, preparation and numerical holds are separate from source rights: eligible source-only archives can be inspected but have no qualified simulator route.
+This directory is a test fixture for the MCP server. It holds eight model
+archives from the QSPQuest model library, each distributed under Apache-2.0
+(see `LICENSE`). The three DiffDose benchmark archives
+(`qspquest_diffdose_2026_*`) include code adapted from DiffDose; its BSD
+3-Clause notice is retained in each archive's `LICENSE.source`. The
+publication-review status of each version is recorded in
+`qspquest_models/availability.json`.

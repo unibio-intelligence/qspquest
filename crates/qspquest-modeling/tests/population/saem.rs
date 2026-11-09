@@ -73,6 +73,9 @@ fn fresh_joint_gaussian(
         })
         .collect();
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![
             FitBound {
@@ -265,15 +268,15 @@ fn fresh_joint_gaussian_native_covariance_matches_independent_information() {
         augmented.swap(i, pivot);
         let diagonal = augmented[i][i];
         assert!(diagonal.abs() > 1e-12);
-        for j in 0..10 {
-            augmented[i][j] /= diagonal;
+        for value in &mut augmented[i] {
+            *value /= diagonal;
         }
-        for row in 0..5 {
-            if row != i {
-                let multiplier = augmented[row][i];
-                for col in 0..10 {
-                    augmented[row][col] -= multiplier * augmented[i][col];
-                }
+        let (above, pivot_and_below) = augmented.split_at_mut(i);
+        let (pivot, below) = pivot_and_below.split_first_mut().unwrap();
+        for row in above.iter_mut().chain(below) {
+            let multiplier = row[i];
+            for (value, pivot_value) in row.iter_mut().zip(pivot.iter()) {
+                *value -= multiplier * pivot_value;
             }
         }
     }
@@ -421,6 +424,9 @@ fn fixture() -> (
         })
         .collect();
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![FitBound {
             parameter: "cl".into(),
@@ -545,6 +551,9 @@ fn two_effect_fixture() -> (
     (
         compiled,
         PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects,
             fixed_effects: vec![
                 FitBound {
@@ -647,6 +656,9 @@ fn two_effect_dosed_pk_fixture() -> (
     (
         compiled,
         PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects,
             fixed_effects: vec![
                 FitBound {
@@ -1120,10 +1132,11 @@ fn saem_recovers_lognormal_population_on_synthetic_pk() {
     if result.iterations > 0 {
         assert!(diagnostics.marginal_refinement_iterations < result.iterations);
         let last = result.iterations - diagnostics.marginal_refinement_iterations - 1;
+        // The shared SAEM engine's gain: one during burn-in, then k^-0.7.
         let expected_gain = if last < diagnostics.burn_in_iterations {
             1.0
         } else {
-            1.0 / (last - diagnostics.burn_in_iterations + 1) as f64
+            ((last - diagnostics.burn_in_iterations + 1) as f64).powf(-0.7)
         };
         assert!((diagnostics.final_step_size.unwrap() - expected_gain).abs() < 1e-12);
         assert!(diagnostics.final_relative_change.unwrap().is_finite());
@@ -1438,7 +1451,7 @@ fn saem_fits_random_clearance_with_model_authored_time_varying_covariate() {
 }
 
 #[test]
-fn saem_rejects_unidentifiable_covariate_and_two_effect_scope() {
+fn saem_rejects_unidentifiable_covariates_for_one_and_two_effects() {
     let (compiled, mut request) = fixture();
     request.covariate_effect = Some(PopulationCovariateEffect {
         parameter: "cl".into(),
@@ -1452,10 +1465,12 @@ fn saem_rejects_unidentifiable_covariate_and_two_effect_scope() {
     let error = compiled.fit_population_saem(&request).unwrap_err();
     assert!(error.message.contains("unidentifiable"), "{error:?}");
 
+    // Covariates may act on any random effect; a constant one is still
+    // unidentifiable against that effect's fixed effect.
     let (compiled, mut two_effect) = two_effect_fixture();
     two_effect.covariate_effect = request.covariate_effect;
     let error = compiled.fit_population_saem(&two_effect).unwrap_err();
-    assert!(error.message.contains("one random effect"), "{error:?}");
+    assert!(error.message.contains("unidentifiable"), "{error:?}");
 }
 
 #[test]
@@ -1640,6 +1655,9 @@ fn saem_diagnostics_preserve_exact_gaussian_random_intercept_oracle() {
         })
         .collect();
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![FitBound {
             parameter: "cl".into(),
@@ -1910,4 +1928,544 @@ fn dense_correlated_gaussian_covariance_respects_work_budget() {
         .unwrap()
         .iter()
         .all(|v| *v <= 0.9));
+}
+
+/// Oral one-compartment model with first-order absorption, compiled for `selected`.
+fn absorption_model(
+    selected: &[&str],
+) -> (
+    std::sync::Arc<CompiledSensitivityDocument>,
+    SensitivityRequest,
+) {
+    let model = qspquest_modeling::language::parse(include_str!(
+        "../../../../examples/synthetic/absorption.qsp"
+    ))
+    .unwrap()
+    .document;
+    let names: Vec<String> = selected.iter().map(|s| s.to_string()).collect();
+    let compiled = CompiledSensitivityDocument::compile(&model, &names).unwrap();
+    let unit = |name: &str| match name {
+        "cl" => "mg.h/L",
+        "vc" => "mg/L",
+        _ => "mg.h",
+    };
+    let tolerances: serde_json::Map<String, serde_json::Value> = selected
+        .iter()
+        .map(|name| {
+            (
+                name.to_string(),
+                serde_json::json!({
+                    "central": {"value": 1e-10, "unit": unit(name)},
+                    "depot": {"value": 1e-10, "unit": unit(name)},
+                }),
+            )
+        })
+        .collect();
+    let samples: Vec<serde_json::Value> = [0.5, 1., 2., 4., 6., 8., 12., 24.]
+        .iter()
+        .map(|t| serde_json::json!({"value": t, "unit": "h"}))
+        .collect();
+    let simulation: SensitivityRequest = serde_json::from_value(serde_json::json!({
+        "schema": "qspquest.sensitivity/v0.1",
+        "run": {
+            "schema": "qspquest.run/v0.1",
+            "solver": "diffsol_bdf",
+            "budgets": {"solver_callbacks": 1000000, "events": 100, "output_values": 10000},
+            "regimen": {
+                "end": {"value": 24, "unit": "h"},
+                "samples": samples,
+                "administrations": [{
+                    "target": "depot",
+                    "time": {"value": 0, "unit": "h"},
+                    "amount": {"value": 10, "unit": "mg"},
+                    "delivery": {"kind": "bolus"},
+                    "bioavailability": 1.0
+                }],
+                "rtol": 1e-10,
+                "atol": 1e-12
+            }
+        },
+        "with_respect_to": names,
+        "derivative_absolute_tolerances": tolerances,
+    }))
+    .unwrap();
+    (compiled, simulation)
+}
+
+/// Closed-form oral one-compartment concentration after a 10 mg dose.
+fn oral_cp(cl: f64, vc: f64, ka: f64, t: f64) -> f64 {
+    let k = cl / vc;
+    10. * ka / (vc * (ka - k)) * (libm::exp(-k * t) - libm::exp(-ka * t))
+}
+
+/// Reproducible standard normal deviates for synthetic residual noise.
+fn deviates(count: usize, mut state: u64) -> Vec<f64> {
+    let mut uniform = move || {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((state >> 11) as f64 + 0.5) / (1u64 << 53) as f64
+    };
+    (0..count)
+        .map(|_| {
+            libm::sqrt(-2. * libm::log(uniform())) * libm::cos(std::f64::consts::TAU * uniform())
+        })
+        .collect()
+}
+
+fn oral_request(
+    compiled: &std::sync::Arc<CompiledSensitivityDocument>,
+    simulation: &SensitivityRequest,
+    individuals: &[[f64; 3]],
+    error: GaussianError,
+    noise: impl Fn(usize, usize, f64) -> f64,
+) -> Vec<GaussianObjectiveRequest> {
+    let grid = compiled.run(simulation).unwrap().result;
+    individuals
+        .iter()
+        .enumerate()
+        .map(|(subject, [cl, vc, ka])| GaussianObjectiveRequest {
+            simulation: simulation.clone(),
+            observations: grid
+                .times
+                .iter()
+                .enumerate()
+                .map(|(row, time)| GaussianObservation {
+                    censoring: None,
+                    row,
+                    output: "cp".into(),
+                    value: quantity(noise(subject, row, oral_cp(*cl, *vc, *ka, *time)), "mg/L"),
+                    error: error.clone(),
+                })
+                .collect(),
+            priors: Vec::new(),
+        })
+        .collect()
+}
+
+fn population_request(
+    names: &[(&str, &str, f64, f64)],
+    subjects: Vec<GaussianObjectiveRequest>,
+) -> PopulationFitRequest {
+    let d = names.len();
+    PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
+        subjects,
+        fixed_effects: names
+            .iter()
+            .map(|(name, unit, lower, upper)| FitBound {
+                parameter: name.to_string(),
+                lower: quantity(*lower, unit),
+                upper: quantity(*upper, unit),
+            })
+            .collect(),
+        random_effects: names
+            .iter()
+            .map(|(name, ..)| PopulationRandomEffect {
+                parameter: name.to_string(),
+            })
+            .collect(),
+        omega: (0..d)
+            .map(|a| (0..d).map(|b| if a == b { 0.05 } else { 0. }).collect())
+            .collect(),
+        omega_diagonal_bounds: vec![[0.002, 0.5]; d],
+        eta_bound: 2.,
+        max_evaluations: 200_000,
+        max_iterations: 1500,
+        gradient_tolerance: 0.001,
+        seed: 20261107,
+        burn_in_iterations: Some(300),
+        uncertainty: false,
+        additive_error_fit: None,
+        covariate_effect: None,
+    }
+}
+
+#[test]
+fn saem_three_effects_recover_precise_oral_population_with_healthy_mixing() {
+    let (compiled, simulation) = absorption_model(&["cl", "vc", "ka"]);
+    let etas: Vec<[f64; 3]> = (0..14)
+        .map(|i| {
+            let u = i as f64 / 13. - 0.5;
+            [
+                0.5 * u,
+                0.4 * (2.9 * u).sin(),
+                -0.45 * (1.7 * u + 0.3).cos() + 0.4,
+            ]
+        })
+        .collect();
+    let individuals: Vec<[f64; 3]> = etas
+        .iter()
+        .map(|e| {
+            [
+                0.8 * libm::exp(e[0]),
+                6. * libm::exp(e[1]),
+                1.2 * libm::exp(e[2]),
+            ]
+        })
+        .collect();
+    let error = GaussianError {
+        model: GaussianErrorModel::Normal,
+        additive_sd: quantity(0.005, "mg/L"),
+        proportional_sd: 0.,
+    };
+    let subjects = oral_request(&compiled, &simulation, &individuals, error, |_, _, v| v);
+    let mut request = population_request(
+        &[
+            ("cl", "L/h", 0.2, 3.),
+            ("vc", "L", 1.5, 20.),
+            ("ka", "1/h", 0.3, 4.),
+        ],
+        subjects,
+    );
+    for subject in &mut request.subjects {
+        for (name, value) in [("cl", 0.8), ("vc", 6.), ("ka", 1.2)] {
+            let unit = match name {
+                "cl" => "L/h",
+                "vc" => "L",
+                _ => "1/h",
+            };
+            subject
+                .simulation
+                .run
+                .parameters
+                .insert(name.into(), quantity(value, unit));
+        }
+    }
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged, "{result:?}");
+    assert_eq!(
+        result.objective_kind,
+        PopulationObjectiveKind::SaemCompleteDataSurrogate
+    );
+    assert!(result.evaluations <= request.max_evaluations);
+    for (name, truth) in [("cl", 0.8), ("vc", 6.), ("ka", 1.2)] {
+        let estimate = result.fixed_effects[name].value;
+        assert!((estimate / truth).ln().abs() < 0.15, "{name}={estimate}");
+    }
+    assert_eq!(result.omega.len(), 3);
+    let diagnostics = result.saem_diagnostics.unwrap();
+    // Noise-free data make each conditional distribution far narrower than
+    // Omega; the adapted proposals must still move every chain.
+    for acceptance in diagnostics.post_burn_acceptance_by_axis.unwrap() {
+        assert!((0.1..=0.9).contains(&acceptance), "{acceptance}");
+    }
+    assert!(diagnostics
+        .post_burn_min_subject_acceptance_by_axis
+        .unwrap()
+        .iter()
+        .all(|v| *v > 0.02));
+    assert_eq!(
+        diagnostics
+            .post_burn_max_lag_one_correlation_by_axis
+            .unwrap()
+            .len(),
+        3
+    );
+    let rows = compiled.run(&simulation).unwrap().result.times.len();
+    assert_eq!(result.fitted_observations.unwrap().len(), 14 * rows);
+}
+
+#[test]
+fn saem_estimates_combined_additive_and_proportional_residual_sds() {
+    let (compiled, simulation) = absorption_model(&["cl"]);
+    let individuals: Vec<[f64; 3]> = (0..20)
+        .map(|i| [0.8 * libm::exp(0.6 * (i as f64 / 19. - 0.5)), 6., 1.2])
+        .collect();
+    let rows = compiled.run(&simulation).unwrap().result.times.len();
+    let noise = deviates(2 * 20 * rows, 7);
+    let error = GaussianError {
+        model: GaussianErrorModel::Normal,
+        additive_sd: quantity(0.05, "mg/L"),
+        proportional_sd: 0.2,
+    };
+    let subjects = oral_request(&compiled, &simulation, &individuals, error, |s, r, v| {
+        let k = 2 * (rows * s + r);
+        v * (1. + 0.1 * noise[k]) + 0.01 * noise[k + 1]
+    });
+    let mut request = population_request(&[("cl", "L/h", 0.2, 3.)], subjects);
+    for subject in &mut request.subjects {
+        subject
+            .simulation
+            .run
+            .parameters
+            .insert("cl".into(), quantity(0.8, "L/h"));
+    }
+    request.additive_error_fit = Some(PopulationAdditiveErrorFit {
+        output: "cp".into(),
+        initial: quantity(0.05, "mg/L"),
+        lower: quantity(0.001, "mg/L"),
+        upper: quantity(1., "mg/L"),
+    });
+    request.proportional_error_fit = Some(PopulationProportionalErrorFit {
+        output: "cp".into(),
+        initial: 0.2,
+        lower: 0.01,
+        upper: 1.,
+    });
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged, "{result:?}");
+    let residual = result.estimated_residual_error.unwrap();
+    let proportional = residual.proportional_sd.unwrap();
+    assert!((0.07..=0.13).contains(&proportional), "{proportional}");
+    assert!(
+        residual.additive_sd.value < 0.03,
+        "{:?}",
+        residual.additive_sd
+    );
+    let cl = result.fixed_effects["cl"].value;
+    assert!((cl / 0.8).ln().abs() < 0.1, "cl={cl}");
+    // Uncertainty is defined only for the fixed-error marginal paths.
+    request.uncertainty = true;
+    assert_eq!(
+        compiled.fit_population_saem(&request).unwrap_err().code,
+        qspquest_core::ErrorCode::Unsupported
+    );
+}
+
+#[test]
+fn saem_recovers_covariates_on_two_effects_with_diagonal_omega() {
+    let (compiled, simulation) = absorption_model(&["cl", "vc"]);
+    let n = 40;
+    let weights: Vec<f64> = (0..n).map(|i| 40. + 2. * i as f64).collect();
+    let x: Vec<f64> = weights.iter().map(|w| (w / 70.).ln()).collect();
+    // Seeded random effects, made exactly orthogonal to log weight and to the
+    // intercept, so the covariate coefficients are identified by design.
+    let orthogonal = |values: Vec<f64>| {
+        let mean_x = x.iter().sum::<f64>() / n as f64;
+        let mean_v = values.iter().sum::<f64>() / n as f64;
+        let sxx: f64 = x.iter().map(|a| (a - mean_x).powi(2)).sum();
+        let sxv: f64 = x
+            .iter()
+            .zip(&values)
+            .map(|(a, v)| (a - mean_x) * (v - mean_v))
+            .sum();
+        x.iter()
+            .zip(&values)
+            .map(|(a, v)| v - mean_v - sxv / sxx * (a - mean_x))
+            .collect::<Vec<f64>>()
+    };
+    let eta_cl = orthogonal(deviates(n, 11).iter().map(|z| 0.15 * z).collect());
+    let eta_vc = orthogonal(deviates(n, 13).iter().map(|z| 0.12 * z).collect());
+    let individuals: Vec<[f64; 3]> = (0..n)
+        .map(|i| {
+            [
+                0.8 * libm::exp(0.75 * x[i] + eta_cl[i]),
+                6. * libm::exp(1.0 * x[i] + eta_vc[i]),
+                1.2,
+            ]
+        })
+        .collect();
+    let error = GaussianError {
+        model: GaussianErrorModel::Normal,
+        additive_sd: quantity(0.01, "mg/L"),
+        proportional_sd: 0.,
+    };
+    let subjects = oral_request(&compiled, &simulation, &individuals, error, |_, _, v| v);
+    let mut request =
+        population_request(&[("cl", "L/h", 0.2, 3.), ("vc", "L", 1.5, 20.)], subjects);
+    for subject in &mut request.subjects {
+        subject
+            .simulation
+            .run
+            .parameters
+            .insert("cl".into(), quantity(0.8, "L/h"));
+        subject
+            .simulation
+            .run
+            .parameters
+            .insert("vc".into(), quantity(6., "L"));
+    }
+    request.covariance = Some(PopulationCovariance::Diagonal);
+    let effect = |parameter: &str, initial: f64| PopulationCovariateEffect {
+        parameter: parameter.into(),
+        covariate: "log_weight".into(),
+        subject_values: x.clone(),
+        reference: 0.,
+        initial,
+        bounds: [-3., 3.],
+        additional: Vec::new(),
+    };
+    let mut primary = effect("cl", 0.);
+    primary.additional = vec![effect("vc", 0.)];
+    request.covariate_effect = Some(primary);
+    let result = compiled.fit_population_saem(&request).unwrap();
+    assert_eq!(result.status, FitStatus::Converged, "{result:?}");
+    assert_eq!(result.omega[0][1], 0.);
+    assert_eq!(result.omega[1][0], 0.);
+    let covariates = result.covariate_effect.unwrap();
+    assert_eq!(covariates.parameter, "cl");
+    assert!(
+        (covariates.coefficient - 0.75).abs() < 0.2,
+        "{}",
+        covariates.coefficient
+    );
+    assert_eq!(covariates.additional[0].parameter, "vc");
+    let vc = covariates.additional[0].coefficient;
+    assert!((vc - 1.0).abs() < 0.2, "{vc}");
+}
+
+#[test]
+fn saem_only_fields_are_refused_by_focei_and_laplace() {
+    let (compiled, request) = fixture();
+    let mut variants = Vec::new();
+    let mut diagonal = request.clone();
+    diagonal.covariance = Some(PopulationCovariance::Diagonal);
+    variants.push(diagonal);
+    let mut sweeps = request.clone();
+    sweeps.sweeps = Some(2);
+    variants.push(sweeps);
+    let mut proportional = request.clone();
+    proportional.proportional_error_fit = Some(PopulationProportionalErrorFit {
+        output: "cp".into(),
+        initial: 0.1,
+        lower: 0.01,
+        upper: 1.,
+    });
+    variants.push(proportional);
+    for variant in variants {
+        for fit in [
+            compiled.fit_population_focei(&variant),
+            compiled.fit_population_laplace(&variant),
+        ] {
+            assert_eq!(fit.unwrap_err().code, qspquest_core::ErrorCode::Unsupported);
+        }
+    }
+}
+
+#[test]
+fn saem_proportional_fit_is_unit_invariant_and_plans_the_shifted_starts() {
+    use qspquest_core::planning::FitSubjectPlan;
+
+    let (compiled, mut request) = fixture();
+    request.max_iterations = 20;
+    request.burn_in_iterations = Some(8);
+    request.proportional_error_fit = Some(PopulationProportionalErrorFit {
+        output: "cp".into(),
+        initial: 0.15,
+        lower: 0.02,
+        upper: 0.8,
+    });
+    for observation in request
+        .subjects
+        .iter_mut()
+        .flat_map(|s| &mut s.observations)
+    {
+        observation.error.proportional_sd = 0.15;
+    }
+    let baseline = compiled.fit_population_saem(&request).unwrap();
+    let mut equivalent = request.clone();
+    for observation in equivalent
+        .subjects
+        .iter_mut()
+        .flat_map(|s| &mut s.observations)
+    {
+        observation.value.value *= 1000.0;
+        observation.value.unit = "ug/L".into();
+    }
+    let converted = compiled.fit_population_saem(&equivalent).unwrap();
+    assert_eq!(baseline.status, converted.status);
+    assert!((baseline.objective - converted.objective).abs() < 1e-8);
+    assert!(
+        (baseline.fixed_effects["cl"].value - converted.fixed_effects["cl"].value).abs() < 1e-10
+    );
+    let fitted_sd = |result: PopulationFitResult| {
+        result
+            .estimated_residual_error
+            .unwrap()
+            .proportional_sd
+            .unwrap()
+    };
+    assert!((fitted_sd(baseline) - fitted_sd(converted)).abs() < 1e-10);
+
+    request.covariate_effect = Some(PopulationCovariateEffect {
+        parameter: "cl".into(),
+        covariate: "synthetic".into(),
+        subject_values: (1..=8).map(|i| i as f64 / 2.0).collect(),
+        reference: 0.0,
+        initial: 0.4,
+        bounds: [0.0, 0.5],
+        additional: Vec::new(),
+    });
+    let plan = |request| {
+        compiled.plan_fit(&FitRequest {
+            schema: FitSchema::V01,
+            problem: FitProblem::Saem(request),
+        })
+    };
+    let prepared = plan(request.clone()).unwrap();
+    let FitSubjectPlan::PrimalLikelihood(subject) = &prepared.subjects[0] else {
+        panic!("expected primal likelihood preparation");
+    };
+    let initial = subject.request.simulation.run.parameters["cl"].value;
+    assert!((initial - 0.5 * 0.2f64.exp()).abs() < 1e-14);
+    let residual = prepared.population.unwrap().proportional_residual.unwrap();
+    assert_eq!(
+        (residual.initial, residual.lower, residual.upper),
+        (0.15, 0.02, 0.8)
+    );
+
+    let primary = request.covariate_effect.as_mut().unwrap();
+    let mut nested = primary.clone();
+    nested.covariate = "nested".into();
+    nested.additional.push(primary.clone());
+    primary.additional.push(nested);
+    assert!(plan(request).unwrap_err().message.contains("nested"));
+}
+
+#[test]
+fn saem_bounds_sweeps_and_retained_expectations_before_execution() {
+    let (compiled, mut request) = fixture();
+    let (compiled_two, request_two) = two_effect_fixture();
+    for (compiled, mut legacy) in [
+        (compiled.clone(), request.clone()),
+        (compiled_two, request_two),
+    ] {
+        for sweeps in [0, 21] {
+            legacy.sweeps = Some(sweeps);
+            let error = compiled.fit_population_saem(&legacy).unwrap_err();
+            assert!(error.message.contains("SAEM sweeps"), "{error:?}");
+            let error = compiled
+                .plan_fit(&FitRequest {
+                    schema: FitSchema::V01,
+                    problem: FitProblem::Saem(legacy.clone()),
+                })
+                .unwrap_err();
+            assert!(error.message.contains("SAEM sweeps"), "{error:?}");
+        }
+    }
+
+    request.subjects = request.subjects.iter().cycle().take(129).cloned().collect();
+    let plan = compiled
+        .plan_fit(&FitRequest {
+            schema: FitSchema::V01,
+            problem: FitProblem::Saem(request),
+        })
+        .unwrap();
+    assert_eq!(plan.subjects.len(), 129);
+
+    let (compiled, mut request) = fixture();
+    request.max_iterations = 2_000;
+    request.burn_in_iterations = Some(400);
+    request.proportional_error_fit = Some(PopulationProportionalErrorFit {
+        output: "cp".into(),
+        initial: 0.15,
+        lower: 0.02,
+        upper: 0.8,
+    });
+    for subject in &mut request.subjects {
+        let mut row = subject.observations[0].clone();
+        row.error.proportional_sd = 0.15;
+        subject.observations = vec![row; 300];
+    }
+    let error = compiled
+        .plan_fit(&FitRequest {
+            schema: FitSchema::V01,
+            problem: FitProblem::Saem(request),
+        })
+        .unwrap_err();
+    assert_eq!(error.code, qspquest_core::ErrorCode::WorkBudget);
+    assert!(error.message.contains("expectation storage"), "{error:?}");
 }

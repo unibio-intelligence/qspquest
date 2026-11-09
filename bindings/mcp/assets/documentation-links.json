@@ -1,46 +1,58 @@
 {
   "qspquest://documentation/files/docs/tutorials/inverse-gaussian-input.md": [
     [
-      346,
-      378,
+      424,
+      456,
       "../examples/inverse-gaussian.qsp",
       "qspquest://documentation/files/docs/examples/inverse-gaussian.qsp"
     ],
     [
-      398,
-      435,
+      476,
+      513,
       "../examples/inverse-gaussian-fit.json",
       "qspquest://documentation/files/docs/examples/inverse-gaussian-fit.json"
+    ],
+    [
+      2688,
+      2862,
+      "![Input rate, cumulative amount entered and plasma concentration over 16 hours for the estimated fraction and for complete input](figures/inverse-gaussian-input-profiles.png)",
+      "*Figure: Input rate, cumulative amount entered and plasma concentration over 16 hours for the estimated fraction and for complete input. The image is included in the HTML documentation.*"
+    ],
+    [
+      4186,
+      4360,
+      "![Negative log-likelihood as a function of the input fraction near the estimate, with the likelihood-based 95 percent interval](figures/inverse-gaussian-input-likelihood.png)",
+      "*Figure: Negative log-likelihood as a function of the input fraction near the estimate, with the likelihood-based 95 percent interval. The image is included in the HTML documentation.*"
     ]
   ],
   "qspquest://guide/deploy": [
     [
-      8807,
-      8836,
+      8882,
+      8911,
       "../examples/mcp_local_jobs.py",
       "qspquest://documentation/files/docs/examples/mcp_local_jobs.py"
     ],
     [
-      8917,
-      8971,
+      8992,
+      9046,
       "../../conformance/models/synthetic-one-compartment.qsp",
       "qspquest://documentation/files/conformance/models/synthetic-one-compartment.qsp"
     ],
     [
-      11910,
-      11962,
+      12002,
+      12054,
       "mcp-results.md#read-a-complete-mcp-simulation-result",
       "qspquest://guide/results#read-a-complete-mcp-simulation-result"
     ],
     [
-      14809,
-      14861,
+      14901,
+      14953,
       "mcp-results.md#read-a-complete-mcp-simulation-result",
       "qspquest://guide/results#read-a-complete-mcp-simulation-result"
     ],
     [
-      14887,
-      14927,
+      14979,
+      15019,
       "../examples/managed_artifact_download.py",
       "qspquest://documentation/files/docs/examples/managed_artifact_download.py"
     ]
@@ -59,10 +71,18 @@
       "qspquest://schema/expression"
     ],
     [
-      4838,
-      4881,
+      4851,
+      4894,
       "../docs/tutorials/inverse-gaussian-input.md",
       "qspquest://documentation/files/docs/tutorials/inverse-gaussian-input.md"
+    ]
+  ],
+  "qspquest://guide/extend-model": [
+    [
+      548,
+      579,
+      "../examples/mcp_extend_model.py",
+      "qspquest://documentation/files/docs/examples/mcp_extend_model.py"
     ]
   ],
   "qspquest://guide/language": [
@@ -85,66 +105,72 @@
       "qspquest://guide/requirements"
     ],
     [
-      5318,
-      5332,
+      5361,
+      5375,
       "expressions.md",
       "qspquest://guide/expressions"
     ],
     [
-      8106,
-      8117,
+      8155,
+      8166,
       "model-ir.md",
       "qspquest://guide/model"
     ],
     [
-      9802,
-      9829,
+      9859,
+      9886,
       "regimens.md#covariate-steps",
       "qspquest://guide/regimens#covariate-steps"
     ],
     [
-      12891,
-      12926,
+      12992,
+      13027,
       "regimens.md#declared-fixed-switches",
       "qspquest://guide/regimens#declared-fixed-switches"
     ],
     [
-      13368,
-      13416,
+      13469,
+      13517,
       "regimens.md#strict-and-inclusive-time-predicates",
       "qspquest://guide/regimens#strict-and-inclusive-time-predicates"
     ],
     [
-      13894,
-      13928,
+      13995,
+      14029,
       "regimens.md#model-bound-dosing-lag",
       "qspquest://guide/regimens#model-bound-dosing-lag"
     ],
     [
-      15122,
-      15156,
+      15223,
+      15257,
       "regimens.md#model-history-bindings",
       "qspquest://guide/regimens#model-history-bindings"
     ],
     [
-      17040,
-      17068,
+      17141,
+      17169,
       "../docs/LINEAR-PK-KERNELS.md",
       "qspquest://documentation/files/docs/LINEAR-PK-KERNELS.md"
     ]
   ],
   "qspquest://guide/library-fitting": [
     [
-      2596,
-      2626,
+      2773,
+      2803,
       "../examples/mcp_library_fit.py",
       "qspquest://documentation/files/docs/examples/mcp_library_fit.py"
     ],
     [
-      2651,
-      2675,
+      2828,
+      2852,
       "../examples/stdio_rpc.py",
       "qspquest://documentation/files/docs/examples/stdio_rpc.py"
+    ],
+    [
+      4628,
+      4800,
+      "![Observed and predicted normalized concentration at three starting values and at the estimate of the elimination parameter](figures/library-fitting-observed-predicted.png)",
+      "*Figure: Observed and predicted normalized concentration at three starting values and at the estimate of the elimination parameter. The image is included in the HTML documentation.*"
     ]
   ],
   "qspquest://guide/model": [
@@ -187,36 +213,54 @@
   ],
   "qspquest://guide/paired-endpoint-fitting": [
     [
-      693,
-      743,
+      882,
+      932,
       "../../conformance/models/paired-antibody-cell.json",
       "qspquest://documentation/files/conformance/models/paired-antibody-cell.json"
     ],
     [
-      767,
-      801,
+      956,
+      990,
       "../examples/paired_endpoint_fit.py",
       "qspquest://documentation/files/docs/examples/paired_endpoint_fit.py"
+    ],
+    [
+      6045,
+      6197,
+      "![Observed and fitted antibody concentration and cell density over 360 days, with doses on days 0 and 180](figures/paired-endpoint-fitting-profiles.png)",
+      "*Figure: Observed and fitted antibody concentration and cell density over 360 days, with doses on days 0 and 180. The image is included in the HTML documentation.*"
+    ],
+    [
+      6652,
+      6801,
+      "![Negative log-likelihood over cl and drug_effect, with three starting values and the common estimate](figures/paired-endpoint-fitting-objective.png)",
+      "*Figure: Negative log-likelihood over cl and drug_effect, with three starting values and the common estimate. The image is included in the HTML documentation.*"
     ]
   ],
   "qspquest://guide/predictive-checks": [
     [
-      434,
-      461,
+      601,
+      628,
       "../examples/parallel_vpc.py",
       "qspquest://documentation/files/docs/examples/parallel_vpc.py"
     ],
     [
-      499,
-      553,
+      667,
+      721,
       "../../conformance/models/synthetic-one-compartment.qsp",
       "qspquest://documentation/files/conformance/models/synthetic-one-compartment.qsp"
+    ],
+    [
+      2843,
+      3031,
+      "![Observed concentrations in three time bins, and observed percentiles compared with the 95% intervals of the simulated percentiles in each bin](figures/parallel-predictive-checks-vpc.png)",
+      "*Figure: Observed concentrations in three time bins, and observed percentiles compared with the 95% intervals of the simulated percentiles in each bin. The image is included in the HTML documentation.*"
     ]
   ],
   "qspquest://guide/regimens": [
     [
-      19810,
-      19844,
+      19802,
+      19836,
       "#dose-relative-model-switches-json",
       "qspquest://guide/regimens#dose-relative-model-switches-json"
     ]
@@ -315,76 +359,76 @@
   ],
   "qspquest://guide/results": [
     [
-      1083,
-      1118,
+      1108,
+      1143,
       "../examples/mcp_result_resources.py",
       "qspquest://documentation/files/docs/examples/mcp_result_resources.py"
     ],
     [
-      1154,
-      1181,
+      1179,
+      1206,
       "../examples/table_bundle.py",
       "qspquest://documentation/files/docs/examples/table_bundle.py"
     ],
     [
-      12011,
-      12057,
+      12443,
+      12489,
       "../../spec/units.md#archive-source-coordinates",
       "qspquest://guide/units#archive-source-coordinates"
     ],
     [
-      13632,
-      13678,
+      14064,
+      14110,
       "../../spec/run-results.md#periodic-preparation",
       "qspquest://guide/requests#periodic-preparation"
     ],
     [
-      47450,
-      47487,
+      48600,
+      48637,
       "../examples/mcp_population_records.py",
       "qspquest://documentation/files/docs/examples/mcp_population_records.py"
     ],
     [
-      47524,
-      47570,
+      48674,
+      48720,
       "../../bindings/mcp/assets/fits/population.json",
       "qspquest://examples/fit/population"
     ],
     [
-      47609,
-      47633,
+      48759,
+      48783,
       "../examples/stdio_rpc.py",
       "qspquest://documentation/files/docs/examples/stdio_rpc.py"
     ]
   ],
   "qspquest://guide/units": [
     [
-      146,
-      157,
+      151,
+      162,
       "model-ir.md",
       "qspquest://guide/model"
     ],
     [
-      177,
-      188,
+      182,
+      193,
       "language.md",
       "qspquest://guide/language"
     ],
     [
-      205,
-      219,
+      210,
+      224,
       "run-results.md",
       "qspquest://guide/requests"
     ],
     [
-      235,
-      246,
+      240,
+      251,
       "regimens.md",
       "qspquest://guide/regimens"
     ],
     [
-      9721,
-      9749,
+      9726,
+      9754,
       "regimens.md#state-tolerances",
       "qspquest://guide/regimens#state-tolerances"
     ]

@@ -62,6 +62,9 @@ fn fixture(proportional: f64) -> (Arc<CompiledSensitivityDocument>, PopulationFi
     (
         compiled,
         PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects,
             fixed_effects: vec![FitBound {
                 parameter: "cl".into(),
@@ -362,6 +365,9 @@ fn focei_standard_error_matches_exact_gaussian_random_intercept() {
         })
         .collect();
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![FitBound {
             parameter: "cl".into(),

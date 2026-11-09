@@ -1,6 +1,7 @@
 pub mod compute;
 pub mod input_names;
 pub mod input_shapes;
+pub mod nca;
 pub mod overrides;
 pub mod population_records;
 pub mod readouts;

@@ -1,11 +1,11 @@
-# Try QSPQuest in your browser
+# QSPQuest in a web browser
 
 
 The browser quickstart runs the synthetic one-compartment model on your device.
-Change dose, clearance or volume, select **Run simulation**, and explore the
+Change dose, clearance or volume, select **Run simulation**, and inspect the
 concentration plot. Download the 97 post-dose observations as CSV. Browser
-simulation uses a local WebAssembly worker; your own agent connects separately
-through the [MCP Docker quickstart](tutorials/agents-docker.md).
+simulation uses a local WebAssembly (WASM) worker; your own agent connects separately
+through the [Model Context Protocol (MCP) Docker quickstart](tutorials/agents-docker.md).
 
 ## Run a prepared browser bundle
 
@@ -25,7 +25,7 @@ The model, complete request, client and legal notices are included in the bundle
 Stop the server with Ctrl+C. The bundle needs no Rust installation or remote
 service. Bundles are built from source as described below.
 
-Use the documented default values for your first run. The controls accept positive
+Use the documented default values for the first run. The controls accept positive
 finite values within the displayed limits. Invalid values are rejected.
 A changed input clears the previous result; run again to update it. **Cancel**
 terminates the active worker, and a later run creates a fresh worker. A missing
@@ -158,7 +158,7 @@ service.
 The browser still fetches the JavaScript and WASM assets. The embedding
 application controls where those assets come from and whether it uploads
 inputs or results, logs telemetry, or stores anything locally. Review those
-application behaviors before promising users that their data never leaves
+application behaviors before telling users that their data never leaves
 their device. Browser execution also does not replace application-level
 access control or clinical validation.
 
@@ -188,8 +188,8 @@ The browser page allows at most 20,000 output values, 1,000,000 solver callbacks
 10,000 events and one million bytes per input. Set the corresponding request
 budgets within these limits. Errors show the engine diagnostic or the missing
 input. Invalid JSON or model syntax can be corrected and rerun. Choose the native
-CLI or MCP server for larger workloads or supported fitting. Direct OMEX, SBML
-and arbitrary program imports are not accepted by this page.
+command-line interface (CLI) or MCP server for larger workloads or supported fitting. Direct Open Modeling EXchange (OMEX), Systems Biology Markup
+Language (SBML) and arbitrary program imports are not accepted by this page.
 
 ## Include a model-library preset
 

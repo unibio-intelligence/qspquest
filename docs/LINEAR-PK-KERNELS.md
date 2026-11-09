@@ -1,6 +1,6 @@
-# Linear PK interval kernels
+# Analytical solution of linear pharmacokinetic models
 
-`qspquest_modeling::linear_pk::LinearPk` propagates amounts through a constant-rate
+`qspquest_modeling::linear_pk::LinearPk` propagates amounts in a linear pharmacokinetic (PK) system through a constant-rate
 interval for one to three mammillary disposition compartments. The first
 volume is central; each additional compartment exchanges with central through
 its own clearance. An optional first-order absorption depot is the first state,
@@ -16,9 +16,9 @@ Zero clearance, zero exchange and zero absorption rates are accepted.
 ## Numerical method
 
 The exact interval solution is `exp(A dt) x + dt phi_1(A dt) u`. An augmented
-matrix exponential computes both functions without inverting A or dividing by
+matrix exponential [1] computes both functions without inverting A or dividing by
 differences of rates. This supports singular systems and coincident absorption
-and elimination rates. Evaluation uses scaling and squaring with a degree-20
+and elimination rates. Evaluation uses scaling and squaring [2, 3] with a degree-20
 Taylor polynomial after reducing the matrix infinity norm to at most 0.5.
 Roundoff and repeated squaring still limit accuracy. Intervals requiring more
 than 60 squarings are rejected; that limit caps work and does not guarantee
@@ -32,7 +32,7 @@ clamping.
 
 `LinearPk::bind(initial_amounts)` returns a `BoundLinearPk` implementing the
 common `Model` contract. `simulate_with_budgets` uses its analytic interval
-propagator inside the same event loop as BDF, so boluses, overlapping infusions,
+propagator inside the same event loop as the backward differentiation formula (BDF) solver, so boluses, overlapping infusions,
 ordered resets, stopping target infusions and pre/post boundary rows behave the
 same way under both. Each interval observation is propagated from the same
 initial state, so adding samples does not accumulate propagation roundoff.
@@ -60,8 +60,8 @@ units are validated and converted; invalid volumes, clearances or absorption
 rates fail under both execution backends.
 
 Requests explicitly select `analytic_linear_pk` or `diffsol_bdf`. The former
-requires a typed declaration; ordinary ODEs are never treated as linear
-automatically. The result records `backend = qspquest` and
+requires a typed declaration; models written as ordinary differential equations
+(ODEs) are never treated as linear automatically. The result records `backend = qspquest` and
 `algorithm = linear_pk_exponential_taylor20` for analytic execution.
 Tolerances are still required in the request but do not affect the analytic
 backend.
@@ -134,11 +134,11 @@ JSON schemas are exported for both envelopes. Binding entry points:
 
 - CLI: `qspquest steady-state MODEL REQUEST.json`.
 - Python: `CompiledModel.periodic_steady_state(request)` returns a dict.
-- WASM: `CompiledSimulation.periodic_steady_state(request_json)` returns JSON.
+- WebAssembly (WASM): `CompiledSimulation.periodic_steady_state(request_json)` returns JSON.
 - Conformance worker: `{kind: 'steady-state', source, request}`.
 
-The installed macOS arm64 wheel passes concurrent calls and failure recovery
-on CPython 3.11 and 3.12. Chrome and Firefox match native amounts exactly for
+The installed macOS arm64 wheel passes tests of concurrent calls and failure
+recovery on CPython 3.11 and 3.12. Chrome and Firefox match native amounts exactly for
 three requests (two distinct clearance values plus a repeated binding).
 Each native result is checked by simulating one full cycle. The CLI matches the
 library result and prints no partial output on failure. Safari and other native
@@ -152,19 +152,19 @@ kernel's `periodic_cycle_protocol` returns a normal amount-state protocol with
 the preceding cycle's tail and the current cycle's head. Each segment retains
 the infusion rate. Stop-target resets truncate delivery before wrapping;
 this includes a reset exactly at cycle start. The extra events count toward
-your event budget.
+the event budget.
 
 The ordinary finite-run API still requires every infusion to finish inside its
-window. To replay one cycle with a crossing infusion, the returned steady
-amounts are not enough: you must also include the infusion still running from
-the previous cycle. Use an explicitly split regimen (or the kernel's
+window. To replay one cycle with a crossing infusion, the returned steady-state
+amounts are not sufficient; the infusion still running from the previous cycle
+must also be included. Use an explicitly split regimen (or the kernel's
 normalized amount-state protocol with a kernel-bound model).
 
 ### Infusions spanning multiple cycles
 
 Infusions longer than one period are supported. Complete overlaps are combined
-into one constant input plus at most two remainder segments, so even a billion
-overlapping periods become one input event; remainder segments still count
+into one constant input plus at most two remainder segments, regardless of the
+number of overlapping periods, they become one input event; remainder segments still count
 toward the event budget. A periodic stop-target reset instead limits each
 administration to its first cancellation time; its input is split across the
 boundary only if needed. Tests compare 24-, 30- and 121-hour infusions repeated
@@ -172,3 +172,14 @@ every 12 hours against unsplit 100-cycle trajectories, with resets at three
 different phases. A typed three-compartment case matches constant-input
 equilibrium.
 
+## References
+
+1. Moler C, Van Loan C. Nineteen dubious ways to compute the exponential of a
+   matrix, twenty-five years later. *SIAM Rev*. 2003;45(1):3–49.
+   [doi:10.1137/S00361445024180](https://doi.org/10.1137/S00361445024180)
+2. Higham NJ. The scaling and squaring method for the matrix exponential
+   revisited. *SIAM J Matrix Anal Appl*. 2005;26(4):1179–1193.
+   [doi:10.1137/04061101X](https://doi.org/10.1137/04061101X)
+3. Al-Mohy AH, Higham NJ. A new scaling and squaring algorithm for the matrix
+   exponential. *SIAM J Matrix Anal Appl*. 2009;31(3):970–989.
+   [doi:10.1137/09074721X](https://doi.org/10.1137/09074721X)

@@ -45,6 +45,14 @@ fn blq_and_failed_replicates_remain_explicit() {
     assert_eq!(f.rows.len(), 2);
     assert_eq!(f.records()[0]["status"], "failed");
     assert_eq!(f.records()[0]["value"], serde_json::Value::Null);
+    for schema in ["qspquest.bootstrap/v0.1", "qspquest.bootstrap/v0.2"] {
+        assert!(frames::convert(&json!({"schema": schema, "replicates": []}), "bootstrap").is_ok());
+    }
+    assert!(frames::convert(
+        &json!({"schema": "qspquest.bootstrap/v0.3", "replicates": []}),
+        "bootstrap"
+    )
+    .is_err());
     let vpc = json!({"schema":"qspquest.vpc/v0.1","bins":[{"stratum":"all","start":0.,"end":1.,"observations":5,"quantiles":[{"percentile":0.5,"observed":null,"simulated":null,"confidence_interval":null}],"observed_blq_fraction":1.,"simulated_blq_fraction":1.,"blq_confidence_interval":[1.,1.]}]});
     let f = frames::convert(&vpc, "vpc_bins").unwrap();
     assert_eq!(f.records()[0]["observed"], serde_json::Value::Null);

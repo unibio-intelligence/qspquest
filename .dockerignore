@@ -55,6 +55,7 @@
 !docker/inventory.sh
 !docker/build_info.py
 !docker/start_notebook.py
+!docker/versions.py
 !docker/constraints.txt
 !docs/
 !docs/tutorials/
@@ -99,6 +100,7 @@
 !docs/examples/inverse-gaussian-fit.json
 !docs/examples/inverse-gaussian.qsp
 !docs/examples/managed_artifact_download.py
+!docs/examples/mcp_extend_model.py
 !docs/examples/mcp_library_fit.py
 !docs/examples/mcp_local_jobs.py
 !docs/examples/mcp_population_records.py
@@ -109,6 +111,7 @@
 !docs/examples/table_bundle.py
 !docs/release-verification.md
 !docs/tutorials/
+!docs/tutorials/extend-library-model.md
 !docs/tutorials/inverse-gaussian-input.md
 !docs/tutorials/library-fitting.md
 !docs/tutorials/mcp-deploy.md

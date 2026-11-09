@@ -1,15 +1,15 @@
-# Bounded parameter scans
+# Parameter scans
 
 `CompiledDocument::scan` and `qspquest scan MODEL REQUEST.json` evaluate an
 explicit ordered list of 1–25 parameter points. The shared run defines regimen,
 solver, initial-state overrides, covariates and base parameter values. Each
 point has a unique 1–128 byte ID and a parameter quantity map that overrides the
 base map. Defaults still supply unspecified model parameters. Points are not
-expanded into a grid for you. The fixture `conformance/requests/synthetic-scan.json`
+expanded into a grid. The fixture `conformance/requests/synthetic-scan.json`
 shows three clearance values for the synthetic one-compartment model.
 
 Requests use `qspquest.scan/v0.1`; results use `qspquest.scan-result/v0.1`.
-Every point returns its ID, its merged parameter map (in the units you
+Every point returns its ID, its merged parameter map (in the units
 supplied) and the full simulation result. Results stay in point order.
 
 All points are validated before any simulation starts: parameters, initial
@@ -27,9 +27,9 @@ request limit (JSON model documents permit four million bytes). The generated
 schemas describe structure; point limits, units, domains and budgets are
 checked at run time.
 
-## Run the synthetic clearance scan
+## Example: clearance scan
 
-This example compares clearance while holding the 3 L compartment volume and
+This example compares three clearance values while holding the 3 L compartment volume and
 6 mg bolus fixed. Use the release source with Rust 1.98.1 installed, and run from
 its top-level directory. The build uses the release's locked dependencies:
 
@@ -47,8 +47,8 @@ respectively, following `cp(t) = 2 * exp(-clearance / 3 * t)`.
 
 Use the row's side when comparing time-zero values. Supply parameter values as
 quantities with compatible units and keep point IDs unique. Adding points
-without raising the total budget shrinks each point's share; if any point runs
-out, the whole scan is rejected. These synthetic comparisons do not establish
+without increasing the total budget reduces each point's share; if any point exhausts
+its budget, the whole scan is rejected. These synthetic comparisons do not establish
 clinical suitability.
 
 Tests compare results with analytic trajectories, including mixed-unit
@@ -57,14 +57,14 @@ overrides. A scan does not compute global sensitivity indices.
 ## Python and browser bindings
 
 Python `CompiledModel.scan(request)` returns a dict and `scan_json(request)`
-returns JSON. Both use the versioned scan envelope, release the GIL during
+returns JSON. Both use the versioned scan envelope, release the global interpreter lock (GIL) during
 native execution and permit sharing a compiled model between independent scans.
 For 100 parameter sets, submit four scans of 25 points and concatenate their
 ordered `results`. Give each scan a total budget large enough to reserve the
 requested per-point budget: for 25 points, multiply each run budget by 25.
 Scanning does not change the chosen solver, tolerances, observations or outputs.
 
-WASM `CompiledSimulation.scan(request_json)` returns result JSON. The current
+WebAssembly (WASM) `CompiledSimulation.scan(request_json)` returns result JSON. The current
 conformance worker accepts `kind: "scan"` with model text and the same envelope;
-it rejects separate callback/protocol/regimen overrides. Cancelling terminates
+it rejects separate callback/protocol/regimen overrides. Canceling terminates
 the worker, and the next request starts a new one.

@@ -131,7 +131,7 @@ impl CompiledDocument {
             || count > 25
             || request.num_levels < 4
             || request.num_levels > 100
-            || request.num_levels % 2 != 0
+            || !request.num_levels.is_multiple_of(2)
         {
             return Err(invalid("Morris requires 1..11 parameters, 2..12 trajectories, at most 25 points and an even 4..100-level grid"));
         }

@@ -1,6 +1,6 @@
 # Deploy the MCP server
 
-Choose how the QSPQuest MCP server runs, submit offline jobs, and retrieve
+Choose how the QSPQuest Model Context Protocol (MCP) server runs, submit offline jobs, and retrieve
 complete governed result artifacts from a hosted deployment.
 
 ## Choose an MCP deployment profile
@@ -22,7 +22,7 @@ export QSPQUEST_LIBRARY_DIR="$(cd .qspquest-tutorial-models && pwd)"
 cargo build --locked -p qspquest-mcp
 ```
 
-For real work, use a model library and check each model's limitations.
+Outside this tutorial, use a model library and check each model's limitations.
 
 ### Local stdio
 
@@ -45,7 +45,8 @@ target/debug/qspquest-mcp --profile public --http 127.0.0.1:8080 \
   --library-dir "$QSPQUEST_LIBRARY_DIR"
 ```
 
-In another terminal, run this complete stdlib client:
+In another terminal, run this complete client, which uses only the Python
+standard library:
 
 ```sh
 python3 - <<'PY'
@@ -121,7 +122,7 @@ QSPQUEST_SANDBOX_WASM="$PWD/target/mcp-assets/sandbox.wasm" \
   cargo build --release --locked -p qspquest-mcp --features sandbox,managed
 ```
 
-Then configure these actual operator-supplied values:
+Then set these operator-supplied values:
 
 ```sh
 export QSPQUEST_PLATFORM_API_URL=https://platform.example.test/api/v1
@@ -149,7 +150,7 @@ reachability uses a credential-free GET with a five-second timeout; 200, 401 or
 prevents startup. This probe does not validate a session. Each managed request
 forwards its bearer to that fixed resolver, with redirects and environment proxy
 settings disabled. Its verified response supplies identity, tenant and tier;
-client tier headers and unverified JWT claims never supply them. The resolver
+client tier headers and unverified JSON Web Token (JWT) claims never supply them. The resolver
 must enforce its token audience, expiry, scopes and tenant policy. An unavailable
 or rejecting resolver denies requests.
 
@@ -201,8 +202,8 @@ takes effect. Both commands print:
 Verified two synthetic dose results, full artifacts, stable retry key and restart without replay.
 ```
 
-The example deletes its temporary directories when it finishes. For real work,
-use persistent directories as below.
+The example deletes its temporary directories when it finishes. Outside this
+example, use persistent directories as described below.
 
 ### Configure an agent client
 

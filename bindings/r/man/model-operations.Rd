@@ -63,4 +63,4 @@ stopifnot(max(abs(trajectory$VALUE - 6 * exp(-0.1 * trajectory$TIME))) < 1e-6)
 trajectory
 }
 \seealso{\code{\link{result_data_frame}}, \code{\link{nonmem_requests}},
-\code{\link{fit_data_requests}}}
+\code{\link{individual_fit_data_requests}}}

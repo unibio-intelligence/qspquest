@@ -1,6 +1,4 @@
-#[path = "../../../../conformance/compare.rs"]
-mod comparison;
-use comparison::*;
+use super::reference_comparison::*;
 use std::collections::BTreeMap;
 fn fixture() -> (Trajectory, BTreeMap<String, Tolerance>) {
     (

@@ -38,7 +38,17 @@ impl Sandbox {
         })
     }
     pub fn execute(&self, source: &str, operation: &str, request: Value) -> Result<Value, Value> {
-        self.limited(source, operation, request, 45_000, 100_000_000_000)
+        self.execute_for(source, operation, request, crate::policy::HOSTED_DEADLINE)
+    }
+    pub(crate) fn execute_for(
+        &self,
+        source: &str,
+        operation: &str,
+        request: Value,
+        remaining: std::time::Duration,
+    ) -> Result<Value, Value> {
+        let millis = remaining.min(crate::policy::HOSTED_DEADLINE).as_millis() as u64;
+        self.limited(source, operation, request, millis, 100_000_000_000)
     }
     pub fn execute_library(
         &self,

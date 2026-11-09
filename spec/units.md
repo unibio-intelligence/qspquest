@@ -1,6 +1,6 @@
 # Units: implemented subset and lowering contract
 
-This describes the Rust unit and expression checker. Units are carried by
+This page describes the Rust unit and expression checker. Units are carried by
 the [model document](model-ir.md), [model language](language.md),
 [run request](run-results.md) and [regimen](regimens.md).
 
@@ -191,10 +191,10 @@ For example, an alias with accepted coordinate `1` and declared source label
 and accepted units; its suggestion includes the declared label and the archive's
 coordinate mode. Supplying `{"value":0.2,"unit":"1"}` explicitly uses the model's
 numeric coordinate and preserves 0.2. This does not mean the rest of the
-model's units have been checked. Use an input with physical units when you need
-a physical conversion.
+model's units have been checked. Use an input with physical units when a physical
+conversion is required.
 
-MCP friendly fields go further. For dose amounts, readout thresholds, timed
+MCP friendly fields extend this behavior. For dose amounts, readout thresholds, timed
 `parameter_changes` and declared archive input aliases, an explicit unit `1`
 means "already in the stored unit": the number passes unchanged, with no
 conversion or dimension check. Canonical parameter and initial-state names, and

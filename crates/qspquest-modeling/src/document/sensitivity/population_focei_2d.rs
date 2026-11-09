@@ -273,11 +273,11 @@ impl Evaluator2<'_> {
         let run = &subject.simulation.run;
         crate::validate_solver(run.solver)?;
         let mut parameters = run.parameters.clone();
-        for axis in 0..2 {
+        for (axis, &value) in individual.iter().enumerate() {
             parameters.insert(
                 self.setup.names[axis].clone(),
                 qspquest_core::model::Quantity {
-                    value: individual[axis],
+                    value,
                     unit: self.setup.units[axis].clone(),
                 },
             );

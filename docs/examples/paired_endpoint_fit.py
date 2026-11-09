@@ -73,11 +73,11 @@ def reference(parameters, steps_per_day):
 
 
 def template(solver, start):
-    import qspquest as qsp
-    run = qsp.run_request(end=360, times=sorted({t for t, _ in GRID}),
+    import qspquest as qq
+    run = qq.run_request(end=360, times=sorted({t for t, _ in GRID}),
         time_unit='d', solver=solver, parameters={n: quantity(v, UNITS[n])
             for n, v in zip(TRUTH, start)},
-        administrations=[qsp.bolus('concentration', amount, 'mg', at=t, time_unit='d')
+        administrations=[qq.bolus('concentration', amount, 'mg', at=t, time_unit='d')
                          for t, amount in [(0, 1000), (180, 500)]], rtol=1e-10, atol=1e-12)
     run['regimen']['observations'] = [{'time': quantity(t, 'd'), 'side': side} for t, side in GRID]
     return {'schema': 'qspquest.fit/v0.1', 'problem': {'kind': 'individual', 'request': {
@@ -110,7 +110,7 @@ def reference_objective(objective):
 
 
 def prepare(output):
-    import qspquest as qsp
+    import qspquest as qq
     from qspquest.interchange import export_omex, import_omex
     output.mkdir(parents=True, exist_ok=False)
     source = json.loads(MODEL.read_bytes())
@@ -128,7 +128,7 @@ def prepare(output):
     for solver in ['diffsol_bdf']:
         for index, start in enumerate(STARTS):
             name = solver + '_start_' + str(index)
-            dataset = qsp.individual_fit_dataset(records, template(solver, start), endpoints=endpoints)
+            dataset = qq.individual_fit_dataset(records, template(solver, start), endpoints=endpoints)
             requests[name], mappings[name], plans[name] = dataset.request, dataset.mapping, dataset.plan(source)
     archive = export_omex(source, {}, fits=requests)
     digest = sha256(archive).hexdigest()
@@ -152,12 +152,18 @@ def prepare(output):
 
 
 def run(prepared_path, expected_sha256, output):
-    import qspquest as qsp
+    import qspquest as qq
     from qspquest import _native
     from qspquest.interchange import import_omex, export_omex, InterchangeError
     raw = prepared_path.read_bytes()
-    if sha256(raw).hexdigest() != expected_sha256:
-        raise ValueError('Prepared bytes differ from the trusted preparation digest')
+    # The receipt written by `prepare` beside prepared.json records its digest.
+    # A digest recorded elsewhere can be passed with --prepared-sha256.
+    recorded = json.loads(prepared_path.with_name('preparation.json').read_bytes())['prepared_sha256']
+    if expected_sha256 is not None and expected_sha256 != recorded:
+        raise ValueError('Preparation receipt differs from the supplied digest')
+    if sha256(raw).hexdigest() != recorded:
+        raise ValueError('Prepared bytes differ from the preparation receipt')
+    expected_sha256 = recorded
     prepared = json.loads(raw)
     if prepared['schema'] != 'qspquest.paired-fit-example/v1':
         raise ValueError('Unsupported preparation profile')
@@ -176,13 +182,13 @@ def run(prepared_path, expected_sha256, output):
             write(output/(name+'-result.json'), result)
             fit = result['fit']
             identity = fit['objective']['identity']
-            if identity['model_content_hash'] != qsp.CompiledModel(prepared['model']).model_content_hash:
+            if identity['model_content_hash'] != qq.CompiledModel(prepared['model']).model_content_hash:
                 raise ValueError('Native result model identity differs')
             recovered = all(fit['parameters'][p]['unit'] == UNITS[p] and abs(fit['parameters'][p]['value']-truth) <= prepared['recovery_absolute_limits'][p]
                             for p, truth in prepared['truth'].items())
             simulation = deepcopy(request['problem']['request']['objective']['simulation'])
             simulation['run']['parameters'].update(fit['parameters'])
-            predicted = qsp.CompiledSensitivities(prepared['model'], list(TRUTH)).run(simulation)['result']
+            predicted = qq.CompiledSensitivities(prepared['model'], list(TRUTH)).run(simulation)['result']
             if predicted['times'] != [t for t, _ in GRID] or predicted['sides'] != [s for _, s in GRID]:
                 raise ValueError('Native prediction grid differs')
             series = {s['name']: s for s in predicted['outputs']}
@@ -195,7 +201,7 @@ def run(prepared_path, expected_sha256, output):
             # Compare a non-optimal starting point, where the likelihood gradient
             # is informative. All finite-difference steps/limits are prespecified.
             objective = deepcopy(request['problem']['request']['objective'])
-            native_objective = qsp.CompiledSensitivities(prepared['model'], list(TRUTH)).objective(objective)
+            native_objective = qq.CompiledSensitivities(prepared['model'], list(TRUTH)).objective(objective)
             independent_nll = reference_objective(objective)
             objective_error = abs(native_objective['objective']-independent_nll)/(1e-4+1e-6*abs(independent_nll))
             gradients = []
@@ -259,10 +265,10 @@ def run(prepared_path, expected_sha256, output):
     limited['problem']['request'].update(max_evaluations=1, max_iterations=1)
     try:
         names = limited['problem']['request']['objective']['simulation']['with_respect_to']
-        result = qsp.CompiledSensitivities(prepared['model'], names).fit(limited)
+        result = qq.CompiledSensitivities(prepared['model'], names).fit(limited)
         write(output/'nonconvergence-result.json', result)
         controls.append({'case': 'nonconvergence', 'passed': result['fit']['status'] != 'converged'})
-    except qsp.QSPQuestError as error:
+    except qq.QSPQuestError as error:
         controls.append({'case': 'nonconvergence', 'passed': error.code == 'budget', 'diagnostic': error.diagnostic})
     unchanged = sha256(native_path.read_bytes()).hexdigest() == native_sha
     report = {'passed': all(c['passed'] for c in cases+controls) and unchanged,
@@ -281,7 +287,7 @@ if __name__ == '__main__':
     p.add_argument('--output', type=Path, required=True)
     r = commands.add_parser('run')
     r.add_argument('--prepared', type=Path, required=True)
-    r.add_argument('--prepared-sha256', required=True)
+    r.add_argument('--prepared-sha256', help='Optional digest recorded independently of preparation.json')
     r.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     try:

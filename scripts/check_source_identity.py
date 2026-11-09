@@ -1,4 +1,11 @@
-"""Verify installed-package doctor identities against the exact engine source bytes."""
+"""Verify installed-package doctor identities against the exact engine source bytes.
+
+Both digests are computed from the checkout when a check runs; none is stored
+in this repository. `source_hashes` covers the same files as
+`crates/qspquest-modeling/build.rs`. `numerical_identity` covers only inputs
+that can change numbers and is used to decide when validation evidence must be
+re-recorded.
+"""
 import argparse
 import hashlib
 import json
@@ -7,7 +14,9 @@ from pathlib import Path
 
 DIRECTORIES = ('crates/qspquest-core/src', 'crates/qspquest-modeling/src', 'bindings/wasm/src')
 FIXED = ('Cargo.toml', 'Cargo.lock', '.cargo/config.toml', 'crates/qspquest-core/Cargo.toml',
-         'crates/qspquest-modeling/Cargo.toml', 'bindings/wasm/Cargo.toml', 'bindings/mcp/src/core/compute.rs', 'crates/qspquest-modeling/build.rs')
+         'crates/qspquest-modeling/Cargo.toml', 'bindings/wasm/Cargo.toml',
+         'bindings/mcp/src/core/compute.rs', 'bindings/mcp/src/edit.rs',
+         'crates/qspquest-modeling/build.rs')
 
 
 def locked_backend_version(text):

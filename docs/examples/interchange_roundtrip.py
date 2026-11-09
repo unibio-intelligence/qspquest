@@ -3,7 +3,7 @@
 from pathlib import Path
 from hashlib import sha256
 import json, math
-import qspquest as pf
+import qspquest as qq
 from qspquest.interchange import export_omex, import_omex
 
 
@@ -13,10 +13,10 @@ def run_tutorial(root, output):
     output.mkdir(parents=True, exist_ok=True)
     model = json.loads((root / "examples/synthetic/absorption.model.json").read_text())
     scenarios = {
-        "bolus": pf.run_request(
+        "bolus": qq.run_request(
             end=24,
             times=[0, 0.25, 0.5, 1, 2, 4, 8, 12, 24],
-            administrations=[pf.bolus("depot", 72, "mg")],
+            administrations=[qq.bolus("depot", 72, "mg")],
             rtol=1e-10,
             atol=1e-12,
         )

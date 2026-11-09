@@ -6,7 +6,7 @@ abstract: "A unit-aware Rust engine for pharmacology model compilation and simul
 authors:
   - name: UniBio Intelligence
     website: https://unibiointelligence.com
-version: 0.1.0
+version: 0.1.1
 license:
   - Apache-2.0
 keywords:

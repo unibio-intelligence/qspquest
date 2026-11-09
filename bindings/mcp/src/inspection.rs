@@ -458,7 +458,10 @@ pub fn page(r: &Record, request: &PageRequest) -> Result<Page, Value> {
     let c = context(r)?;
     check_context(r, request.expected_inspection_hash.as_deref())?;
     if r.model.is_null() {
-        return Err(policy::error("inspection_unavailable","This record has no native executable document. Inspect its model card and execution blocker; no substitute model is implied."));
+        return Err(match r.metadata["execution_blocker"].as_str().filter(|_| r.metadata.get("archive_hold").is_some()) {
+            Some(blocker) => policy::error("inspection_unavailable", blocker),
+            None => policy::error("inspection_unavailable","This record has no native executable document. Inspect its model card and execution blocker; no substitute model is implied."),
+        });
     }
     let count = declarations(r, request.section).len();
     if request.offset > count {

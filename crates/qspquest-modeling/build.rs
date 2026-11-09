@@ -83,6 +83,7 @@ fn workspace_sources(root: &Path) -> Vec<PathBuf> {
         "crates/qspquest-modeling/Cargo.toml",
         "bindings/wasm/Cargo.toml",
         "bindings/mcp/src/core/compute.rs",
+        "bindings/mcp/src/edit.rs",
         "crates/qspquest-modeling/build.rs",
     ] {
         files.push(root.join(file));

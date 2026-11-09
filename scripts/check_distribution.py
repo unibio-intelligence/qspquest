@@ -31,6 +31,7 @@ SOURCE_PATTERNS = (
     'bindings/wasm/LICENSE', 'bindings/wasm/LICENSE-APACHE',
     'bindings/python/python/**/*.py', 'bindings/python/python/**/*.pyi',
     'bindings/python/python/**/py.typed', 'bindings/python/python/qspquest/SECURITY.md',
+    'bindings/python/python/qspquest/plot/figure-style.json',
 )
 MAX_MEMBER_BYTES = 256 * 1024 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024 * 1024
@@ -91,6 +92,10 @@ def python_files(root):
             expected['qspquest/' + path.relative_to(root / PACKAGE).as_posix()] = path
     if not expected or 'qspquest/SECURITY.md' not in expected:
         raise ValueError('missing selected Python package source or policy')
+    style = root / PACKAGE / 'plot/figure-style.json'
+    if not style.is_file():
+        raise ValueError('missing selected figure style')
+    expected['qspquest/plot/figure-style.json'] = style
     return expected
 
 

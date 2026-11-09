@@ -13,4 +13,4 @@ synthetic model and request in the installed \code{extdata} directory.
 Always inspect fitting status and declared limitations before interpreting
 results.}
 \seealso{\code{\link{compile_model}}, \code{\link{fit_gamma_poisson}},
-\code{\link{fit_data_requests}}, \code{\link{population_fit_data_requests}}}
+\code{\link{individual_fit_data_requests}}, \code{\link{population_fit_data_requests}}}

@@ -47,6 +47,8 @@ def main():
     transport = parser.add_mutually_exclusive_group(required=True)
     transport.add_argument('--url', help='Loopback server URL, optionally ending in /mcp')
     transport.add_argument('--stdio-image', help='Loaded QSPQuest MCP Docker image')
+    parser.add_argument('--entrypoint',
+                        help='Server command for an image whose entrypoint is not qspquest-mcp')
     args = parser.parse_args()
     process = None
     replies = queue.Queue()
@@ -56,6 +58,7 @@ def main():
         process = subprocess.Popen([
             'docker', 'run', '--rm', '-i', '--network', 'none', '--read-only',
             '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+            *(['--entrypoint', args.entrypoint] if args.entrypoint else []),
             args.stdio_image, '--profile', 'local'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 

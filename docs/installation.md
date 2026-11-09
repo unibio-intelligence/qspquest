@@ -18,7 +18,7 @@ files to `first-run/` (use a new directory name for each run). The
 [optional dependencies](#optional-dependencies) as extras, for example
 `python -m pip install 'qspquest[notebook,interchange]'`.
 
-For an MCP client, run the published server image; it includes a synthetic model
+For a Model Context Protocol (MCP) client, run the published server image; it includes a synthetic model
 and needs no extra arguments:
 
 ```sh
@@ -36,8 +36,9 @@ Connect your client to `http://127.0.0.1:8080/mcp`, or follow the
 | MCP server | Docker Engine or Desktop | [Agent and Docker quickstart](tutorials/agents-docker.md) |
 | CLI | Git, Rust 1.98.1/Cargo and a native compiler | [CLI](#cli) |
 | Python from source | CPython 3.10+ and the CLI build tools | [Install from a checkout](#install-from-a-checkout) |
-| R | R, its compatible C compiler and Rust 1.98.1/Cargo | [R](#r) |
+| R | R, its compatible C compiler and Rust 1.89 or newer with Cargo | [R](#r) |
 | Docker (CLI, notebook, R) | Docker Engine or Desktop with Compose | [Docker setup](site/containers.md) |
+| Docker, all-in-one | Docker Engine or Desktop | [All-in-one image](site/containers.md#use-the-all-in-one-image) |
 
 QSPQuest is not yet published to CRAN or R-universe. The source routes below
 need the complete source checkout. If needed, obtain it with:
@@ -52,8 +53,8 @@ minutes. Offline builds require those dependencies to be cached already.
 
 ## CLI
 
-The default `cargo build --release --locked` builds the engine and CLI only.
-Python, R, MCP and WASM have their own install steps. `cargo test --workspace
+The default `cargo build --release --locked` builds the engine and the
+command-line interface (CLI) only. Python, R, MCP and WebAssembly (WASM) have their own install steps. `cargo test --workspace
 --locked` tests the whole workspace and needs every language prerequisite.
 The [MCP server guide](../bindings/mcp/README.md#build-and-connect) lists its
 optional features.
@@ -76,8 +77,8 @@ self-contained synthetic example and also ships with the Python source archive.
 
 ### Python wheels
 
-`pip install qspquest` selects a prebuilt `cp310-abi3` wheel, which serves every
-CPython from 3.10 on, for these platforms:
+`pip install qspquest` selects a prebuilt `cp310-abi3` wheel, which is compatible with
+CPython 3.10 and later, for these platforms:
 
 | Platform | Wheel tag |
 | --- | --- |
@@ -88,26 +89,28 @@ CPython from 3.10 on, for these platforms:
 | Windows x86_64 | `win_amd64` |
 
 On other platforms (musl Linux, PyPy, 32-bit), pip falls back to the source
-archive and needs Rust 1.98.1, Cargo and a native compiler; its build also
-fetches one locked dependency from GitHub. Each wheel, the source archive, an
-SPDX SBOM, their build-provenance and SBOM attestation bundles and a `SHA256SUMS`
+archive and needs Rust 1.89 or newer, Cargo and a native compiler; its build also
+fetches one locked dependency from GitHub. Each wheel, the source archive, a
+Software Package Data Exchange (SPDX) software bill of materials (SBOM), their build-provenance and SBOM attestation bundles and a `SHA256SUMS`
 file are attached to the matching
 [GitHub release](https://github.com/unibio-intelligence/qspquest/releases).
 Check a downloaded file's signed origin with GitHub CLI:
 
 ```sh
-gh attestation verify qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl \
+gh attestation verify qspquest-0.1.1-cp310-abi3-macosx_11_0_arm64.whl \
   --repo unibio-intelligence/qspquest
 ```
 
 The MCP image carries the same attestations; verify it with
-`gh attestation verify oci://ghcr.io/unibio-intelligence/qspquest-mcp:0.1.0 --repo unibio-intelligence/qspquest`.
+`gh attestation verify oci://ghcr.io/unibio-intelligence/qspquest-mcp:0.1.1 --repo unibio-intelligence/qspquest`.
+The all-in-one image, published from releases after 0.1.0, is verified the same
+way with `oci://ghcr.io/unibio-intelligence/qspquest:<version>`.
 [Release verification](release-verification.md) also covers the checksum list
 and the SBOM attestation.
 
 ### Install from a checkout
 
-Use CPython 3.10+, Rust 1.98.1/Cargo and a native compiler. From the complete
+Use CPython 3.10+, Rust 1.89 or newer with Cargo, and a native compiler. From the complete
 QSPQuest source root on macOS or Linux:
 
 ```sh
@@ -119,22 +122,27 @@ python -m qspquest.first_run --out developer-results
 ```
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
+For repeated development builds, `maturin develop --release` rebuilds the
+extension in place. It refuses to run while both `VIRTUAL_ENV` and
+`CONDA_PREFIX` are set, so deactivate Conda (or `unset CONDA_PREFIX`) inside the
+virtual environment first.
 `pip` builds the native extension. The first run checks the analytic solution
 and writes six result files to `developer-results/`; use a new directory name for
 each run. No separate model library or analysis packages are needed.
 
 If you already have the matching Python source archive, replace `pip install .`
-with `python -m pip install ./qspquest-0.1.0.tar.gz`.
+with `python -m pip install ./qspquest-0.1.1.tar.gz`.
 
 ### Optional dependencies
 
-Core simulation, native fitting and the structural software adapters are included
-in the package. Choose extras for additional Python workflows:
+Core simulation, native fitting, the analysis workflows and the structural
+software adapters are included in the package. Choose extras for additional
+Python workflows:
 
 | Extra | Dependencies and purpose |
 | --- | --- |
-| `analysis` | NumPy and SciPy for analysis helpers |
-| `notebook` | Analysis packages, pandas, matplotlib and JupyterLab |
+| `notebook` | pandas, matplotlib and JupyterLab for data frames and plots |
+| `plot` | pandas and plotnine for [publication figures](tutorials/publication-figures.md) |
 | `interchange` | python-libsbml for SBML/OMEX interchange |
 | `docs` | Tools for building the documentation |
 
@@ -148,15 +156,17 @@ qspquest-doctor --analysis --interchange --json
 From a source checkout, use `'.[notebook,interchange]'` instead and open
 `docs/tutorials/oral-pk-analysis.ipynb` with `python -m jupyterlab`.
 
-The [oral PK tutorial](tutorials/oral-pk-analysis.md) includes synthetic data and
-a complete fitting workflow. The [Python guide](PYTHON-USER-GUIDE.md) covers the
+The [oral pharmacokinetic (PK) tutorial](tutorials/oral-pk-analysis.md) includes
+synthetic data and a complete fitting workflow. The [Python guide](PYTHON-USER-GUIDE.md) covers the
 public API; the [synthetic notebook](tutorials/synthetic.ipynb) needs no external data.
 For downloaded packages, attach the same extras to the local filename, such as
-`'./qspquest-0.1.0.tar.gz[notebook,interchange]'`.
+`'./qspquest-0.1.1.tar.gz[notebook,interchange]'`.
 
 ## R
 
-Install R, a compatible C compiler and Rust 1.98.1/Cargo first. On
+Install R, a compatible C compiler and Rust 1.89 or newer with Cargo first. The
+minimum supported Rust version (1.89) is declared in the crate manifests and
+in the R package `DESCRIPTION`; release builds are tested with Rust 1.98.1. On
 macOS, use a compiler and SDK compatible with your R distribution. Windows
 source installation requires compatible R build tools and is not yet verified.
 Use `jsonlite` 2.0.0 or newer; older releases can round numeric request values.
@@ -171,7 +181,7 @@ R CMD INSTALL bindings/r
 Rscript -e 'library(qspquest); print(packageVersion("qspquest"))'
 ```
 
-Expected version: `0.1.0`. Keep the complete checkout for the source build;
+Expected version: `0.1.1`. Keep the complete checkout for the source build;
 copying only `bindings/r` is insufficient. The
 [R quickstart](R-USER-GUIDE.md#quickstart) runs a complete model.
 
@@ -185,11 +195,11 @@ mkdir -p "$HOME/R/qspquest-library"
 export R_LIBS_USER="$HOME/R/qspquest-library"
 export R_HOME="$(R RHOME)"
 Rscript -e 'install.packages("jsonlite", repos="https://cloud.r-project.org")'
-R CMD INSTALL --library="$R_LIBS_USER" ./qspquest_0.1.0.tar.gz
+R CMD INSTALL --library="$R_LIBS_USER" ./qspquest_0.1.1.tar.gz
 Rscript -e 'library(qspquest); print(packageVersion("qspquest"))'
 ```
 
-Expected version: `0.1.0`. Cargo downloads the locked dependencies as needed;
+Expected version: `0.1.1`. Cargo downloads the locked dependencies as needed;
 you do not need to run `cargo fetch` separately. The package links to your R
 runtime, which must remain installed.
 
@@ -205,7 +215,7 @@ the build tools on `PATH`:
 
 ```r
 install.packages("jsonlite", repos = "https://cloud.r-project.org")
-install.packages("qspquest_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages("qspquest_0.1.1.tar.gz", repos = NULL, type = "source")
 library(qspquest)
 packageVersion("qspquest")
 ```
@@ -225,7 +235,7 @@ R installation file:
 python3 scripts/prepare-r-source.py /tmp/qspquest-r-source
 ```
 
-The output is `/tmp/qspquest-r-source/qspquest_0.1.0.tar.gz`. For a direct
+The output is `/tmp/qspquest-r-source/qspquest_0.1.1.tar.gz`. For a direct
 checkout installation, use `R CMD INSTALL bindings/r` from the checkout root;
 copying only `bindings/r` is insufficient.
 
@@ -238,6 +248,18 @@ compiler or language package installation is needed to run these images. The
 CLI/Python, notebook and R images are built locally. The MCP server image is
 published as `ghcr.io/unibio-intelligence/qspquest-mcp:<version>` (and `:latest`)
 for Linux AMD64 and ARM64; see the [agent quickstart](tutorials/agents-docker.md).
+The all-in-one image `ghcr.io/unibio-intelligence/qspquest:<version>` (and
+`:latest`) contains the CLI, Python with the analysis, interchange and notebook
+extras, JupyterLab, the native R package and the MCP server. Releases after
+0.1.0 publish it for Linux AMD64 and ARM64. Its default command prints the
+version of each entry point:
+
+```sh
+docker run --rm --network none --read-only --tmpfs /tmp ghcr.io/unibio-intelligence/qspquest:latest
+```
+
+The [all-in-one image section](site/containers.md#use-the-all-in-one-image)
+gives one example for each entry point.
 
 ## Downloaded packages
 
@@ -249,9 +271,9 @@ install this release.
 
 | Installation file | Use | Build tools |
 | --- | --- | --- |
-| `qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl` | CPython 3.10+ on macOS Apple Silicon | None |
-| `qspquest-0.1.0.tar.gz` | Python source installation | Rust 1.98.1, Cargo and a native compiler |
-| `qspquest_0.1.0.tar.gz` | R source installation | R, its compatible C compiler, Rust 1.98.1 and Cargo |
+| `qspquest-0.1.1-cp310-abi3-macosx_11_0_arm64.whl` | CPython 3.10+ on macOS Apple Silicon | None |
+| `qspquest-0.1.1.tar.gz` | Python source installation | Rust 1.89 or newer, Cargo and a native compiler |
+| `qspquest_0.1.1.tar.gz` | R source installation | R, its compatible C compiler, Rust 1.89 or newer and Cargo |
 
 The hyphenated `.tar.gz` is the Python package; the underscored archive is the R
 package. Neither is the complete project archive `archives/qspquest.tar.gz`.
@@ -265,14 +287,14 @@ wheel:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install ./qspquest-0.1.0-cp310-abi3-macosx_11_0_arm64.whl
+python -m pip install ./qspquest-0.1.1-cp310-abi3-macosx_11_0_arm64.whl
 qspquest-doctor --json
 python -c "import qspquest; print(qspquest.__version__)"
 ```
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`; the macOS
 wheel cannot be installed on Windows or Linux. Use the wheel matching your
-platform from the [wheel table](#python-wheels), or the source route below. Expected version: `0.1.0`.
+platform from the [wheel table](#python-wheels), or the source route below. Expected version: `0.1.1`.
 The doctor runs a small analytic model and reports its checks. To confirm the
 wheel was built from the matching source, save the report and run the checker
 from the extracted complete QSPQuest source archive:
@@ -301,7 +323,7 @@ in [first-run journeys](tutorials/first-run-journeys.md).
 
 - [WebAssembly](browser.md): build the pinned WASM assets and run the complete browser example.
 - [Docker](site/containers.md): build the CLI/Python or Jupyter image locally, or
-  run the published MCP image.
+  run the published MCP or all-in-one image.
 - [Rust API](modeling.md): use path dependencies on `crates/qspquest-modeling` and
   `crates/qspquest-core` from this checkout.
 
@@ -318,9 +340,10 @@ in [first-run journeys](tutorials/first-run-journeys.md).
 ## Troubleshooting
 
 - pip starts compiling Rust: no wheel matched your platform or Python; check the
-  [wheel table](#python-wheels), or install Rust 1.98.1 and native build tools.
-- Missing Cargo or compiler: install Rust 1.98.1 and your platform's native build tools.
-- Missing NumPy/SciPy: install the `analysis` extra in the active environment.
+  [wheel table](#python-wheels), or install Rust 1.89 or newer and native build tools.
+- Missing Cargo or compiler: install Rust 1.89 or newer and your platform's native build tools.
+- `pip install 'qspquest[analysis]'` warns that the extra does not exist: the
+  analysis workflows are in the base package; install `qspquest` alone.
 - Wrong notebook kernel: check `sys.executable`; install into that environment
   and restart the kernel after replacing the native extension.
 - Offline build fails: fetch locked dependencies online first, then add `--offline`.

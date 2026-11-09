@@ -18,7 +18,8 @@ model is biologically valid or a global optimum has been found.
 | cancelled | No complete result; resume the last verified checkpoint |
 
 Boundary estimates remain visible even when a fitter reports convergence. The
-SAEM objective is a complete-data surrogate, not a marginal likelihood.
+stochastic approximation expectation-maximization (SAEM) objective is a
+complete-data surrogate, not a marginal likelihood.
 
 ## Control a long analysis
 
@@ -30,7 +31,8 @@ control = AnalysisControl(
 fit = model.fit_population(subjects, parameters, omega, error, control=control)
 ```
 
-Population fits report complete iterations, VPCs report complete replicates, and
+Population fits report complete iterations, visual predictive checks (VPCs)
+report complete replicates, and
 bootstraps report complete subject-resampling fits. `control.cancel()` may be
 called by the callback or another thread. Cancellation is checked before every
 native simulation and after each complete work unit. It cannot interrupt a

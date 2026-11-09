@@ -14,15 +14,32 @@ use qspquest_modeling::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
+
+#[path = "../edit.rs"]
+pub mod edit;
+
 pub fn core_error(e: qspquest_modeling::Error) -> Value {
     let suggestion = match e.code {
-        qspquest_modeling::ErrorCode::Unit | qspquest_modeling::ErrorCode::UnknownUnit => "Use a quantity with the unit declared by the model for this field; choose a compatible model when the required dimension is unavailable.",
+        qspquest_modeling::ErrorCode::Unit if e.message.starts_with("expression dimensions differ") => "Make both sides of this expression the same dimension: divide amounts by a volume where a concentration is meant, give rates the model's time unit, and use quantity(value, \"unit\") for constants with units.",
+        qspquest_modeling::ErrorCode::UnknownUnit => "Write the unit in the supported UCUM subset (for example mg, ug/L, nmol/L, L/h, 1/d, [cell]/uL); see qspquest://guide/units.",
+        qspquest_modeling::ErrorCode::Unit => "Use a quantity with the unit declared by the model for this field; choose a compatible model when the required dimension is unavailable.",
         qspquest_modeling::ErrorCode::UnknownSymbol => "Use a declared native parameter, state, target or output name; inspect get_model for supported names.",
         qspquest_modeling::ErrorCode::Unsupported => "Inspect the operation's supported solver, estimator and observation contract; choose an explicitly supported alternative. Unsupported capability is not a scientific result.",
         qspquest_modeling::ErrorCode::WorkBudget | qspquest_modeling::ErrorCode::OutputBudget => "Reduce the requested grid, events, selected outputs or evaluation workload, or use an explicitly permitted larger budget.",
         _ => "Correct the named field and inspect the model's units, domain and operation requirements before retrying.",
     };
     json!({"code":format!("{:?}",e.code),"message":e.message,"time":e.time,"expression":e.expression,"suggestion":suggestion})
+}
+/// Native analysis failures keep their code, message and location.
+pub fn analysis_error(e: qspquest_modeling::analysis::AnalysisError) -> Value {
+    let suggestion = match e.code.as_str() {
+        "budget" => "Raise max_simulations within the execution profile's ceiling, or reduce subjects, replicates, regimens, grid points or iterations.",
+        "cancelled" => "The analysis was cancelled; no partial result was returned.",
+        _ => "Correct the named analysis argument. Inspect docs/ANALYSIS.md for the operation's arguments, units and limits before retrying.",
+    };
+    let mut value = e.to_value();
+    value["suggestion"] = json!(suggestion);
+    value
 }
 pub fn model(source: &str) -> Result<ModelDocument, Value> {
     if source.len() > 1_000_000 {
@@ -31,16 +48,54 @@ pub fn model(source: &str) -> Result<ModelDocument, Value> {
     if source.trim_start().starts_with('{') {
         serde_json::from_str(source).map_err(|e|json!({"code":"invalid_json","message":e.to_string(),"line":e.line(),"column":e.column(),"suggestion":"Use model JSON or QSPQuest .qsp text"}))
     } else {
-        language::parse(source).map(|p|p.document).map_err(|e|json!({"code":e.code,"message":e.message,"line":e.line,"column":e.column,"suggestion":e.hint}))
+        language::parse(source).map(|p|p.document).map_err(|e| {
+            // A common slip: a lag written on the dosing line instead of its own lag(...) line.
+            let line = source.lines().nth(e.line.saturating_sub(1)).unwrap_or("");
+            let hint = if line.split_whitespace().any(|w| w == "lag") && !line.contains("lag(") {
+                "Declare a dosing lag on its own line in the dosing block: lag(state) = expression, for example lag(depot) = tlag.".to_owned()
+            } else {
+                e.hint.clone()
+            };
+            json!({"code":e.code,"message":e.message,"line":e.line,"column":e.column,"suggestion":hint})
+        })
     }
 }
 pub fn execute(source: &str, operation: &str, request: Value) -> Result<Value, Value> {
+    if operation == "edit_model" {
+        return edit::execute(source, &request);
+    }
     let d = model(source)?;
     if operation == "inspect_model" {
         return serde_json::to_value(d)
             .map_err(|e| json!({"code":"model","message":e.to_string()}));
     }
-    execute_document(&d, operation, request)
+    execute_document(&d, operation, request).map_err(|mut error| {
+        locate(source, &mut error);
+        error
+    })
+}
+
+/// Add the .qsp source line and column of a compile error's declaration path, so an author
+/// can find "states.central.rhs..." in the text they wrote.
+fn locate(source: &str, error: &mut Value) {
+    if source.trim_start().starts_with('{') || error.get("line").is_some() {
+        return;
+    }
+    let Some(path) = error["expression"].as_str().map(str::to_owned) else {
+        return;
+    };
+    let Ok(parsed) = language::parse(source) else {
+        return;
+    };
+    if let Some((_, location)) = parsed
+        .locations
+        .iter()
+        .filter(|(key, _)| path == key.as_str() || path.starts_with(&format!("{key}.")))
+        .max_by_key(|(key, _)| key.len())
+    {
+        error["line"] = json!(location.line);
+        error["column"] = json!(location.column);
+    }
 }
 // These types belong to the native boundary, not the public tool schemas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +123,7 @@ enum Operation {
     Scan(Mode),
     Periodic(Mode),
     Morris(Mode),
+    Analysis(Mode),
     ScalarFit(Mode),
     Fit(Mode, FitKind),
     Compile,
@@ -87,6 +143,8 @@ impl Operation {
             "steady_state" => Ok(Self::Periodic(Execute)),
             "plan_morris_screening" => Ok(Self::Morris(Plan)),
             "morris_screening" => Ok(Self::Morris(Execute)),
+            "plan_analyze" => Ok(Self::Analysis(Plan)),
+            "analyze" => Ok(Self::Analysis(Execute)),
             "plan_fit_scalar" => Ok(Self::ScalarFit(Plan)),
             "fit_scalar" => Ok(Self::ScalarFit(Execute)),
             "plan_fit_individual" => Ok(Self::Fit(Plan, FitKind::Individual)),
@@ -106,6 +164,8 @@ enum NativeRequest {
     Scan(Mode, ScanRequest),
     Periodic(Mode, SteadyStateRequest),
     Morris(Mode, MorrisExecutionRequest),
+    // A complete qspquest.analysis/v0.2 envelope; the native analysis owns its contract.
+    Analysis(Mode, Value),
     ScalarFit(Mode, ScalarGaussianFitRequest),
     Fit(Mode, FitRequest),
     Compile,
@@ -133,6 +193,7 @@ impl NativeRequest {
             Operation::Scan(mode) => Ok(Self::Scan(mode, decode(request)?)),
             Operation::Periodic(mode) => Ok(Self::Periodic(mode, decode(request)?)),
             Operation::Morris(mode) => Ok(Self::Morris(mode, decode(request)?)),
+            Operation::Analysis(mode) => Ok(Self::Analysis(mode, request)),
             Operation::ScalarFit(mode) => Ok(Self::ScalarFit(mode, decode(request)?)),
             Operation::Fit(mode, kind) => Ok(Self::Fit(mode, decode_fit(kind, request)?)),
             Operation::Compile => Ok(Self::Compile),
@@ -155,6 +216,7 @@ enum NativeOutput {
     Periodic(SteadyStateResult),
     MorrisPlan(MorrisPlan),
     Morris(MorrisExecutionResult),
+    Analysis(Value),
     ScalarFitPlan(ScalarFitPlan),
     ScalarFit(ScalarGaussianFitResult),
     FitPlan(FitPlan),
@@ -256,6 +318,18 @@ pub fn execute_compiled(
         NativeRequest::Morris(Execute, request) => {
             NativeOutput::Morris(compiled.execute_morris(&request).map_err(core_error)?)
         }
+        NativeRequest::Analysis(Plan, request) => NativeOutput::Analysis(
+            qspquest_modeling::analysis::plan_request(Some(compiled), &request)
+                .map_err(analysis_error)?,
+        ),
+        NativeRequest::Analysis(Execute, request) => NativeOutput::Analysis(
+            qspquest_modeling::analysis::execute_request(
+                Some(compiled),
+                &request,
+                &mut qspquest_modeling::analysis::NoControl,
+            )
+            .map_err(analysis_error)?,
+        ),
         NativeRequest::ScalarFit(Plan, request) => {
             NativeOutput::ScalarFitPlan(compiled.plan_scalar_fit(&request).map_err(core_error)?)
         }
@@ -331,6 +405,7 @@ mod boundary_tests {
             "scan_parameters",
             "steady_state",
             "morris_screening",
+            "analyze",
             "fit_scalar",
             "fit_individual",
             "fit_population",
@@ -352,6 +427,39 @@ mod boundary_tests {
         ] {
             assert_eq!(Operation::parse(name).unwrap_err()["code"], "unsupported");
         }
+    }
+    #[test]
+    fn analyses_plan_and_execute_through_the_sandbox_entry_point() {
+        // bindings/wasm sandbox-abi includes this file, so qspquest_execute
+        // reaches these same calls with a source text and an operation name.
+        let source = include_str!("../../../../conformance/models/synthetic-one-compartment.qsp");
+        let run: Value = serde_json::from_str(include_str!(
+            "../../../../conformance/requests/synthetic-one-compartment.json"
+        ))
+        .unwrap();
+        let observations: Vec<Value> = [1.0f64, 2.0, 4.0, 8.0, 12.0]
+            .iter()
+            .enumerate()
+            .map(|(i, t)| json!({"row":i+1,"output":"cp","value":{"value":2.0*(-0.1*t).exp(),"unit":"mg/L"}}))
+            .collect();
+        let request = json!({"schema":"qspquest.analysis/v0.2","operation":"fit_data","arguments":{
+            "run":run,"observations":observations,"error":{"additive":0.01},
+            "parameters":[{"name":"cl","initial":0.5,"lower":0.05,"upper":2.0,"unit":"L/h"}]}});
+        let plan = execute(source, "plan_analyze", request.clone()).unwrap();
+        assert_eq!(plan["schema"], "qspquest.analysis-plan/v0.2");
+        assert_eq!(plan["max_simulations"], 2000);
+        assert_eq!(plan["max_simulations_from_request"], false);
+        let fit = execute(source, "analyze", request.clone()).unwrap();
+        assert_eq!(fit["status"], "converged");
+        assert_eq!(
+            fit["identity"]["model_content_hash"],
+            plan["model_content_hash"]
+        );
+        let mut unknown = request;
+        unknown["operation"] = json!("nca");
+        let error = execute(source, "analyze", unknown).unwrap_err();
+        assert_eq!(error["code"], "invalid_input");
+        assert!(error["suggestion"].is_string());
     }
     #[test]
     fn selections_preserve_absence_order_and_present_null_rejection() {

@@ -1,18 +1,24 @@
-# Save your first QSPQuest result
+# A first simulation with QSPQuest
 
-Run a synthetic one-compartment model and save a table you can read and
-rerun. Choose the Python, CLI or MCP route below. Each uses the same
-6 mg bolus, clearance 0.3 L/h, volume 3 L and four post-dose observations.
-The Python and CLI helpers check the result against `cp(t) = 2 * exp(-0.1 * t)`
-within 1e-8 mg/L.
+## Objective
 
-QSPQuest 0.1.0 publishes Python wheels on PyPI and the MCP server image on
-GitHub Container Registry. The command-line tool is built from source.
+This tutorial simulates a synthetic one-compartment model and saves the
+result as a table with the inputs needed to rerun it. Three routes are
+described: the Python package, the command-line interface (CLI) and the Model
+Context Protocol (MCP) server. Each route uses the same 6 mg bolus, a clearance
+of 0.3 L/h, a volume of distribution of 3 L and four post-dose observations.
+The Python and CLI helpers compare the simulated concentration `cp(t)` with the
+analytical solution `cp(t) = 2 * exp(-0.1 * t)` and require agreement within
+1e-8 mg/L.
 
-## Developer: use the Python wheel
+QSPQuest 0.1.1 is distributed as Python wheels on PyPI and as an MCP server
+image on GitHub Container Registry. The CLI is built from source.
 
-The wheel includes the model, request and executable example; no Rust compiler,
-source checkout or analysis packages are needed. With CPython 3.10+ on macOS/Linux:
+## Python package
+
+The wheel contains the model, the request and an executable example. A Rust
+compiler, a source checkout and the analysis packages are not required. With
+CPython 3.10+ on macOS or Linux, run:
 
 ```sh
 python3 -m venv .venv
@@ -42,12 +48,13 @@ print(result["identity"])
 print(next(column for column in result["outputs"] if column["name"] == "cp"))
 ```
 
-## Scientist: build and run the CLI
+## Command-line interface
 
-Build the CLI from a source checkout, as in the
-[README](../../README.md#build-the-cli-from-source). The helper script reuses the
-result writer from the Python wheel, so install the wheel as above. With that
-environment active, from the source root on macOS/Linux:
+Build the CLI from a source checkout as described in the
+[README](../../README.md#build-the-cli-from-source). The helper script uses the
+result writer from the Python wheel, so the wheel must also be installed as
+described above. With that environment active, run from the source root on
+macOS or Linux:
 
 ```sh
 cargo build --release --locked -p qspquest-cli
@@ -57,15 +64,16 @@ python docs/examples/scientist_first_run.py --binary target/release/qspquest \
 ```
 
 On Windows, pass `--binary target\release\qspquest.exe`. The script runs the
-model, checks all four observations and saves six files. To get the JSON result
-without the helper, run `target/release/qspquest run
+model, compares all four observations with the analytical solution and saves six
+files. To obtain the JSON result without the helper, run `target/release/qspquest run
 conformance/models/synthetic-one-compartment.qsp docs/examples/first-run.json >
 simulation.json`.
 
-## Agent: use the MCP image
+## MCP server
 
-The published image includes the same synthetic model, so no model files or
-library settings are needed. An MCP client starts it over stdio with:
+The published image contains the same synthetic model, so no model files or
+library settings are required. An MCP client starts the server over standard
+input and output (stdio) with:
 
 ```sh
 docker run --rm -i --network none --read-only --cap-drop ALL \
@@ -73,17 +81,19 @@ docker run --rm -i --network none --read-only --cap-drop ALL \
   ghcr.io/unibio-intelligence/qspquest-mcp:latest --profile local
 ```
 
-Follow the [agent and Docker quickstart](agents-docker.md) to connect your MCP
-client over stdio or HTTP and run the same simulation. Ask the agent to inspect
-capabilities, search for `synthetic_one_compartment`, read its full card and
-default scenario, inspect a simulation plan, and simulate with `detail: full`,
-`outputs: ["cp"]` and the returned plan hash. The server runs locally. A chat
-client, by contrast, may send the model, requests and results to its AI
-provider; configure it to match your data requirements.
+The [agent and Docker quickstart](agents-docker.md) describes how to connect an
+MCP client over stdio or HTTP and run the same simulation. The agent is asked to
+inspect the server capabilities, search for `synthetic_one_compartment`, read the
+full model card and default scenario, inspect a simulation plan, and simulate
+with `detail: full`, `outputs: ["cp"]` and the returned plan hash. The server
+runs locally. A chat client, however, may send the model, requests and results
+to its AI provider and should be configured according to the user's data
+requirements.
 
-## Interpret and retain the output
+## Results
 
-The Python and CLI routes print this table; the MCP tools return the same values:
+The Python and CLI routes print the following table; the MCP tools return the
+same values:
 
 ```text
 time_h,side,cp_mg_per_L
@@ -93,8 +103,23 @@ time_h,side,cp_mg_per_L
 24,post,0.181436
 ```
 
-`post` means after the bolus at time zero. Time is in hours and `cp` is in mg/L.
-The Python and CLI helpers save six files; keep all of them:
+`post` denotes the value immediately after the bolus at time zero. Time is in
+hours and `cp` is in mg/L. The Python and CLI routes give the same
+concentrations. At 2, 8 and 24 hours each differs from the analytical solution
+by less than 1e-9 mg/L, well within the 1e-8 mg/L limit (Figure 1).
+
+![Simulated concentrations from the Python and CLI routes compared with the analytical solution, and their absolute differences from it](figures/first-run-journeys-check.png)
+
+**Figure 1.** Synthetic one-compartment model after a 6 mg intravenous bolus.
+(A) Concentrations simulated with the `diffsol_bdf` solver by the Python
+package (open circles) and the CLI (crosses) at the four observation times; the
+line is the analytical solution `cp(t) = 2 * exp(-0.1 * t)`. (B) Absolute
+difference between each simulated concentration and the analytical solution at
+2, 8 and 24 hours; the dashed line is the 1e-8 mg/L acceptance limit. At time
+zero the difference is exactly zero and cannot be shown on the logarithmic
+scale.
+
+The Python and CLI helpers save six files, all of which should be retained:
 
 | File | Purpose |
 | --- | --- |
@@ -106,15 +131,31 @@ The Python and CLI helpers save six files; keep all of them:
 | `checks.json` | Comparison against the exact analytical answer |
 
 The manifest uses `qspquest.table-manifest/v1`, with `producer` equal to `cli`
-or `python`. It records `not_assessed` and `qualified: false`: passing this
-check does not validate other models or clinical use. Checksums detect changed
-files; they do not prove who produced them.
+or `python`.
 
-Choose a new output directory for each run; its parent must exist. If
-installation fails, check the OS, CPU and Python version against the
-[supported wheels](../installation.md); do not rename a wheel to force
-installation. Do not loosen the analytical limit to make a failing check pass.
+## Figures
 
-To try a named model, install the model library and follow the
-[shared-model workflow](../site/shared-models.md). Check the model's units,
+Figure 1 was produced by `docs/examples/first_run_journeys_figures.py`, which
+uses plotnine with the shared style in `docs/examples/figure_style.py`. The
+script runs the Python and CLI helpers in a temporary directory, checks the
+saved tables against the values above and against the analytical solution, and
+writes the figure to `docs/tutorials/figures/`. It requires the built CLI and
+the `docs` extra (`python -m pip install '.[docs]'`).
+
+## Limitations
+
+The manifest records `not_assessed` and `qualified: false`. Agreement with the
+analytical solution in this example does not validate other models or clinical
+use. Checksums detect changed files; they do not establish who produced them.
+
+## Troubleshooting
+
+Each run requires a new output directory whose parent directory exists. If
+installation fails, compare the operating system, processor architecture and
+Python version with the [supported wheels](../installation.md). A wheel should
+not be renamed to force installation. The analytical tolerance should not be
+relaxed to make a failing check pass.
+
+To run a named model, install the model library and follow the
+[shared-model workflow](../site/shared-models.md). Review the model's units,
 default scenario and limitations before running it.

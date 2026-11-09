@@ -1,0 +1,49 @@
+# Synthetic oral one-compartment PK with two indirect response endpoints.
+# r_kin: inhibition of the production rate kin.
+# r_kout: stimulation of the loss rate constant kout.
+# The central dosing target allows a constant-concentration check.
+model synthetic_oral_indirect_response
+time_unit = h
+description = "Synthetic oral PK with indirect responses: inhibition of kin and stimulation of kout"
+
+parameters
+  cl = 2.4 [L/h] log
+  v = 60 [L] log
+  ka = 0.9 [1/h] log
+  f_oral = 0.7 [1] fixed
+  r0 = 120 [nmol/L] log
+  kout = 0.08 [1/h] log
+  imax = 0.9 [1] logit
+  ic50 = 1.2 [mg/L] log
+  smax = 2.5 [1] log
+  sc50 = 1.8 [mg/L] log
+
+individual
+  kin = r0 * kout [nmol/(L.h)]
+
+states
+  depot = 0 [mg]
+  central = 0 [mg]
+  r_kin = (r0) [nmol/L]
+  r_kout = (r0) [nmol/L]
+
+definitions
+  conc = central / v [mg/L]
+  inhibition = imax * conc / (ic50 + conc) [1]
+  stimulation = smax * conc / (sc50 + conc) [1]
+
+dynamics
+  d/dt(depot) = -ka * depot
+  d/dt(central) = input_central + ka * depot - cl / v * central
+  d/dt(r_kin) = kin * (1 - inhibition) - kout * r_kin
+  d/dt(r_kout) = kin - kout * (1 + stimulation) * r_kout
+
+outputs
+  cp = conc [mg/L]
+  r_kin = r_kin [nmol/L]
+  r_kout = r_kout [nmol/L]
+
+dosing
+  depot [mg] bolus = f_oral
+  central [mg] = 1
+end

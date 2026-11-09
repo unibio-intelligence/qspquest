@@ -19,7 +19,7 @@ pub(crate) fn model_details(
     }
     let source = r.source_text();
     let states = crate::library::display_states(&r.model);
-    let mut v = json!({"metadata":r.metadata,"parameters":r.model["parameters"],"covariates":r.model["covariates"],"states":states,"outputs":r.model["outputs"],"time_unit":r.model["time_unit"],"dose_targets":states.iter().filter(|st|!st["dosing"].is_null()).map(|st|json!({"target":st["name"],"amount_unit":st["dosing"]["amount_unit"],"modes":st["dosing"]["modes"]})).collect::<Vec<_>>(),"requirements":r.model["requirements"],"scenario_ids":r.scenarios.keys().collect::<Vec<_>>(),"archive_sha256":r.archive_hash,"native_execution":r.index["native_execution"],"source_citation":r.index["source_citation"],"fitting":r.fitting});
+    let mut v = json!({"metadata":r.metadata,"parameters":r.model["parameters"],"covariates":r.model["covariates"],"states":states,"outputs":r.model["outputs"],"time_unit":r.model["time_unit"],"dose_targets":states.iter().filter(|st|!st["dosing"].is_null()).map(|st|json!({"target":st["name"],"amount_unit":st["dosing"]["amount_unit"],"modes":st["dosing"]["modes"]})).collect::<Vec<_>>(),"requirements":r.model["requirements"],"scenario_ids":r.scenarios.keys().collect::<Vec<_>>(),"archive_sha256":r.archive_hash,"native_execution":r.index["native_execution"],"source_citation":source_citation(r),"fitting":r.fitting});
     v["discovery"] = json!(discovery);
     v["scientific_assessment"] = r.metadata["scientific_assessment_contract"].clone();
     v["source_interpretation_summary"] =
@@ -117,6 +117,7 @@ pub(crate) fn compact_model_card(r: &crate::library::Record, details: &Value) ->
         "candidate",
         "source_rights",
         "execution_blocker",
+        "archive_hold",
         "limitations",
         "availability",
         "availability_record_status",
@@ -136,4 +137,17 @@ pub(crate) fn compact_model_card(r: &crate::library::Record, details: &Value) ->
     card["source_interpretation_summary"] =
         crate::interpretations::summary(&r.metadata, &model_details_resource(r));
     card
+}
+
+/// The archive's citation, or the source identifiers from the library's parameter metadata.
+fn source_citation(r: &crate::library::Record) -> Value {
+    if !r.index["source_citation"].is_null() {
+        return r.index["source_citation"].clone();
+    }
+    match r.metadata["parameter_metadata"]["sources"].as_array() {
+        Some(sources) if !sources.is_empty() => {
+            json!({"sources":sources,"origin":"library parameter metadata (parameters.json)"})
+        }
+        _ => Value::Null,
+    }
 }

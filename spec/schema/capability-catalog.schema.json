@@ -24,14 +24,6 @@
         "execution_mode"
       ]
     },
-    "source_snapshot": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": {
-        "type": "string",
-        "pattern": "^[0-9a-f]{64}$"
-      }
-    },
     "examples": {
       "type": "array",
       "items": {
@@ -78,16 +70,19 @@
               "cancel_local_job",
               "compare_regimens",
               "compile_model",
+              "edit_model",
               "event_sensitivities",
               "export_omex",
               "export_sbml",
               "exposure_summary",
+              "find_dose",
               "fit_diagnostics",
               "fit_gamma_poisson",
               "fit_individual",
               "fit_population",
               "fit_probit_normal_binomial",
               "fit_scalar",
+              "fork_model",
               "format_response",
               "get_artifact",
               "get_capability",
@@ -102,6 +97,7 @@
               "iterate_periodic",
               "model_template",
               "morris_screening",
+              "noncompartmental_analysis",
               "plan_fit",
               "plan_gaussian_objective",
               "plan_iterate_periodic_state",
@@ -118,7 +114,9 @@
               "scan_parameters",
               "search_models",
               "sensitivities",
+              "sensitivity",
               "simulate",
+              "simulate_steady_state",
               "steady_state",
               "submit_local_job",
               "submit_population_fit",
@@ -163,8 +161,7 @@
             "items": {
               "type": "string",
               "enum": [
-                "L-BFGS-B",
-                "Powell",
+                "compass_pattern_search",
                 "focei",
                 "gamma_poisson",
                 "individual",
@@ -173,8 +170,8 @@
                 "pooled",
                 "probit_normal_binomial",
                 "profiled_proportional",
-                "saem_native",
-                "saem_python",
+                "projected_bfgs_central_difference",
+                "saem",
                 "scalar_gaussian"
               ]
             }
@@ -315,14 +312,6 @@
         "type": "string",
         "minLength": 1
       }
-    },
-    "compiler_source_sha256": {
-      "type": "string",
-      "pattern": "^sha256:[0-9a-f]{64}$"
-    },
-    "backend_version": {
-      "type": "string",
-      "pattern": "^0\\.18\\.0\\+git:[a-f0-9]{40}$"
     }
   },
   "required": [
@@ -330,12 +319,9 @@
     "package_version",
     "scope",
     "key_dimensions",
-    "source_snapshot",
     "examples",
     "entries",
-    "operation_labels",
-    "compiler_source_sha256",
-    "backend_version"
+    "operation_labels"
   ],
   "additionalProperties": false
 }

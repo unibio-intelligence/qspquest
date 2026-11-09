@@ -8,22 +8,23 @@ For correlated binary outcomes within independent litters or clusters, use
 
 The [proportional-normal fitting workflow](tutorials/profiled-proportional-errors.md)
 jointly estimates structural parameters and one proportional residual scale per
-output through the CLI, Python, R or Rust interfaces.
+output through the command-line interface (CLI), Python, R or Rust interfaces.
 
-QSPQuest 0.1.0 supports the following fit types. All use observations with
+QSPQuest 0.1.1 supports the following fit types. All use observations with
 units and explicit simulation settings.
 
 | Request kind | Supported scope |
 | --- | --- |
 | `individual` | Gaussian observation likelihood and optional independent normal priors; fitted parameters have finite bounds. |
-| `profiled_proportional` | Uncensored normal observations with one estimated proportional SD per output, zero additive SD, and at least two observations per observed output. |
+| `profiled_proportional` | Uncensored normal observations with one estimated proportional standard deviation (SD) per output, zero additive SD, and at least two observations per observed output. |
 | `pooled` | Shared fitted parameters across subjects with separate regimens and observations. |
 | Scalar fit | Derivative-free search for one bounded parameter with normal, uncensored observations and positive additive SD through `CompiledModel.fit_scalar()` or its scalar request. |
-| `laplace` | Population fit with one lognormal random effect and a Laplace approximation. |
-| `focei` | Population fit with one or two lognormal random effects and normal, uncensored observations; the two-effect correlated covariance is fixed. |
-| `saem` | Population fit with one or two lognormal random effects within the supported request shapes. |
+| `laplace` | Population fit with one lognormal random effect and a Laplace approximation [1]. |
+| `focei` | First-order conditional estimation with interaction (FOCEI) [2, 3, 4] population fit with one or two lognormal random effects and normal, uncensored observations; the two-effect correlated covariance is fixed. |
+| `saem` | Stochastic approximation expectation–maximization (SAEM) population fit with one to eight lognormal random effects. The [SAEM guide](SAEM.md) describes the marginal refinement and uncertainty scopes. |
 
-Population parameters follow `individual_parameter = fixed_effect * exp(eta)`.
+Population parameters follow `individual_parameter = fixed_effect * exp(eta)`,
+where `eta` is the subject random effect.
 The covariance matrix `omega` is in the order of `random_effects`. A bounded
 common additive residual standard deviation can be estimated for one-effect
 FOCEI and one- or two-effect SAEM within their supported request shapes.
@@ -32,7 +33,7 @@ fixed-covariance FOCEI and SAEM with fixed or estimated additive SD.
 Consult the versioned types in
 [`fit.rs`](../crates/qspquest-core/src/fit.rs) for exact fields and validation.
 
-## Run an individual fit
+## Individual fit
 
 The included synthetic request estimates clearance and volume:
 
@@ -62,9 +63,9 @@ and additive/proportional Gaussian error. The result's `fit` member contains
 status, estimates, objective, evaluation counts, and a request hash.
 
 Scalar fits validate parameter bounds, observation names and units, and the
-starting run before searching. Errors name the problem field in `expression`,
+starting run before searching. Error messages name the invalid field in `expression`,
 such as `/lower`, `/max_iterations` or `/observations/0/error/additive_sd`,
-relative to the complete scalar request (including MCP `fit_request`). With explicit `regimen.observations`, a fit
+relative to the complete scalar request (including the Model Context Protocol (MCP) `fit_request`). With explicit `regimen.observations`, a fit
 observation's `row` must index that list; invalid rows fail before simulation.
 Without an explicit observation list, event timing can change the trajectory
 grid during fitting, so row validity is checked at each trial. Simulation
@@ -78,7 +79,7 @@ positive measured values, zero additive SD, and a positive dimensionless log SD
 in `proportional_sd`. Scalar fitting and FOCEI reject lognormal observation
 error. Passing these input checks does not mean the fit will converge.
 
-## Run a one-effect population fit
+## Population fit with one random effect
 
 This example fits one lognormal subject effect to synthetic repeated
 measurements of `log(theta)`. The fitted parameter, random effect and observations
@@ -176,8 +177,8 @@ print('omega', result['omega'][0][0], 'reference', reference['omega'])
 PY
 ```
 
-Expect `converged`, roughly 45,000 evaluations, `theta` about 4.27 and `omega`
-about 0.114. `theta` is the typical individual value; `omega` is the variance
+The expected output is `converged`, approximately 45,000 evaluations, `theta`
+of approximately 4.27 and `omega` of approximately 0.114. `theta` is the typical individual value; `omega` is the variance
 of the dimensionless log effect. The generated population has log-effect SD
 0.4 and observation SD 0.25. A finite sample can differ from those generating
 values, so compare the fit with `reference.json` rather than expecting exact
@@ -201,8 +202,8 @@ Population fit results use the `population` member. Inspect `status`,
 objectives from different methods have different meanings and must not be
 compared as interchangeable numbers. When available,
 `fitted_observations` records row-aligned observed values and population and
-individual predictions. Optional FOCEI uncertainty is local curvature from
-the observed outer objective, not an interval calibration. SAEM's
+individual predictions. The optional FOCEI uncertainty estimate is derived from the local curvature of
+the observed outer objective; it is not a calibrated interval. SAEM's
 `saem_diagnostics` reports proposal and stochastic-drift information; it is
 not a convergence certificate.
 
@@ -212,10 +213,10 @@ status and objective kind, and use `uncertainty: false` when only diagnostic
 point estimates are needed. See [SAEM fitting](SAEM.md#uncertainty-and-limits).
 
 For the one-effect FOCEI fit, `gradient_tolerance` controls the final search
-step in the normalized parameter bounds. The conditional eta mode is solved
-more tightly than this outer resolution, so coarse inner modes do not limit a
-tight requested fit. This setting is a search resolution, not a certificate of
-the final likelihood gradient. Tight ODE tolerances and sensitivity tolerances
+step in the normalized parameter bounds. The conditional mode of eta is computed
+to a tighter tolerance than this outer resolution, so the inner optimization does not
+limit the precision of the requested fit. This setting is a search resolution, not a certificate of
+the final likelihood gradient. Tight ordinary differential equation (ODE) and sensitivity tolerances
 are also necessary when comparing final parameter values at high precision.
 
 Python's `population_fit_dataset()` converts an explicitly mapped tabular
@@ -226,13 +227,13 @@ The [synthetic population tests](../crates/qspquest-modeling/tests/population/sa
 show supported request shapes. Check bounds, residual-error assumptions, identifiability, and
 scientific plausibility before using any fitted result.
 
-### Clamps in constant sensitivity terms
+### Bounds on constant sensitivity terms
 
 A clamp can be used in native forward sensitivities when its complete subtree is independent of the selected parameters, states, infusion inputs and time. For example, a concentration readout can divide by `max(volume, quantity(1e-12, "L"))` when estimating clearance alone. Requesting a volume derivative for that clamp remains unsupported. State- or time-dependent nonsmooth crossings are refused.
 
-## Run a precise one-effect population fit
+## Population clearance from an intravenous cohort
 
-Purpose: estimate population clearance from a small synthetic IV cohort while
+Purpose: estimate population clearance from a small synthetic intravenous (IV) cohort while
 holding volume, eta variance, and residual SD fixed. Prerequisites: install the
 Python package as described in [installation](installation.md), and run from
 the repository root. All inputs below are included or generated with
@@ -288,11 +289,25 @@ PY
 Expected output is `converged`, clearance approximately `0.601128 L/h`, and
 `[[0.1]]`. This estimate is for the FOCEI approximation and the supplied data;
 it need not equal the data-generating clearance exactly. `row` indexes the
-explicit post-dose grid. Including a pre-dose row accidentally changes which
-measurement belongs to each prediction. An iteration or evaluation limit does
+explicit post-dose grid. An unintended pre-dose row changes which
+measurement is matched to each prediction. An iteration or evaluation limit does
 not establish convergence: increase the appropriate budget and inspect the
 result. Keep the declared observation errors and parameter bounds fixed when
 checking stability under tighter ODE and search tolerances.
 
 For a delayed input with an exact zero-time limit, follow the complete
 [inverse-Gaussian input and fraction fit](tutorials/inverse-gaussian-input.md).
+
+## References
+
+1. Wolfinger R. Laplace's approximation for nonlinear mixed models.
+   *Biometrika*. 1993;80(4):791–795.
+   [doi:10.1093/biomet/80.4.791](https://doi.org/10.1093/biomet/80.4.791)
+2. Lindstrom MJ, Bates DM. Nonlinear mixed effects models for repeated measures
+   data. *Biometrics*. 1990;46(3):673–687.
+   [doi:10.2307/2532087](https://doi.org/10.2307/2532087)
+3. Wang Y. Derivation of various NONMEM estimation methods. *J Pharmacokinet
+   Pharmacodyn*. 2007;34(5):575–593.
+   [doi:10.1007/s10928-007-9060-6](https://doi.org/10.1007/s10928-007-9060-6)
+4. Beal SL, Sheiner LB, Boeckmann AJ, Bauer RJ, eds. *NONMEM Users Guides*.
+   Ellicott City, MD: Icon Development Solutions; 1989–2009.

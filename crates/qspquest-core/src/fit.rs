@@ -220,8 +220,8 @@ pub struct PopulationFitRequest {
     pub max_evaluations: usize,
     pub max_iterations: usize,
     /// Laplace and FOCEI stop when normalized coordinate-search steps fall below this value.
-    /// SAEM uses it in a windowed, Monte Carlo-aware drift check on the log
-    /// fixed effect and log eta variance; its effective threshold is capped.
+    /// SAEM uses it in marginal refinement where supported. Surrogate-only
+    /// SAEM applies it to the median relative change of the latest 20 M-step updates.
     pub gradient_tolerance: f64,
     /// Reproducible SAEM stream; ignored by deterministic Laplace and FOCEI arithmetic.
     pub seed: u64,
@@ -240,9 +240,39 @@ pub struct PopulationFitRequest {
     /// declare the same starting additive SD. Other methods reject this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub additive_error_fit: Option<PopulationAdditiveErrorFit>,
-    /// One estimable exponential covariate effect on a one-effect SAEM model.
+    /// Estimable exponential covariate effects for SAEM: the first effect,
+    /// with any further ones in `additional`. Each names one random effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub covariate_effect: Option<PopulationCovariateEffect>,
+    /// SAEM eta covariance structure; full when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub covariance: Option<PopulationCovariance>,
+    /// SAEM Metropolis sweeps per subject and iteration (1..=20).
+    /// Defaults to three for one effect and one otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sweeps: Option<usize>,
+    /// Opt-in SAEM estimation of a common proportional SD, alone or with
+    /// `additive_error_fit` as a combined normal residual model. Every observed
+    /// row must use this output, the normal model and this initial SD.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proportional_error_fit: Option<PopulationProportionalErrorFit>,
+}
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PopulationCovariance {
+    Full,
+    Diagonal,
+}
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PopulationProportionalErrorFit {
+    pub output: String,
+    /// Dimensionless relative SD.
+    pub initial: f64,
+    pub lower: f64,
+    pub upper: f64,
 }
 fn is_false(value: &bool) -> bool {
     !*value
@@ -275,8 +305,8 @@ pub struct PopulationCovariateEffect {
     /// Dimensionless coefficient in `theta_i = theta_ref * exp(coefficient * (x_i-reference))`.
     pub initial: f64,
     pub bounds: [f64; 2],
-    /// Additional independent, subject-constant exponential effects on the
-    /// same parameter. Nested `additional` entries are invalid.
+    /// Additional independent, subject-constant exponential effects.
+    /// Nested `additional` entries are invalid.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub additional: Vec<PopulationCovariateEffect>,
 }
@@ -361,6 +391,9 @@ pub struct PopulationCovariateEffectEstimate {
 pub struct PopulationResidualErrorEstimate {
     pub output: String,
     pub additive_sd: Quantity,
+    /// Fitted dimensionless proportional SD of a combined normal residual.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proportional_sd: Option<f64>,
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -384,13 +417,13 @@ pub struct PopulationSaemDiagnostics {
     pub consecutive_stable_iterations: usize,
     /// Acceptance per coordinate after burn-in, including out-of-bound proposals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    /// One entry per random-effect coordinate (one or two).
-    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    /// One entry per random-effect coordinate (one to eight).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 8)))]
     pub post_burn_acceptance_by_axis: Option<Vec<f64>>,
     /// Lowest subject-level acceptance per coordinate after burn-in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    /// One entry per random-effect coordinate (one or two).
-    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    /// One entry per random-effect coordinate (one to eight).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 8)))]
     pub post_burn_min_subject_acceptance_by_axis: Option<Vec<f64>>,
     /// Longest run of post-burn-in iterations without an accepted move for any subject.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -398,8 +431,8 @@ pub struct PopulationSaemDiagnostics {
     /// Largest positive within-subject lag-one correlation per coordinate.
     /// This is a mixing warning, not an effective sample size estimate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    /// One entry per random-effect coordinate (one or two).
-    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 2)))]
+    /// One entry per random-effect coordinate (one to eight).
+    #[cfg_attr(feature = "schema", schemars(length(min = 1, max = 8)))]
     pub post_burn_max_lag_one_correlation_by_axis: Option<Vec<f64>>,
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

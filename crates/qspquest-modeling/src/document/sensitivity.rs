@@ -332,6 +332,20 @@ impl Model for BoundSensitivityDocument {
         self.primal
             .check_state(time, &state[..self.compiled.primal.state_count])
     }
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        let primal = self.compiled.primal.state_count;
+        if state.len() != self.compiled.forward.augmented_state_units.len() {
+            return Err(invalid("invalid augmented state dimension"));
+        }
+        crate::validate_invariant_tolerances(absolute_tolerances, state.len())?;
+        self.primal
+            .check_integrated_state(time, &state[..primal], &absolute_tolerances[..primal])
+    }
     fn dose_scale(&self, target: usize) -> Option<f64> {
         self.forward.dose_scale(target)
     }

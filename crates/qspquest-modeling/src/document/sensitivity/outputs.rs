@@ -18,8 +18,10 @@ impl PreparedSensitivityProjection {
     }
 }
 
+type InputChange = (f64, usize, Option<(usize, f64)>);
+
 struct InputSchedule {
-    changes: Vec<(f64, usize, Option<(usize, f64)>)>,
+    changes: Vec<InputChange>,
     cursor: usize,
     active: BTreeMap<usize, (usize, f64)>,
     rates: Vec<f64>,

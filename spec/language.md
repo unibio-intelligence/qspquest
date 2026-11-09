@@ -39,9 +39,9 @@ must appear explicitly as `input_<state>` in its RHS in this format.
 
 The grammar is line-oriented. Blank lines and `#` comments are ignored; hashes
 inside double-quoted strings are preserved. Indentation is presentation only.
-Block headers and declarations each occupy one line. Block order after the
-header is flexible; each block can occur only once. Every state needs exactly
-one derivative. Extra targets and content after `end` are errors.
+Block headers and declarations each occupy one line. Blocks after the
+header may appear in any order; each block can occur only once. Every state
+requires exactly one derivative. Extra targets and content after `end` are errors.
 
 ```ebnf
 model          = "model", identifier, newline, header*, block*, "end", newline? ;
@@ -91,8 +91,8 @@ parameters and covariates, not other states or time.
 
 Identifiers use ASCII snake_case, are at most 128 bytes, and cannot be `true`
 or `false`. The compiler also reserves `time` and the `input_` prefix. Quoted
-strings use JSON-compatible string escaping; this is a string syntax, not a
-code or arbitrary-object escape hatch.
+strings use JSON-compatible string escaping. This escaping applies to strings only; it
+does not provide a way to embed code or arbitrary objects.
 
 ## Expressions
 
@@ -103,7 +103,7 @@ and_expression = comparison, ("&&", comparison)* ;
 comparison = arithmetic, (("<" | "<=" | ">" | ">=" | "==" | "!="), arithmetic)? ;
 ```
 
-Arithmetic precedence, from lower to higher:
+Arithmetic precedence, from lowest to highest:
 
 1. `+`, `-` binary, left associative.
 2. `*`, `/`, `%`, left associative. `%` is the specified floored modulo.
@@ -144,7 +144,7 @@ Formatter tests cover idempotence and exact document round trips for the
 supported fixtures, including initial expression kind and initial quantity
 units. The formatter reparses its output, so text that would exceed parser
 limits is rejected rather than emitted as an unreadable canonical document.
-The canonical text format is not yet guaranteed stable.
+The canonical text format is not yet guaranteed to be stable.
 
 Diagnostics contain one-based line and UTF-8 byte column, stable code, message,
 and fix hint. Parser errors identify the current token or declaration.
@@ -167,12 +167,12 @@ integration and the full run/result schema are not yet available.
 
 ## Derived individual parameters
 
-An optional `individual` block declares deterministic derived parameters, e.g.
+An optional `individual` block declares deterministic derived parameters, for example
 `cl = tv_cl * (wt / wt_ref)^0.75`. Dependencies may appear in any declaration
 order. The compiler rejects cycles, unknown names and state/time dependencies.
 An optional `[unit]` suffix specifies numeric storage units. Without it, the
 compiler infers dimensions and stores the value in SI base units; each use
-gets the matching unit conversion. No unit is guessed from a name. Base and derived parameters share the 4,096-binding limit.
+gets the matching unit conversion. No unit is inferred from a name. Base and derived parameters share the 4,096-binding limit.
 
 Each bind recomputes the dependency graph, then initial states, dose scales and
 outputs. Derived parameters cannot be overridden directly. Failed rebinding
@@ -221,7 +221,7 @@ expanded expression uses bindings available in those contexts. Individual
 parameter expressions cannot refer to definitions. Outputs cannot access RHS
 inputs, even indirectly. The usual restrictions on dynamic branches and
 nonsmooth crossings still apply after expansion; a definition cannot be used to
-bypass them. Lazy branches stay lazy.
+bypass them. Lazily evaluated branches remain lazily evaluated.
 
 Source expressions retain the 256-node/32-depth limit. Each expanded expression
 is limited to 16,384 nodes and depth 128; aggregate expansion work is limited to
@@ -240,7 +240,7 @@ member shape; the compiler also checks nonempty/unique semantics.
 
 A prohibited delivery returns `unsupported` before solver dispatch, including
 raw document-protocol execution. Resets are independent state events and are not
-classified as administrations. Restrictions do not alter dose scale, F, lag,
+classified as administrations. Restrictions do not alter dose scale, bioavailability (F), lag,
 repeat count or infusion duration semantics.
 
 

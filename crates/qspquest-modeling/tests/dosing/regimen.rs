@@ -168,7 +168,7 @@ fn distinct_close_times_remain_distinct_and_unrepresentable_repeats_fail() {
     });
     let events = expand(
         &[a.clone()],
-        &[target.clone()],
+        std::slice::from_ref(&target),
         Unit::parse("h").unwrap(),
         2.0,
         2,
