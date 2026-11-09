@@ -13,7 +13,7 @@ is installed. Older versions can round numeric request values.
 install.packages("qspquest")
 # Or, from a downloaded source archive:
 # install.packages("jsonlite")
-# install.packages("qspquest_0.1.0.tar.gz", repos = NULL, type = "source")
+# install.packages("qspquest_0.1.1.tar.gz", repos = NULL, type = "source")
 library(qspquest)
 source(system.file("doc", "quickstart.R", package = "qspquest"))
 ```
@@ -22,7 +22,8 @@ The complete runnable example is installed as `doc/quickstart.R`. It prints four
 rows at 0, 6, 12 and 24 hours, starting at 6 mg and ending at approximately
 0.5443077 mg. The analytical trajectory check must pass. Its second calculation
 returns converged Gamma-Poisson shape and rate estimates, with rate at its 100 h
-upper bound. Bounds matter; these are point estimates, without confidence limits.
+upper bound. Check the bounds before interpreting the estimates; these are point
+estimates without confidence limits.
 
 For a bounded individual fit with profiled proportional residual error:
 
@@ -39,7 +40,7 @@ fit$residual_scales
 
 The fitted `theta` is approximately 2.5 mg/L. The two proportional residual
 scales are approximately 0.08944272 and 0.14422205. See `help("compile_model")`,
-`help("fit_data_requests")` and `help("population_fit_data_requests")` for input
+`help("individual_fit_data_requests")` and `help("population_fit_data_requests")` for input
 contracts and limitations. Use R lists for arrays and explicit value/unit pairs
 for quantities. Check every fit status before interpreting estimates; a returned
 result can be a nonconverged diagnostic. Compiled model pointers belong to the R

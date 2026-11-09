@@ -2218,7 +2218,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qspquest-core",
  "qspquest-modeling",
@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "schemars 0.8.22",
  "serde",
@@ -2238,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "flate2",
@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-modeling"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "diffsol",
  "flate2",
@@ -2272,7 +2272,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-python"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pyo3",
  "qspquest-core",
@@ -2282,7 +2282,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-r"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "extendr-api",
  "qspquest-core",
@@ -2292,7 +2292,7 @@ dependencies = [
 
 [[package]]
 name = "qspquest-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qspquest-core",
  "qspquest-modeling",

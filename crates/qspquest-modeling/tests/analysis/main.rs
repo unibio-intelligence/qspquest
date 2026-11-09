@@ -1,6 +1,7 @@
 //! Sensitivity, Morris screening and parameter scans.
 mod document_sensitivity;
 mod morris;
+mod native_analysis;
 mod scan;
 mod sensitivity_compile;
 mod sensitivity_derived;

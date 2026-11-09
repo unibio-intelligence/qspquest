@@ -559,12 +559,13 @@ fn observed_outer_covariance(
     evaluator: &mut Evaluator<'_>,
     x: [f64; 2],
     f0: f64,
-    theta_bounds: [f64; 2],
-    omega_bounds: [f64; 2],
-    omega_fixed: f64,
-    parameter: &str,
-    unit: &str,
+    setup: &super::fit::PopulationOneDim,
 ) -> Result<PopulationFitUncertainty, Error> {
+    let theta_bounds = [setup.lower, setup.upper];
+    let omega_bounds = [setup.omega_lower, setup.omega_upper];
+    let omega_fixed = setup.omega;
+    let parameter = setup.parameter.as_str();
+    let unit = setup.unit.as_str();
     let free_omega = omega_bounds[0] < omega_bounds[1];
     let dimensions = if free_omega { 2 } else { 1 };
     let h = 0.01;
@@ -794,6 +795,7 @@ fn fit_free_additive(
                 value: sigma,
                 unit: additive.unit.clone(),
             },
+            proportional_sd: None,
         }),
         saem_diagnostics: None,
         objective_kind: PopulationObjectiveKind::FoceiObjectiveFunctionValue,
@@ -1041,11 +1043,7 @@ impl CompiledSensitivityDocument {
                 &mut evaluator,
                 x,
                 best.ofv,
-                [setup.lower, setup.upper],
-                [setup.omega_lower, setup.omega_upper],
-                setup.omega,
-                &setup.parameter,
-                &setup.unit,
+                &setup,
             )?)
         } else {
             None
@@ -1118,6 +1116,9 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let request = PopulationFitRequest {
+            covariance: None,
+            sweeps: None,
+            proportional_error_fit: None,
             subjects: observations
                 .iter()
                 .map(|observation| GaussianObjectiveRequest {
@@ -1368,7 +1369,7 @@ mod tests {
         let terms = row_terms(&observation, 1. + eta, 1., observation.additive).unwrap();
         assert!((terms.score + eta / 0.25).abs() < 1e-11);
         let information = 1. / 0.25 + terms.information;
-        assert!((information - 16.963634552701741).abs() < 1e-11);
+        assert!((information - 16.963_634_552_701_74).abs() < 1e-11);
         let ofv = 2. * terms.nll - LOG_2PI + eta * eta / 0.25 + libm::log(0.25 * information);
         assert!((ofv - (-0.28413556586194666)).abs() < 1e-11);
     }
@@ -1402,6 +1403,15 @@ fn validate_dispatch(request: &PopulationFitRequest) -> Result<(), Error> {
         return Err(Error::new(
             ErrorCode::Unsupported,
             "FOCEI does not support the SAEM covariate-effect request",
+        ));
+    }
+    if request.covariance.is_some()
+        || request.sweeps.is_some()
+        || request.proportional_error_fit.is_some()
+    {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "FOCEI does not support the SAEM covariance, sweeps or proportional-error fields",
         ));
     }
     Ok(())

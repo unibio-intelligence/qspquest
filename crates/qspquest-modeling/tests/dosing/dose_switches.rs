@@ -37,8 +37,7 @@ fn relative_switches_restart_and_keep_pointwise_pre_post_values() {
             let post = matches!(out.sides[i], ObservationSide::Post);
             let last = [0., 1., 4.]
                 .into_iter()
-                .filter(|&d| d < time || (d == time && post))
-                .last();
+                .rfind(|&d| d < time || (d == time && post));
             let expected = last.is_some_and(|d| match op {
                 "lt" => time - d < 2.,
                 "le" => time - d <= 2.,
@@ -46,7 +45,7 @@ fn relative_switches_restart_and_keep_pointwise_pre_post_values() {
                 _ => time - d >= 2.,
             });
             assert_eq!(out.outputs[0].values[i], if expected { 1. } else { 0. });
-            let late = (time - 3.).max(0.).min(1.) + (time - 6.).max(0.);
+            let late = (time - 3.).clamp(0., 1.) + (time - 6.).max(0.);
             let area = if op == "lt" || op == "le" {
                 time - late
             } else {
@@ -76,7 +75,7 @@ fn decimal_readouts_and_integration_phases_remain_distinct() {
         if time == boundary {
             assert_eq!(out.outputs[0].values[i], 1.);
         }
-        assert!((out.outputs[1].values[i] - (time - 0.3).max(0.).min(0.6)).abs() < 1e-7);
+        assert!((out.outputs[1].values[i] - (time - 0.3).clamp(0., 0.6)).abs() < 1e-7);
     }
     let m = CompiledDocument::compile(&model("gt", 0.1)).unwrap();
     let out = m.execute(&request(&[1.], &[1., 1.1, 1.2], 2.)).unwrap();

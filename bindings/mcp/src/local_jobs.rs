@@ -35,6 +35,7 @@ pub enum Operation {
     FitPopulation,
     SteadyState,
     MorrisScreening,
+    Analyze,
 }
 impl Operation {
     pub fn name(self) -> &'static str {
@@ -46,6 +47,7 @@ impl Operation {
             Self::FitPopulation => "fit_population",
             Self::SteadyState => "steady_state",
             Self::MorrisScreening => "morris_screening",
+            Self::Analyze => "analyze",
         }
     }
 }

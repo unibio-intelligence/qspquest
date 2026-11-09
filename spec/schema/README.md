@@ -24,6 +24,6 @@ python scripts/generate_mcp_resources.py --check
 python scripts/check_documentation.py
 ```
 
-Only the example program writes files. Library callers can get schema values
-from `qspquest_core::schema::documents()`. The feature is left out of the
-default WASM build, so browsers do not ship the schema tooling.
+Only the example program writes files. Library callers can obtain schema values
+from `qspquest_core::schema::documents()`. The feature is excluded from the
+default WASM build, so the browser build does not include the schema tooling.

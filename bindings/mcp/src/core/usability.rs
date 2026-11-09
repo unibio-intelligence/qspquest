@@ -32,6 +32,11 @@ fn parse(unit: &str) -> Option<qspquest_core::units::Unit> {
     if unit.chars().count() > 256 {
         return None;
     }
+    qspquest_core::units::Unit::parse(&normalize_unit(unit)).ok()
+}
+
+/// The UCUM spelling of a friendly unit: µg -> ug, day -> d, nM -> (nmol/L), * and · -> '.'.
+pub fn normalize_unit(unit: &str) -> String {
     fn spelling(token: &str) -> &str {
         match token {
             "µg" | "μg" | "mcg" => "ug",
@@ -64,7 +69,7 @@ fn parse(unit: &str) -> Option<qspquest_core::units::Unit> {
         }
     }
     normalized.push_str(spelling(&token));
-    qspquest_core::units::Unit::parse(&normalized).ok()
+    normalized
 }
 
 fn dimensionless(u: &str) -> bool {
@@ -530,6 +535,13 @@ fn scale_factors<'a>(expr: &'a Value, out: &mut Vec<&'a Value>) {
     }
 }
 
+/// The amount unit of a state's dosing mapping when it is a physical unit rather than source coordinates.
+fn physical_dose_unit(state: &Value) -> Option<&str> {
+    state["dosing"]["amount_unit"]
+        .as_str()
+        .filter(|unit| !unit.trim().is_empty() && !dimensionless(unit) && parse(unit).is_some())
+}
+
 /// The unit a dose into `state` is given in, and the scale the model applies to it. A model may take the dose in
 /// one unit (mg) and convert it into the state's unit (nmol) itself; the state's unit is then the wrong unit to dose in.
 pub fn dose_unit(model: &Value, native: &Value, state: &str) -> (Option<String>, Option<String>) {
@@ -544,31 +556,31 @@ pub fn dose_unit(model: &Value, native: &Value, state: &str) -> (Option<String>,
     };
     let mut factors = Vec::new();
     scale_factors(&row["dosing"]["scale"], &mut factors);
+    let scale = (!factors.is_empty()).then(|| {
+        factors
+            .iter()
+            .map(|f| render(f, native))
+            .collect::<Vec<_>>()
+            .join(" * ")
+    });
+    // A physical amount unit in the model's own dosing mapping is the unit the
+    // engine converts every dose into, whatever the model kind or the scale.
+    if let Some(unit) = physical_dose_unit(row) {
+        return (Some(unit.to_owned()), scale);
+    }
     if !model["linear_pk"].is_null() {
-        let scale = (!factors.is_empty()).then(|| {
-            factors
-                .iter()
-                .map(|f| render(f, native))
-                .collect::<Vec<_>>()
-                .join(" * ")
-        });
         return (
             row["dosing"]["amount_unit"].as_str().map(str::to_owned),
             scale,
         );
     }
+    // Source-coordinate archives (amount unit 1) declare the physical dose unit
+    // in their state metadata.
     let declared = native["states"]
         .as_object()
         .and_then(|m| m.values().find(|e| e["native_name"] == state))
         .and_then(|e| e["dose_amount_unit"].as_str());
     if let Some(unit) = declared {
-        let scale = (!factors.is_empty()).then(|| {
-            factors
-                .iter()
-                .map(|f| render(f, native))
-                .collect::<Vec<_>>()
-                .join(" * ")
-        });
         return (Some(unit.to_owned()), scale);
     }
     if factors.is_empty() {
@@ -829,6 +841,143 @@ pub(crate) fn source_coordinate_refusal(mut error: Value, native: &Value) -> Val
     error
 }
 
+/// Names read as body weight when a dose is given per kilogram.
+fn weight_name(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    matches!(
+        n.as_str(),
+        "wt" | "weight" | "bw" | "bodyweight" | "body_weight" | "bodywt" | "weight_kg" | "wt_kg"
+    ) || n.starts_with("body_weight")
+}
+
+/// Body weight in kg for per-mass doses, with where it came from: the request's covariates
+/// or parameters, then the stored scenario, then the model's covariate or parameter default.
+fn body_weight(
+    args: &Value,
+    model: &Value,
+    native: &Value,
+    base: Option<&Value>,
+) -> Option<(f64, String)> {
+    let kg = parse("kg")?;
+    let in_kg = |q: &Value, fallback_unit: &str| -> Option<f64> {
+        let value = q["value"].as_f64()?;
+        let unit = q["unit"]
+            .as_str()
+            .filter(|u| *u != "1")
+            .unwrap_or(fallback_unit);
+        parse(unit)?
+            .convert(value, kg)
+            .ok()
+            .filter(|v| v.is_finite() && *v > 0.0)
+    };
+    // Weight-like parameter names: native names and their aliases.
+    let mut parameter_names: Vec<(String, String, String)> = Vec::new();
+    for (alias, entry) in native["parameters"].as_object().into_iter().flatten() {
+        let native_name = entry["native_name"].as_str().unwrap_or(alias);
+        if weight_name(alias) || weight_name(native_name) {
+            parameter_names.push((
+                alias.clone(),
+                native_name.to_owned(),
+                entry["source_unit"].as_str().unwrap_or("1").to_owned(),
+            ));
+        }
+    }
+    for p in model["parameters"].as_array().into_iter().flatten() {
+        if let Some(name) = p["name"].as_str().filter(|n| weight_name(n)) {
+            if !parameter_names.iter().any(|(_, n, _)| n == name) {
+                parameter_names.push((
+                    name.to_owned(),
+                    name.to_owned(),
+                    p["default"]["unit"].as_str().unwrap_or("1").to_owned(),
+                ));
+            }
+        }
+    }
+    let covariates: Vec<(&str, &str)> = model["covariates"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| Some((c["name"].as_str()?, c["unit"].as_str().unwrap_or("1"))))
+        .filter(|(n, _)| weight_name(n))
+        .collect();
+    let given = |table: &Value, what: &str| -> Option<(f64, String)> {
+        for (name, q) in table.as_object().into_iter().flatten() {
+            if weight_name(name) {
+                let unit = covariates
+                    .iter()
+                    .find(|(n, _)| n == name)
+                    .map(|(_, u)| *u)
+                    .unwrap_or("1");
+                if let Some(v) = in_kg(q, unit) {
+                    return Some((v, format!("{what} {name}")));
+                }
+            }
+        }
+        None
+    };
+    let given_parameter = |table: &Value, what: &str| -> Option<(f64, String)> {
+        for (alias, native_name, unit) in &parameter_names {
+            if let Some(q) = table.get(native_name).or_else(|| table.get(alias)) {
+                if let Some(v) = in_kg(q, unit) {
+                    return Some((v, format!("{what} {alias}")));
+                }
+            }
+        }
+        None
+    };
+    given(&args["covariates"], "covariate")
+        .or_else(|| given_parameter(&args["parameters"], "parameter"))
+        .or_else(|| base.and_then(|b| given(&b["regimen"]["covariates"], "scenario covariate")))
+        .or_else(|| base.and_then(|b| given_parameter(&b["parameters"], "scenario parameter")))
+        .or_else(|| {
+            model["covariates"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find_map(|c| {
+                    let name = c["name"].as_str().filter(|n| weight_name(n))?;
+                    Some((
+                        in_kg(&c["default"], c["unit"].as_str().unwrap_or("1"))?,
+                        format!("model default of covariate {name}"),
+                    ))
+                })
+        })
+        .or_else(|| {
+            model["parameters"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find_map(|p| {
+                    let name = p["name"].as_str().filter(|n| weight_name(n))?;
+                    Some((
+                        in_kg(&p["default"], "1")?,
+                        format!("model default of parameter {name}"),
+                    ))
+                })
+        })
+}
+
+/// A per-body-mass dose (for example mg/kg): the amount in the stored unit for the resolved
+/// weight. None when the unit is not an amount per mass compatible with the stored unit.
+fn per_mass_dose(
+    value: f64,
+    unit: &str,
+    stored: &str,
+    weight: Option<&(f64, String)>,
+    name: &str,
+) -> Option<Result<(f64, String), String>> {
+    let amount_unit = parse(unit)?.multiply(parse("kg")?).ok()?;
+    let target = parse(stored)?;
+    amount_unit.convert(1.0, target).ok()?;
+    Some(match weight {
+        Some((kg, source)) => amount_unit
+            .convert(value * kg, target)
+            .map(|v| (v, format!("dose into '{name}': {value} {unit} x {kg} kg ({source}) = {v} {stored}")))
+            .map_err(|e| e.message),
+        None => Err(format!("dose into '{name}' is given per body mass ({unit}) but no body weight was found. Supply covariates {{\"wt\": {{\"value\": 70, \"unit\": \"kg\"}}}} (or the model's weight covariate or parameter), or give the dose amount in {stored}.")),
+    })
+}
+
 /// Normalize a candidate copy and commit only after all checks succeed.
 /// The original arguments remain available unchanged after any refusal.
 pub(crate) fn normalize_located(
@@ -923,6 +1072,7 @@ fn normalize_admitted(
     }
     let mut latest: f64 = 0.0;
     let mut interval: f64 = 0.0;
+    let weight = body_weight(args, model, native, base);
     if let Some(doses) = args.get_mut("doses").and_then(Value::as_array_mut) {
         let resolved_states = crate::library::display_states(model);
         for (index, d) in doses.iter_mut().enumerate() {
@@ -985,20 +1135,63 @@ fn normalize_admitted(
                 let unit = d["amount"]["unit"].as_str().unwrap_or("1").to_owned();
                 let stored = dose_in.as_deref().unwrap_or("1");
                 location.at(format!("{dose_path}/amount/unit"), "Use a quantity compatible with the declared dose input unit; source-coordinate doses require explicit unit 1 when no physical dose unit is declared.");
+                let mut per_mass = false;
                 let converted = match dose_in.as_deref() {
-                    Some(stored) => convert(value, &unit, stored, &format!("dose into '{name}'"))
-                        .map_err(|e| match &scale {
-                        Some(s) => format!("{e} The model multiplies the dose by {s}."),
-                        None => e,
-                    })?,
+                    Some(stored) => match convert(value, &unit, stored, &format!("dose into '{name}'")) {
+                        Ok(v) => v,
+                        Err(e) => match per_mass_dose(value, &unit, stored, weight.as_ref(), &name) {
+                            Some(Ok((v, note))) => {
+                                notes.push(note);
+                                per_mass = true;
+                                v
+                            }
+                            Some(Err(message)) => return Err(message),
+                            None => {
+                                return Err(match &scale {
+                                    Some(s) => format!("{e} The model multiplies the dose by {s}."),
+                                    None => e,
+                                })
+                            }
+                        },
+                    },
                     None if unit == "1" => value,
                     None => return Err(format!("dose.amount.unit for '{name}': the model has no declared dose input unit. Use explicit unit '1' with a source-coordinate amount from a stored scenario, or a model with a declared physical dose unit.")),
                 };
-                if converted != value {
+                if converted != value && !per_mass {
                     notes.push(format!("dose: {value} {unit} = {converted} {stored}"));
                 }
+                // Request bioavailability and lag act in addition to any the model declares for
+                // this target; say so, because a value copied from a paper into both places is
+                // applied twice.
+                if let Some(declared) = resolved_states
+                    .iter()
+                    .find(|st| st["name"] == native_name.as_str())
+                {
+                    let request_f = d
+                        .get("bioavailability")
+                        .and_then(Value::as_f64)
+                        .filter(|f| *f != 1.0);
+                    let mut factors = Vec::new();
+                    scale_factors(&declared["dosing"]["scale"], &mut factors);
+                    let parameter_scale = factors
+                        .iter()
+                        .any(|f| !f["name"].is_null() || f["kind"] != "quantity");
+                    if let (Some(f), true) = (request_f, parameter_scale) {
+                        notes.push(format!("dose into '{name}': request bioavailability {f} multiplies the model's own dose scale ({}); if the model already includes bioavailability, it is applied twice", factors.iter().map(|f| render(f, native)).collect::<Vec<_>>().join(" * ")));
+                    }
+                    if d.get("lag").is_some_and(|l| !l.is_null())
+                        && !declared["dosing"]["lag"].is_null()
+                    {
+                        notes.push(format!("dose into '{name}': request lag adds to the model's declared lag for this target ({}); the delays are summed", render(&declared["dosing"]["lag"], native)));
+                    }
+                }
                 d["target"] = json!(native_name);
-                let request_unit = if !model["linear_pk"].is_null() {
+                let physical = resolved_states
+                    .iter()
+                    .find(|st| st["name"] == native_name.as_str())
+                    .and_then(physical_dose_unit)
+                    .is_some();
+                let request_unit = if !model["linear_pk"].is_null() || physical {
                     stored
                 } else {
                     entry["request_unit"].as_str().unwrap_or("1")
@@ -1101,6 +1294,10 @@ fn normalize_admitted(
                     "start",
                     "end",
                     "stop",
+                    "reported",
+                    "route",
+                    "dose",
+                    "auc_method",
                 ]
                 .contains(&key.as_str())
                 {
@@ -1108,7 +1305,7 @@ fn normalize_admitted(
                         super::input_shapes::child(&readout_path, key),
                         READOUT_INPUT_HINT,
                     );
-                    return Err(format!("readouts[{index}].{key} is unknown; use kind, output, from/to or at, and the declared threshold/direction/side fields"));
+                    return Err(format!("readouts[{index}].{key} is unknown; use kind, output, from/to or at, and the declared threshold/direction/side/reported fields"));
                 }
             }
             for nested in ["window", "time", "interval"] {
@@ -1232,6 +1429,24 @@ fn normalize_admitted(
                         "readouts[{index}].to must be later than readouts[{index}].from"
                     ));
                 }
+                if horizon > 0.0 && b > horizon {
+                    location.at(
+                        super::input_shapes::child(&readout_path, "to"),
+                        READOUT_INPUT_HINT,
+                    );
+                    return Err(format!(
+                        "readouts[{index}].to ({b} {tu}) is after the run end ({horizon} {tu}); end the window at or before end, or extend end"
+                    ));
+                }
+                if a < native_start {
+                    location.at(
+                        super::input_shapes::child(&readout_path, "from"),
+                        READOUT_INPUT_HINT,
+                    );
+                    return Err(format!(
+                        "readouts[{index}].from ({a} {tu}) is before the run start ({native_start} {tu})"
+                    ));
+                }
                 if !((b - a) * READOUT_POINTS as f64).is_finite() {
                     location.at(readout_path.clone(), READOUT_INPUT_HINT);
                     return Err(format!("readouts[{index}].from/to interval is too large for a finite sampling grid"));
@@ -1302,6 +1517,8 @@ fn normalize_admitted(
 }
 
 pub const READOUT_POINTS: usize = 4000;
+/// Longest parameter description returned on a compact model card; `detail: full` has the rest.
+pub const DESCRIPTION_CHARS: usize = 400;
 
 fn symbols(expr: &Value, out: &mut BTreeSet<String>) {
     match expr {
@@ -1452,9 +1669,12 @@ pub fn equation_parameters(model: &Value) -> BTreeSet<String> {
     }
     symbols(&model["linear_pk"], &mut reached);
     symbols(&model["covariates"], &mut reached);
+    // Individual (derived) parameters are expanded like definitions: a base parameter that
+    // reaches the equations only through an individual expression still changes the model.
     let definitions: BTreeMap<String, &Value> = model["definitions"]
         .as_array()
         .into_iter()
+        .chain(model["individual"].as_array())
         .flatten()
         .filter_map(|d| Some((d["name"].as_str()?.to_owned(), &d["expression"])))
         .collect();
@@ -1672,7 +1892,14 @@ pub fn interface(model: &Value, native: &Value, scenario_ids: &Value, examples: 
                 {
                     let d = d.trim();
                     if !d.is_empty() && !d.eq_ignore_ascii_case(name) {
-                        row["description"] = json!(d.chars().take(100).collect::<String>());
+                        // Descriptions carry provenance; keep them whole up to a bounded length
+                        // and say when they were cut, so a truncated source note is never mistaken
+                        // for a complete one.
+                        let kept: String = d.chars().take(DESCRIPTION_CHARS).collect();
+                        if kept.len() < d.len() {
+                            row["description_truncated"] = json!(true);
+                        }
+                        row["description"] = json!(kept);
                     }
                 }
                 parameters.push(row);
@@ -1709,6 +1936,9 @@ pub fn interface(model: &Value, native: &Value, scenario_ids: &Value, examples: 
             let mut row = json!({"target":name,"amount_unit":dose_in.map(Value::from).unwrap_or(if unit=="1"{s["dosing"]["amount_unit"].clone()}else{json!("not declared; see dose_scale and the example")}),"modes":s["dosing"]["modes"]});
             row["canonical_target"] = s["name"].clone();
             row["state_unit"] = s["unit"].clone();
+            if !s["dosing"]["lag"].is_null() {
+                row["model_lag"] = json!(format!("the model delays doses into {} by {}; a request lag adds to it", row["target"].as_str().unwrap_or("this state"), render(&s["dosing"]["lag"], native)));
+            }
             row["archive_source_coordinate"] = native["dose_contracts"].as_object()
                 .and_then(|entries| entries.values().find(|c| c["native_target"] == s["name"]))
                 .cloned().unwrap_or(Value::Null);
@@ -1743,6 +1973,7 @@ pub fn interface(model: &Value, native: &Value, scenario_ids: &Value, examples: 
     json!({
         "time_unit": model["time_unit"],
         "dose_targets": dose_targets,
+        "steady_state_supported": !model["linear_pk"].is_null(),
         "parameters": parameters,
         "covariates": model["covariates"].as_array().into_iter().flatten().map(|c| json!({"name":c["name"],"unit":c["unit"],"default":c["default"]["value"]})).collect::<Vec<_>>(),
         "outputs": outputs,
@@ -2475,6 +2706,50 @@ mod tests {
             equation_parameters(&model),
             BTreeSet::from(["cl".to_owned(), "v".to_owned()])
         );
+    }
+    /// A concentration state dosed through a dimensional scale takes doses in the
+    /// amount unit of its own dosing mapping, whether the scale is a parameter, an
+    /// expression or a constant.
+    #[test]
+    fn dimensional_dose_scales_take_doses_in_the_declared_amount_unit() {
+        for (scale, rendered) in [
+            ("inv_v", "inv_v"),
+            ("1 / v", "(1.0 / v)"),
+            ("quantity(0.333333333333, \"1/L\")", "0.333333333333"),
+        ] {
+            let source = format!(
+                "model scale_probe\ntime_unit = h\nparameters\n  cl = 0.3 [L/h] log\n  v = 3 [L] log\n  inv_v = 0.333333333333 [1/L] log\nstates\n  c = 0 [mg/L]\ndynamics\n  d/dt(c) = input_c - cl / v * c\noutputs\n  cp = c [mg/L]\ndosing\n  c [mg] = {scale}\nend\n"
+            );
+            let model = crate::core::compute::execute(&source, "validate_model", json!({}))
+                .unwrap()["model"]
+                .clone();
+            let native = augment(&Value::Null, &model);
+            assert_eq!(
+                dose_unit(&model, &native, "c"),
+                (Some("mg".into()), Some(rendered.into())),
+                "{scale}"
+            );
+            let card = interface(&model, &native, &json!([]), &json!({}));
+            assert_eq!(card["dose_targets"][0]["amount_unit"], "mg", "{scale}");
+            assert!(card["dose_targets"][0]["dose_scale"]
+                .as_str()
+                .unwrap()
+                .contains(rendered));
+            // Unit 1 is the model's own coordinate, here mg.
+            for (value, unit) in [(6.0, "mg"), (0.006, "g"), (6000.0, "ug"), (6.0, "1")] {
+                let mut args = json!({"doses":[{"target":"c","amount":{"value":value,"unit":unit},"at":{"value":0.0,"unit":"h"}}]});
+                normalize(&mut args, &native, &model, None).unwrap();
+                let amount = &args["doses"][0]["amount"];
+                assert_eq!(amount["unit"], "mg", "{scale} {unit}");
+                assert!((amount["value"].as_f64().unwrap() - 6.0).abs() < 1e-12);
+            }
+            for unit in ["mg/L", "L"] {
+                let mut args = json!({"doses":[{"target":"c","amount":{"value":6.0,"unit":unit},"at":{"value":0.0,"unit":"h"}}]});
+                let error = normalize(&mut args, &native, &model, None).unwrap_err();
+                assert!(error.contains("'mg'"), "{scale} {unit}: {error}");
+                assert!(error.contains(rendered), "{scale} {unit}: {error}");
+            }
+        }
     }
     #[test]
     fn declared_mass_dose_is_converted_before_a_concentration_scale() {

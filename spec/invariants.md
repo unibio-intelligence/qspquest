@@ -20,9 +20,20 @@ receives no partial trajectory. Negative resets cannot be hidden by later
 same-time boluses or resets.
 
 Values must be finite and greater than or equal to zero; negative zero passes.
-There is no implicit tolerance, clamping, projection or solver retry policy.
-Tiny negative numerical values therefore fail too. Fix the model or choose
-suitable solver settings rather than hiding the failure.
+Initial states, reset values, analytic propagation results and states supplied
+directly for output evaluation are checked exactly.
+
+A numerical integrator controls each state only to within its absolute
+tolerance. States produced by numerical integration (accepted steps and
+interpolated observations), and the same states carried into later event
+boundaries and boluses, therefore pass when they are at least `-atol_i`, the
+absolute tolerance of state `i` requested for the run. Passes that sampled
+accuracy control or TR-BDF2 refinement solve with a smaller tolerance are
+checked against the same requested value. A failure message reports the
+tolerance it was checked against. The reported values are not changed: there is
+no clamping, projection or solver retry policy, and a value between `-atol_i`
+and zero appears in the result as computed. Larger negative values fail. Fix
+the model or choose suitable solver settings rather than hiding the failure.
 
 Checks intentionally exclude internal Newton trial states and rejected solver
 steps. They do not prove nonnegativity between accepted states and requested

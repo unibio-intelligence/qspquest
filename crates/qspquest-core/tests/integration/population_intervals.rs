@@ -5,7 +5,7 @@ fn fixture() -> PopulationFitResult {
     serde_json::from_value(json!({
         "status":"converged", "fixed_effects":{
             "theta_intercept":{"value":1.,"unit":"1"},
-            "theta_slope":{"value":2.718281828459045,"unit":"1"}},
+            "theta_slope":{"value":std::f64::consts::E,"unit":"1"}},
         "omega":[[0.2]], "subjects":[],
         "objective_kind":"saem_marginal_objective_function_value",
         "objective":0., "evaluations":1,"iterations":1,"fit_request_hash":"fixture",

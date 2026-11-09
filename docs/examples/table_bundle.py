@@ -155,7 +155,14 @@ def _initialization_receipt(manifest):
             raise ValueError('Initialization coordinates must be finite numbers')
         return value
     def unit(value):
-        keys(value, 'dimensions scale_numerator scale_denominator declared')
+        # Count units such as [cell] carry nonzero opaque entity exponents.
+        if isinstance(value, dict) and 'entities' in value:
+            keys(value, 'dimensions scale_numerator scale_denominator declared entities')
+            entities = value['entities']
+            if not isinstance(entities, dict) or any(k not in ('cell', 'genome') or type(n) is not int or n == 0 or not -32768 <= n <= 32767 for k, n in entities.items()):
+                raise ValueError('Invalid native unit entity exponents')
+        else:
+            keys(value, 'dimensions scale_numerator scale_denominator declared')
         if not isinstance(value['dimensions'], list) or len(value['dimensions']) != 8 or any(type(n) is not int or not -32768 <= n <= 32767 for n in value['dimensions']):
             raise ValueError('Invalid native unit dimensions')
         if any(not isinstance(value[k], str) or not re.fullmatch('[1-9][0-9]*', value[k]) for k in ('scale_numerator', 'scale_denominator')) or (value['declared'] is not None and not text(value['declared'])):

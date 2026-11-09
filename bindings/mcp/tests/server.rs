@@ -23,7 +23,7 @@ async fn tools_through_real_mcp_client() {
     let tools = client.list_tools(Default::default()).await.unwrap();
     assert_eq!(
         tools.tools.len(),
-        20 + if cfg!(feature = "analysis") { 2 } else { 0 }
+        25 + if cfg!(feature = "analysis") { 3 } else { 0 }
             + if cfg!(feature = "managed") { 7 } else { 0 }
     );
     // Validate schema-valued positions, preserving boolean keywords such as
@@ -121,6 +121,18 @@ async fn tools_through_real_mcp_client() {
             "simulate",
             json!({"model":{"scenario":{"model_id":"qspquest_diffdose_2026_idr_benchmark","scenario_id":"higher_exposure"}}}),
         ),
+        (
+            "fork_model",
+            json!({"model_id":"qspquest_diffdose_2026_idr_benchmark","scenario_id":"higher_exposure"}),
+        ),
+        (
+            "edit_model",
+            json!({"source":include_str!("../assets/templates/oral.qsp"),"operations":[{"op":"add_output","name":"twice","unit":"1","expression":"2"}]}),
+        ),
+        (
+            "get_model",
+            json!({"source":include_str!("../assets/templates/oral.qsp")}),
+        ),
     ] {
         let result = client
             .call_tool(
@@ -133,7 +145,7 @@ async fn tools_through_real_mcp_client() {
     let resources = client.list_resources(Default::default()).await.unwrap();
     assert!(resources.resources.len() > 50);
     let prompts = client.list_prompts(Default::default()).await.unwrap();
-    assert_eq!(prompts.prompts.len(), 4);
+    assert_eq!(prompts.prompts.len(), 7);
     let _ = client
         .read_resource(ReadResourceRequestParams::new("qspquest://guide/language"))
         .await

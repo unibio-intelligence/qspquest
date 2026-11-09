@@ -10,7 +10,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from capability_registry import check, expand, validate
-from check_source_identity import DIRECTORIES, FIXED
 
 
 class CapabilityRegistryTests(unittest.TestCase):
@@ -20,10 +19,9 @@ class CapabilityRegistryTests(unittest.TestCase):
     def source(self, directory):
         root = Path(directory)
         paths = {'Cargo.toml', 'spec/capabilities.json', 'spec/schema/capability-catalog.schema.json',
-                 'docs/site/capabilities.md', *self.catalog['source_snapshot']}
+                 'docs/site/capabilities.md', 'bindings/mcp/src/server.rs'}
+        paths.update(entry['source'] for entry in self.catalog['entries'])
         paths.update(path for example in self.catalog['examples'] for path in example['paths'])
-        paths.update(str(p.relative_to(ROOT)) for directory in DIRECTORIES for p in (ROOT / directory).rglob('*.rs'))
-        paths.update(FIXED)
         for name in paths:
             destination = root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -43,9 +41,9 @@ class CapabilityRegistryTests(unittest.TestCase):
         rows = expand(validate(ROOT))
         self.assertFalse(any(r['operation'] == 'sensitivities' and r['interface'] == 'r' for r in rows))
         self.assertTrue(any(r['operation'] == 'fit_scalar' and r['interface'] == 'cli' and r['estimator'] == 'scalar_gaussian' for r in rows))
-        self.assertEqual(self.entry('python_analysis', 'analysis_fit_population')['estimators'], ['saem_python'])
-        self.assertIn('saem_native', self.entry('python', 'fit_population')['estimators'])
-        self.assertEqual(self.entry('python_analysis', 'profile_likelihood')['estimators'], ['L-BFGS-B'])
+        self.assertEqual(self.entry('python_analysis', 'analysis_fit_population')['estimators'], ['saem'])
+        self.assertIn('saem', self.entry('python', 'fit_population')['estimators'])
+        self.assertEqual(self.entry('python_analysis', 'profile_likelihood')['estimators'], ['projected_bfgs_central_difference', 'compass_pattern_search'])
         self.assertEqual({e['operation'] for e in self.catalog['entries'] if e['interface'] == 'wasm_worker'}, {'simulate'})
 
     def test_discrete_commands_and_profiled_fitting_are_registered(self):
@@ -58,12 +56,20 @@ class CapabilityRegistryTests(unittest.TestCase):
         for interface in ('rust', 'python', 'r', 'cli', 'mcp'):
             self.assertIn('profiled_proportional', self.entry(interface, 'fit_individual')['estimators'])
 
-    def test_changed_source_is_not_silently_accepted(self):
+    def test_ordinary_source_edit_needs_no_catalog_edit(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.source(directory)
-            p = root / 'bindings/mcp/src/policy.rs'
-            p.write_text(p.read_text() + '\n// Changed admission policy.\n')
-            with self.assertRaisesRegex(ValueError, 'snapshot is stale'):
+            for name in {entry['source'] for entry in self.catalog['entries']}:
+                path = root / name
+                comment = '\n# Edited.\n' if path.suffix in ('.py', '.R', '.r') else '\n// Edited.\n'
+                path.write_text(path.read_text() + comment)
+            self.assertEqual(check(root)['status'], 'matched')
+
+    def test_absent_source_file_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.source(directory)
+            (root / self.entry('rust', 'simulate')['source']).unlink()
+            with self.assertRaisesRegex(ValueError, 'absent or unsafe'):
                 validate(root)
 
     def test_absent_symbol_is_refused_even_with_unchanged_source(self):
@@ -92,9 +98,9 @@ class CapabilityRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate(ROOT, self.catalog)
 
-    def test_stale_compiler_identity_is_refused(self):
+    def test_source_digests_are_not_catalog_fields(self):
         self.catalog['compiler_source_sha256'] = 'sha256:' + '0' * 64
-        with self.assertRaisesRegex(ValueError, 'source identity is stale'):
+        with self.assertRaisesRegex(ValueError, 'unknown field'):
             validate(ROOT, self.catalog)
 
     def test_missing_example_and_unknown_example_id_are_refused(self):

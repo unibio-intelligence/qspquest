@@ -1,6 +1,6 @@
 # Contributing to QSPQuest
 
-Contributions are welcome: bug reports, fixes, documentation, examples and new
+The project accepts bug reports, fixes, documentation, examples and new
 scientific capabilities.
 
 ## How to contribute
@@ -14,7 +14,7 @@ scientific capabilities.
    issue (`Closes #123`), and include tests and documentation for the change.
 3. **Review and release.** Maintainers review scientific correctness,
    compatibility, provenance and scope. Accepted changes pass the full test
-   suite before they appear in a release, and you are credited.
+   suite before they appear in a release. Contributors are credited.
 
 Contributions are licensed under the repository's [Apache-2.0 license](LICENSE).
 Remove credentials and confidential data from issues. Report suspected
@@ -22,7 +22,7 @@ vulnerabilities privately using the [security policy](SECURITY.md).
 
 ## Development
 
-Use the locked Rust toolchain/dependencies declared by the checkout. Diffsol is fetched
+Use the locked Rust toolchain and dependencies declared by the checkout. Diffsol is fetched
 from its official repository at the exact revision in `Cargo.lock`. Initial
 builds require network access or an already populated Cargo dependency cache. Python
 bindings require Python 3.10+ and maturin 1.15.0:
@@ -55,7 +55,7 @@ checkpoint compatibility whenever analysis state changes.
 
 Provide the exact upstream source version, citation, license, equation mapping,
 units and limitations for examples. Do not add restricted publisher assets or
-unlicensed data. Model/example licenses can differ from the engine's Apache-2.0 license; retain all notices in their own directories.
+unlicensed data. Licenses for models and examples can differ from the engine's Apache-2.0 license; retain all notices in their own directories.
 
 A release identifies the exact reviewed source. A passing installation
 self-check does not qualify a model or estimation method.
@@ -63,12 +63,18 @@ self-check does not qualify a model or estimation method.
 ## Automated checks
 
 Code changes run formatting, the Rust, Python and script tests, and the
-browser-client tests. Use the manual CI workflow for the full workspace, Wasm
-target and R package tests. MCP contract tests and Docker builds run for
+browser-client tests. Use the manual continuous integration (CI) workflow for
+the full workspace, Wasm target and R package tests. Model Context Protocol
+(MCP) contract tests and Docker builds run for
 relevant changes to `main`, including build configuration under `.cargo/`.
-Documentation and tutorials run when a maintainer starts their workflow. These workflows
-build and test artifacts; publishing packages, images and releases requires a
-separate maintainer action.
+Routine checks also execute the Python tutorial outputs and figures. The manual
+documentation workflow builds the site and executes the synthetic notebook;
+when dispatched on `main`, it publishes the site to GitHub Pages. Package,
+image and release publication use the separate Release workflow.
+
+Routine checks use Ubuntu x86-64. Release qualification also checks macOS,
+Windows and Linux ARM64. Container checks retain logs and build inventories;
+full image archives are saved only for explicit qualification runs.
 
 ## Validation
 
@@ -76,7 +82,7 @@ Numerical qualification of the engine and the compatibility check against the
 model library live in the
 [qspquest-validation](https://github.com/unibio-intelligence/qspquest-validation)
 repository. They run against an engine checkout and record evidence for an
-exact source revision. Changes to solver behaviour need a new validation run
+exact source revision. Changes to solver behavior need a new validation run
 before release.
 
 ## Build input updates
@@ -107,7 +113,7 @@ cargo publish --dry-run --locked --registry crates-io -p qspquest-core -p qspque
 A manual Release workflow run performs this package check without uploading.
 For a tag release, the `crates` job waits for the GitHub release, the package
 check and approval of the `crates-io` environment. It publishes core before
-modeling using a short-lived OIDC credential. No saved Cargo token or GitHub
+modeling using a short-lived OpenID Connect (OIDC) credential. No saved Cargo token or GitHub
 registry secret is required. Check both crates.io version pages and run a fresh
 consumer build from the registry after publication. If an upload partially
 succeeds, inspect the registry before retrying; published versions cannot be

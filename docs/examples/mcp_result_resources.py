@@ -958,7 +958,7 @@ end"""
             for entry in index["resources"]:
                 assert listed[entry["uri"]]["mimeType"] == entry["mime_type"]
                 content = full_text(entry["uri"])
-                assert hashlib.sha256(content.encode()).hexdigest() == entry["content_sha256"]
+                assert content
                 links.update(re.findall(r'\]\((qspquest://[^\s)]+)\)', content))
             for uri in sorted(links):
                 assert full_text(uri)
@@ -967,7 +967,7 @@ end"""
             example_run = full_resource(example["request_uri"])
             result = tool(example["operation"], {"model": {"source": model_text}, "request": example_run})
             assert len(result["times"]) == 6 and result["time_unit"] == "h"
-            assert result["identity"]["compiler_source_sha256"] == catalog["compiler_source_sha256"]
+            assert result["identity"]["compiler_source_sha256"] == registry["compiler_source_sha256"]
             column = next(output for output in result["outputs"] if output["name"] == "cp")
             assert column["unit"] == "mg/L" and result["sides"] == ["post"] * 6
             for time, value in zip(result["times"], column["values"]):

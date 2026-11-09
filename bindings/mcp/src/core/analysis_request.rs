@@ -68,11 +68,71 @@ fn ranges(value: &Value, path: &str) -> Result<(), Failure> {
     }
     Ok(())
 }
+/// Native analyses that operate on an existing result record.
+pub(crate) const RECORD_OPERATIONS: [&str; 2] = ["exposure_summary", "fit_diagnostics"];
+/// Native analyses that estimate parameters; library models need a qualified fitting contract.
+pub(crate) const ESTIMATION_OPERATIONS: [&str; 4] = [
+    "fit_data",
+    "fit_population",
+    "profile_likelihood",
+    "bootstrap_population",
+];
+/// Operations the analyze tool runs. The paired population regimen comparison
+/// is the population block of compare_regimens, so one name means one tool.
+pub(crate) const ANALYZE_OPERATIONS: [&str; 8] = [
+    "fit_data",
+    "fit_population",
+    "visual_predictive_check",
+    "profile_likelihood",
+    "bootstrap_population",
+    "event_sensitivities",
+    "exposure_summary",
+    "fit_diagnostics",
+];
+
+/// Structural admission of a qspquest.analysis/v0.2 envelope. The native
+/// analysis plan checks the arguments; this only routes the request.
+fn envelope(request: &Value, path: &str, operations: &[&str]) -> Result<(), Failure> {
+    let fields = object(request, path, &["schema", "operation", "arguments"])?;
+    if fields.get("schema").and_then(Value::as_str) != Some("qspquest.analysis/v0.2") {
+        return Err(fail(
+            &child(path, "schema"),
+            "Analysis requests use schema qspquest.analysis/v0.2",
+        ));
+    }
+    let operation = fields.get("operation").and_then(Value::as_str);
+    if operation == Some("compare_regimens") && !operations.contains(&"compare_regimens") {
+        return Err(Failure::at(
+            child(path, "operation"),
+            "The paired population regimen comparison runs through compare_regimens",
+            "Call compare_regimens with named regimens and its population block; it prepares every member like a simulation and then pairs virtual subjects across them.",
+        ));
+    }
+    if !operation.is_some_and(|name| operations.contains(&name)) {
+        return Err(Failure::at(
+            child(path, "operation"),
+            format!(
+                "Unknown analysis operation; expected one of {}",
+                operations.join(", ")
+            ),
+            HINT,
+        ));
+    }
+    if !fields.get("arguments").is_some_and(Value::is_object) {
+        return Err(fail(
+            &child(path, "arguments"),
+            "Expected an arguments object",
+        ));
+    }
+    Ok(())
+}
+
 /// Admission reads the submitted object and returns no replacement or numerical result.
 /// Complete typed deserialization remains authoritative for nested native run fields.
 pub(crate) fn admit(operation: &str, request: &Value) -> Result<(), Failure> {
     let path = "/request";
     match operation {
+        "analyze" => envelope(request, path, &ANALYZE_OPERATIONS),
         "steady_state" => {
             object(
                 request,

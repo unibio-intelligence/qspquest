@@ -58,10 +58,16 @@ impl CompiledDocument {
                 "cycle iteration does not support sampled accuracy control",
             ));
         }
-        if !matches!(run.solver, Solver::AnalyticLinearPk) || self.linear_pk.is_none() {
+        if self.linear_pk.is_none() {
             return Err(Error::new(
                 ErrorCode::Unsupported,
-                "periodic steady state requires analytic_linear_pk",
+                "periodic steady state is available only for models with a linear_pk declaration; this model has none (changing the solver does not help). Simulate enough repeated doses to approach steady state and read trough or window readouts over the last interval",
+            ));
+        }
+        if !matches!(run.solver, Solver::AnalyticLinearPk) {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "periodic steady state requires solver analytic_linear_pk for this linear_pk model",
             ));
         }
         if run.seed.is_some() || !run.initial_states.is_empty() {

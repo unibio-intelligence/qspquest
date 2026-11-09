@@ -298,7 +298,7 @@ expression would be undefined for the run's parameter values. Parameter bounds,
 derived parameters and dose scales still undergo their ordinary validation.
 
 Initial values precede time-zero pre-observations, covariate changes, resets and
-doses. Covariate changes carry the trajectory forward without reinitialising it.
+doses. Covariate changes carry the trajectory forward without reinitializing it.
 Declared invariants are checked before any event can hide an invalid initial
 value. Native `bind_with_initial_states(parameters, covariates, initial_states)`
 and subsequent parameter `rebind` preserve explicit initial overrides; creating a

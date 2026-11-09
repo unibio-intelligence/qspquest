@@ -156,14 +156,17 @@ def prepare_cran(root, destination, cargo="cargo"):
         shutil.copyfile(root / "docs/examples" / name, package / "inst/extdata" / name)
     shutil.copytree(binding / "tests", package / "tests")
 
-    # The scientific build identity consumes Wasm sources and one MCP input;
-    # retain those exact files without building their delivery interfaces.
-    compute = (engine / "bindings/mcp/src/core/compute.rs").read_bytes()
+    # Retain the shared sandbox sources used by the compiler identity.
+    identity_sources = {name: (engine / name).read_bytes() for name in (
+        "bindings/mcp/src/core/compute.rs",
+        "bindings/mcp/src/edit.rs",
+    )}
     for member in ("cli", "mcp", "python"):
         shutil.rmtree(engine / "bindings" / member)
-    path = engine / "bindings/mcp/src/core/compute.rs"
-    path.parent.mkdir(parents=True)
-    path.write_bytes(compute)
+    for name, raw in identity_sources.items():
+        path = engine / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
     manifest = (engine / "Cargo.toml").read_text()
     selected = '["crates/qspquest-core", "crates/qspquest-modeling", "bindings/r/src/rust"]'
     manifest = re.sub(r"(?m)^(?:members|default-members) = .*", lambda m:

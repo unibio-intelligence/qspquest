@@ -1,0 +1,25 @@
+{
+  "schema": "qspquest.models.source-preparation-evidence/v1",
+  "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
+  "model_version": "2.2.0",
+  "omex_sha256": "f1dd609fdae37bd1de8907ac56049b3389176233d1586c2e2bac33faa86bcd41",
+  "cases": [],
+  "source_scenarios": [
+    "figure3_mab_iv_100mgkg",
+    "figure3_mab_iv_10mgkg",
+    "figure3_mab_iv_30mgkg",
+    "figure3_mab_iv_3mgkg",
+    "figure3a_exogenous_targetx_shape",
+    "figure3b_targetx_steady_state",
+    "icm_1e12_aav9",
+    "icm_5e11_aav9",
+    "icm_5e12_aav5",
+    "icm_5e12_aav9",
+    "ist_2_5e11_aav9",
+    "iv_5e12_aav9",
+    "source_structure_no_dose_smoke"
+  ],
+  "unavailable_scenarios": [],
+  "current_engine_qualification": "not_assessed",
+  "numerical_qualification_accepted": false
+}

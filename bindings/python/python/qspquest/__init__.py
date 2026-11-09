@@ -325,8 +325,11 @@ from .population import fit_population
 from .diagnostics import fit_diagnostics, visual_predictive_check
 from .uncertainty import profile_likelihood, bootstrap_population
 from .exposure import exposure_summary, compare_regimens
+from .nca import noncompartmental_analysis
+__all__ += ["noncompartmental_analysis"]
 from .derivatives import event_sensitivities
 from .report import write_analysis_report
+from .tables import read_table, to_frame
 
 from .control import AnalysisControl
 from .friendly import (
@@ -341,6 +344,8 @@ from .friendly import (
 )
 
 __all__ += [
+    "read_table",
+    "to_frame",
     "AnalysisControl",
     "quantity",
     "bolus",
@@ -367,3 +372,12 @@ __all__ += [
     "FixedResidualError", "AnalysisObservation", "AnalysisSubject", "CovariateSpec",
     "ProgressEvent",
 ]
+
+
+def __getattr__(name):
+    # Figures need the optional plot extra, so the module loads on first use.
+    if name == "plot":
+        import importlib
+
+        return importlib.import_module(".plot", __name__)
+    raise AttributeError(f"module 'qspquest' has no attribute {name!r}")

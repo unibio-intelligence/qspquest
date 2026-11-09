@@ -133,13 +133,15 @@ fn tail_bound(log_relative: f64, slope: f64, eta: f64, sd: f64, total: u32) -> f
         .sum::<f64>();
     libm::exp(log_relative) * 86. * (total as f64).powi(4) * polynomial
 }
+type RowObjective = (f64, [f64; 2], [[f64; 2]; 2], usize, f64);
+
 fn row_objective(
     mean: f64,
     variance: f64,
     row: &Litter,
     rule: &[(f64, f64)],
     limit: usize,
-) -> Result<(f64, [f64; 2], [[f64; 2]; 2], usize, f64), Error> {
+) -> Result<RowObjective, Error> {
     if limit == 0 {
         return Err(Error::new(
             ErrorCode::WorkBudget,

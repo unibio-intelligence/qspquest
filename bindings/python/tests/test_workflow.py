@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import pytest
-import qspquest as pf
+import qspquest as qq
 from qspquest.doctor import check_environment
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -14,15 +14,15 @@ MODEL = ROOT / "examples/synthetic/absorption.qsp"
 
 
 def cohort():
-    model = pf.CompiledModel(MODEL.read_text())
+    model = qq.CompiledModel(MODEL.read_text())
     subjects = []
     for i, cl in enumerate([2.2, 2.5, 2.8, 3.1, 3.5, 3.8]):
-        run = pf.run_request(
+        run = qq.run_request(
             end=12,
             times=[0.25, 0.5, 1, 2, 4, 8, 12],
-            administrations=[pf.bolus("depot", 300, "mg")],
+            administrations=[qq.bolus("depot", 300, "mg")],
             solver="analytic_linear_pk",
-            parameters={"cl": pf.quantity(cl, "L/h")},
+            parameters={"cl": qq.quantity(cl, "L/h")},
         )
         result = model.run(run)
         values = result["outputs"][0]["values"]
@@ -30,7 +30,7 @@ def cohort():
             {
                 "row": j,
                 "output": "cp",
-                "value": pf.quantity(v + 0.02 * np.sin(i + j), "mg/L"),
+                "value": qq.quantity(v + 0.02 * np.sin(i + j), "mg/L"),
             }
             for j, v in enumerate(values)
         ]
@@ -49,24 +49,24 @@ def test_native_helpers_frames_status_and_doctor():
     frame = r.to_frame()
     frame.iloc[0, 0] = 999
     assert r.rows()[0]["row"] == 0
-    infused = pf.run_request(
+    infused = qq.run_request(
         end=12,
         times=[0.1, 1, 2, 12],
-        administrations=[pf.infusion("depot", 300, "mg", duration=1)],
+        administrations=[qq.infusion("depot", 300, "mg", duration=1)],
         solver="analytic_linear_pk",
     )
     assert all(np.isfinite(m.run(infused)["outputs"][0]["values"]))
-    with pytest.raises(pf.QSPQuestError):
-        pf.run_request(end=1, times=[1, 0])
-    with pytest.raises(pf.QSPQuestError):
-        pf.quantity(float("nan"), "mg")
-    msg = pf.scientific_status(
+    with pytest.raises(qq.QSPQuestError):
+        qq.run_request(end=1, times=[1, 0])
+    with pytest.raises(qq.QSPQuestError):
+        qq.quantity(float("nan"), "mg")
+    msg = qq.scientific_status(
         {"status": "iteration_limit", "boundary_parameters": ["cl"]}
     )
     assert "exploratory" in msg["message"].lower() and msg["warnings"]
     assert (
         "resume"
-        in pf.QSPQuestError({"code": "cancelled"}).explain()["message"].lower()
+        in qq.QSPQuestError({"code": "cancelled"}).explain()["message"].lower()
     )
     assert check_environment(analysis=True)["status"] == "passed"
 
@@ -108,10 +108,10 @@ def test_population_resume_preserves_saem_state_and_rng(tmp_path):
         if e["completed"] == 30:
             control.cancel()
 
-    control = pf.AnalysisControl(
+    control = qq.AnalysisControl(
         progress=progress, checkpoint=path, checkpoint_every=10
     )
-    with pytest.raises(pf.QSPQuestError) as exception:
+    with pytest.raises(qq.QSPQuestError) as exception:
         m.fit_population(
             subjects,
             p,
@@ -126,7 +126,7 @@ def test_population_resume_preserves_saem_state_and_rng(tmp_path):
         p,
         [[0.09]],
         {"additive": {"initial": 0.2, "lower": 0.01, "upper": 1.0}},
-        control=pf.AnalysisControl(checkpoint=path, resume=True),
+        control=qq.AnalysisControl(checkpoint=path, resume=True),
         **options
     )
     for key in [
@@ -144,53 +144,49 @@ def test_population_resume_preserves_saem_state_and_rng(tmp_path):
     assert resumed["simulations"] >= full["simulations"]
     wrong = deepcopy(p)
     wrong["cl"]["initial"] = 3.1
-    with pytest.raises(pf.QSPQuestError) as exception:
+    with pytest.raises(qq.QSPQuestError) as exception:
         m.fit_population(
             subjects,
             wrong,
             [[0.09]],
             {"additive": {"initial": 0.2, "lower": 0.01, "upper": 1.0}},
-            control=pf.AnalysisControl(checkpoint=path, resume=True),
+            control=qq.AnalysisControl(checkpoint=path, resume=True),
             **options
         )
     assert exception.value.code == "checkpoint"
 
 
-def test_population_rejects_checkpoint_with_previous_stopping_rule(tmp_path, monkeypatch):
+@pytest.mark.parametrize("rule", ["convergence_window", "sampler", "residual_mstep"])
+def test_population_rejects_checkpoint_with_a_different_context(tmp_path, rule):
     import hashlib
-    import qspquest.population as population_module
+    from qspquest.control import _digest
 
     m, subjects, parameters = cohort()
     path = tmp_path / "previous-rule.json"
-    identity = population_module.identity
-
-    def previous_context(model, request):
-        request = dict(request)
-        request.pop("convergence_window")
-        request.pop("initial_chain_equilibration")
-        return identity(model, request)
-
     options = dict(max_iterations=80, burn_in=20, sweeps=1, seed=63)
 
     def progress(event):
         if event["completed"] == 10:
             control.cancel()
 
-    control = pf.AnalysisControl(checkpoint=path, checkpoint_every=10, progress=progress)
-    # Create an integrity-valid checkpoint with the previous context contract.
-    with monkeypatch.context() as previous:
-        previous.setattr(population_module, "identity", previous_context)
-        with pytest.raises(pf.QSPQuestError) as stopped:
-            m.fit_population(
-                subjects, parameters, [[0.09]], {"additive": 0.1},
-                control=control, **options,
-            )
-        assert stopped.value.code == "cancelled"
-    before = hashlib.sha256(path.read_bytes()).hexdigest()
-    with pytest.raises(pf.QSPQuestError) as refused:
+    control = qq.AnalysisControl(checkpoint=path, checkpoint_every=10, progress=progress)
+    with pytest.raises(qq.QSPQuestError) as stopped:
         m.fit_population(
             subjects, parameters, [[0.09]], {"additive": 0.1},
-            control=pf.AnalysisControl(checkpoint=path, resume=True), **options,
+            control=control, **options,
+        )
+    assert stopped.value.code == "cancelled"
+    # An integrity-valid checkpoint written under a different stopping rule,
+    # sampler or residual-error M-step.
+    document = json.loads(path.read_text())
+    document["payload"]["context"]["context"].pop(rule)
+    document["sha256"] = _digest(document["payload"])
+    path.write_text(json.dumps(document))
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    with pytest.raises(qq.QSPQuestError) as refused:
+        m.fit_population(
+            subjects, parameters, [[0.09]], {"additive": 0.1},
+            control=qq.AnalysisControl(checkpoint=path, resume=True), **options,
         )
     assert refused.value.code == "checkpoint"
     assert "start a new analysis" in str(refused.value)
@@ -199,7 +195,7 @@ def test_population_rejects_checkpoint_with_previous_stopping_rule(tmp_path, mon
 
 def test_vpc_resume_and_corruption_rejection(tmp_path):
     m, subjects, p = cohort()
-    parameters = {"cl": pf.quantity(3, "L/h")}
+    parameters = {"cl": qq.quantity(3, "L/h")}
     for i, s in enumerate(subjects):
         s["covariates"] = {"weight_fraction": 0.7 + i * 0.1}
     options = dict(
@@ -224,8 +220,8 @@ def test_vpc_resume_and_corruption_rejection(tmp_path):
         if e["completed"] == 3:
             control.cancel()
 
-    control = pf.AnalysisControl(checkpoint=path, checkpoint_every=1, progress=progress)
-    with pytest.raises(pf.QSPQuestError):
+    control = qq.AnalysisControl(checkpoint=path, checkpoint_every=1, progress=progress)
+    with pytest.raises(qq.QSPQuestError):
         m.visual_predictive_check(
             subjects,
             parameters,
@@ -239,20 +235,20 @@ def test_vpc_resume_and_corruption_rejection(tmp_path):
         parameters,
         [[0.09]],
         {"additive": 0.2},
-        control=pf.AnalysisControl(checkpoint=path, resume=True),
+        control=qq.AnalysisControl(checkpoint=path, resume=True),
         **options
     )
     assert resumed["bins"] == full["bins"]
     payload = json.loads(path.read_text())
     payload["payload"]["state"]["draws"][0][0] += 1
     path.write_text(json.dumps(payload))
-    with pytest.raises(pf.QSPQuestError) as exception:
+    with pytest.raises(qq.QSPQuestError) as exception:
         m.visual_predictive_check(
             subjects,
             parameters,
             [[0.09]],
             {"additive": 0.2},
-            control=pf.AnalysisControl(checkpoint=path, resume=True),
+            control=qq.AnalysisControl(checkpoint=path, resume=True),
             **options
         )
     assert exception.value.code == "checkpoint"
@@ -271,7 +267,7 @@ def test_bootstrap_resume_replays_whole_subject_draws(tmp_path):
     )
     # Fitted initial bindings override invalid source-run parameter values.
     for subject in subjects:
-        subject["run"]["parameters"] = {"cl": pf.quantity(0, "L/h")}
+        subject["run"]["parameters"] = {"cl": qq.quantity(0, "L/h")}
     full = m.bootstrap_population(subjects, p, [[0.09]], {"additive": 0.2}, **options)
     path = tmp_path / "bootstrap.json"
 
@@ -279,8 +275,8 @@ def test_bootstrap_resume_replays_whole_subject_draws(tmp_path):
         if e["completed"] == 1:
             control.cancel()
 
-    control = pf.AnalysisControl(checkpoint=path, checkpoint_every=1, progress=progress)
-    with pytest.raises(pf.QSPQuestError):
+    control = qq.AnalysisControl(checkpoint=path, checkpoint_every=1, progress=progress)
+    with pytest.raises(qq.QSPQuestError):
         m.bootstrap_population(
             subjects, p, [[0.09]], {"additive": 0.2}, control=control, **options
         )
@@ -289,7 +285,7 @@ def test_bootstrap_resume_replays_whole_subject_draws(tmp_path):
         p,
         [[0.09]],
         {"additive": 0.2},
-        control=pf.AnalysisControl(checkpoint=path, resume=True),
+        control=qq.AnalysisControl(checkpoint=path, resume=True),
         **options
     )
     assert resumed["replicates"] == full["replicates"]
@@ -308,7 +304,7 @@ def test_dataset_bridge_preserves_provenance_and_explicit_errors():
                         "simulation": {
                             "schema": "qspquest.sensitivity/v0.1",
                             "with_respect_to": ["cl"],
-                            "run": pf.run_request(
+                            "run": qq.run_request(
                                 end=12,
                                 times=[1],
                                 administrations=[],
@@ -329,7 +325,7 @@ def test_dataset_bridge_preserves_provenance_and_explicit_errors():
         {"ID": "A", "TIME": 0, "EVID": 1, "CMT": 1, "AMT": 300},
         {"ID": "A", "TIME": 1, "EVID": 0, "CMT": 2, "DV": 6.0},
     ]
-    dataset = pf.population_fit_dataset(
+    dataset = qq.population_fit_dataset(
         data,
         template,
         compartments={1: "depot"},
@@ -338,7 +334,7 @@ def test_dataset_bridge_preserves_provenance_and_explicit_errors():
                 "output": "cp",
                 "value_unit": "mg/L",
                 "error": {
-                    "additive_sd": pf.quantity(0.2, "mg/L"),
+                    "additive_sd": qq.quantity(0.2, "mg/L"),
                     "proportional_sd": 0.0,
                 },
             }
@@ -363,8 +359,8 @@ def test_checkpoint_read_errors_are_explained(tmp_path):
         path = tmp_path / "invalid.json"
         if content is not None:
             path.write_text(content)
-        control = pf.AnalysisControl(checkpoint=path, resume=True)
-        with pytest.raises(pf.QSPQuestError) as exception:
+        control = qq.AnalysisControl(checkpoint=path, resume=True)
+        with pytest.raises(qq.QSPQuestError) as exception:
             control.start("vpc", {})
         assert exception.value.code == "checkpoint"
         assert "checkpoint" in exception.value.explain()["message"].lower()

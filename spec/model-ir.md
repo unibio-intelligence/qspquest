@@ -33,8 +33,8 @@ Outputs evaluate from the same binding, state vector, and time as the model.
 Identity/log/logit/probit transforms currently constrain parameter domains.
 They do not imply an implemented estimation transform. Logit/probit require a
 compatible dimensionless quantity strictly between zero and one after unit
-conversion; 50 percent is accepted. `fixed` only affects estimation; you can
-still override the parameter in a simulation.
+conversion; 50 percent is accepted. `fixed` affects only estimation; a
+simulation can still override the parameter.
 
 The compiler reserves `time` and the `input_` prefix for expression bindings.
 Identifiers are bounded ASCII snake_case. Parameters, covariates, individual

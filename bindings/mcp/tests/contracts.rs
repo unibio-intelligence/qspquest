@@ -207,3 +207,33 @@ fn friendly_fit_checks_engine_dimensions_before_expanding_tolerances() {
             .contains("1024 states")
     );
 }
+
+/// The isolated engine runs analyses through the same compute entry point.
+/// This needs a sandbox.wasm built from the current sources (scripts/build-mcp.sh).
+#[cfg(feature = "sandbox")]
+#[test]
+fn sandbox_plans_and_executes_native_analyses() {
+    let sandbox = qspquest_mcp::sandbox::Sandbox::embedded().unwrap();
+    let source = include_str!("../../../conformance/models/synthetic-one-compartment.qsp");
+    let run: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../conformance/requests/synthetic-one-compartment.json"
+    ))
+    .unwrap();
+    let observations: Vec<serde_json::Value> = [1.0f64, 2.0, 4.0, 8.0, 12.0]
+        .iter()
+        .enumerate()
+        .map(|(i, t)| json!({"row":i+1,"output":"cp","value":{"value":2.0*(-0.1*t).exp(),"unit":"mg/L"}}))
+        .collect();
+    let request = json!({"schema":"qspquest.analysis/v0.2","operation":"fit_data","arguments":{
+        "run":run,"observations":observations,"error":{"additive":0.01},"max_simulations":500,
+        "parameters":[{"name":"cl","initial":0.5,"lower":0.05,"upper":2.0,"unit":"L/h"}]}});
+    let plan = sandbox
+        .execute(source, "plan_analyze", request.clone())
+        .unwrap_or_else(|e| panic!("rebuild sandbox.wasm from the current sources: {e}"));
+    assert_eq!(plan["schema"], "qspquest.analysis-plan/v0.2");
+    assert_eq!(plan["simulations"], 0);
+    let fit = sandbox.execute(source, "analyze", request).unwrap();
+    assert_eq!(fit["status"], "converged");
+    let cl = fit["parameters"]["cl"]["value"].as_f64().unwrap();
+    assert!((cl - 0.3).abs() < 1e-4, "{cl}");
+}

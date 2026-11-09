@@ -21,10 +21,10 @@ native requests with explicit units, which the engine then validates.
 `run_request` requires increasing sample times. Supply a native request directly
 for duplicate pre/post samples, repeats, resets or step covariates.
 
-## Dict-compatible results
+## Result objects
 
 `CompiledModel.run` and its analysis methods return `AnalysisResult`, a
-normal dict subclass. Existing indexing and JSON serialization still work.
+subclass of `dict`. Dictionary indexing and JSON serialization are unchanged.
 `rows()` retains event sides, units and source-row identity. `to_frame()` requires
 pandas; `plot()` requires matplotlib. `summary()` explains fit status, bounds and
 method limits. Wrap a plain JSON-loaded dict with `AnalysisResult(saved)` to use
@@ -45,5 +45,5 @@ fit = dataset.fit(model, parameters, omega, error,
 The `error` argument sets the residual error model and overrides any fixed
 errors stored on adapter endpoints. These fits currently use one observed output
 and one shared error model. Priors are unsupported.
-Subject covariates are constant. Unknown subject IDs fail rather than disappear.
-See the [oral PK notebook](../tutorials/oral-pk-analysis.md) for complete subject requests, observation rows and source-row identity.
+Subject covariates are constant. Unknown subject IDs raise an error and are not silently dropped.
+See the [oral pharmacokinetic (PK) notebook](../tutorials/oral-pk-analysis.md) for complete subject requests, observation rows and source-row identity.

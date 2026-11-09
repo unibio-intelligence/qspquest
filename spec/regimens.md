@@ -70,7 +70,7 @@ expressions are not accepted by this schema.
 
 ## State resets
 
-A regimen may now contain `resets` (omitted means empty):
+A regimen may contain `resets` (omitted means empty):
 
 ```json
 {
@@ -86,7 +86,7 @@ The target names a state; it does not need a dosing mapping. The value converts
 to the state's unit and must be finite. Resets share the run's event budget with
 expanded administrations. The raw protocol has a corresponding `kind: reset`
 variant with target index, numeric time/value and the same required policy/order.
-`Event::amount()` now returns an option: resets do not have a dose amount.
+`Event::amount()` returns an option: resets do not have a dose amount.
 
 At a boundary the driver records the pre-state, treats ending infusions as
 inactive, applies resets in ascending `order`, applies boluses, starts new

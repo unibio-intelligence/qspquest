@@ -12,11 +12,25 @@ fn numeric(kind: Kind, path: &str) -> Result<Dimension, Error> {
         _ => Err(error(ErrorCode::Type, "expected numeric quantity", path)),
     }
 }
+fn describe(kind: Kind) -> String {
+    match kind {
+        Kind::Number(d) => d.describe(),
+        Kind::Boolean => "boolean".into(),
+    }
+}
 fn same(a: Kind, b: Kind, path: &str) -> Result<(), Error> {
     if a == b {
         Ok(())
     } else {
-        Err(error(ErrorCode::Unit, "expression dimensions differ", path))
+        Err(error(
+            ErrorCode::Unit,
+            &format!(
+                "expression dimensions differ: {} versus {}",
+                describe(a),
+                describe(b)
+            ),
+            path,
+        ))
     }
 }
 fn dimensionless(kind: Kind, path: &str) -> Result<(), Error> {

@@ -2,15 +2,17 @@
 
 The catalog describes interface contracts. It cannot qualify a running artifact
 or establish convergence of an unexecuted model/request.
+
+The checks are structural: every declared source file exists and contains its
+symbol, every example path exists, and the MCP entries equal the tool router.
+The catalog stores no source digests, so editing engine code does not require
+editing the catalog. A running build reports its own source identity.
 """
 import argparse
-import hashlib
 import itertools
 import json
 from pathlib import Path
 import re
-
-from check_source_identity import source_hashes
 
 
 def contract(schema, value, path='$'):
@@ -69,12 +71,6 @@ def validate(root, catalog=None):
     version = re.search(r'^version\s*=\s*"([^"]+)"', (root / 'Cargo.toml').read_text(), re.M).group(1)
     if catalog['package_version'] != version:
         raise ValueError('Capability package version is stale')
-    source, backend = source_hashes(root)
-    if (catalog['compiler_source_sha256'], catalog['backend_version']) != (source, backend):
-        raise ValueError('Capability compiler/backend source identity is stale')
-    for name, sha in catalog['source_snapshot'].items():
-        if hashlib.sha256(file(root, name).read_bytes()).hexdigest() != sha:
-            raise ValueError('Capability source snapshot is stale: ' + name)
     router = file(root, 'bindings/mcp/src/server.rs').read_text()
     tools = set(re.findall(r'#\[tool\b.*?\]\s*async fn (\w+)', router, re.S))
     if tools != {e['api'] for e in catalog['entries'] if e['interface'] == 'mcp'}:
@@ -87,7 +83,7 @@ def validate(root, catalog=None):
         for name in example['paths']:
             file(root, name)
     for entry in catalog['entries']:
-        if entry['source'] not in catalog['source_snapshot'] or entry['symbol'] not in file(root, entry['source']).read_text():
+        if entry['symbol'] not in file(root, entry['source']).read_text():
             raise ValueError('Capability binding symbol is absent: ' + entry['api'])
         if set(entry['example_ids']) - examples.keys():
             raise ValueError('Capability advertises an absent example ID')
@@ -95,7 +91,7 @@ def validate(root, catalog=None):
             raise ValueError('Capability advertises an unavailable solver')
         if entry['interface'] == 'wasm_worker' and (entry['operation'] != 'simulate' or entry['solvers'] != ['diffsol_bdf']):
             raise ValueError('Public Worker contract exposes BDF simulation only')
-        if entry['interface'] == 'mcp' and entry['operation'] in ('steady_state', 'morris_screening') and 'analysis' not in entry['required_features']:
+        if entry['interface'] == 'mcp' and (entry['operation'] in ('steady_state', 'morris_screening') or entry['api'] == 'analyze') and 'analysis' not in entry['required_features']:
             raise ValueError('MCP analysis tools require analysis')
         if entry['interface'] == 'mcp' and entry['operation'] in ('preview_job', 'submit_simulation', 'submit_population_fit', 'submit_scan', 'get_job', 'wait_for_job', 'get_artifact') and 'managed' not in entry['required_features']:
             raise ValueError('MCP governed tools require managed')
@@ -142,9 +138,10 @@ def matrix(catalog):
             cells.append('; '.join(('Requires ' + ', '.join('`' + f + '`' for f in e['required_features']))
                                    if e['required_features'] else 'Declared' for e in matching) or '—')
         lines.append('| ' + labels[operation] + ' | ' + ' | '.join(cells) + ' |')
-    lines.extend(['', 'The Python column combines the native binding and the optional analysis helpers',
-                  '(`python_analysis`, installed with the `analysis` extra). Native and Python SAEM',
-                  'are different estimators. Direct WASM browser classes are absent in `sandbox-abi`',
+    lines.extend(['', 'The Python column combines the native binding and the analysis workflows',
+                  '(`python_analysis`), which run in the native engine and need no extra. The',
+                  '`saem` fit request and the analysis `fit_population` run the same SAEM',
+                  'engine. Direct WASM browser classes are absent in `sandbox-abi`',
                   'builds, and the browser Worker runs BDF simulation only.', '',
                   '## Solvers', '',
                   'Native simulation offers BDF, TSIT45, ESDIRK34, TR-BDF2 and analytic linear PK.',
@@ -174,7 +171,7 @@ def check(root):
     if (root / 'docs/site/capabilities.md').read_text() != expected:
         raise ValueError('Generated capability matrix is stale')
     return {'status': 'matched', 'entries': len(catalog['entries']),
-            'tuples': len(expand(catalog)), 'source_files': len(catalog['source_snapshot']),
+            'tuples': len(expand(catalog)), 'source_files': len({e['source'] for e in catalog['entries']}),
             'scientific_qualification': 'not_assessed'}
 
 

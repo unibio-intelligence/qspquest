@@ -27,13 +27,25 @@ impl Tier {
 }
 pub const INPUT_LIMIT: usize = 1_000_000;
 pub const RESPONSE_LIMIT: usize = 256_000;
+pub const HOSTED_PROFILE_ROWS: usize = 2_000;
+pub const HOSTED_DEADLINE: std::time::Duration = std::time::Duration::from_secs(45);
+
 /// Shared ceilings for record mapping and native population request admission.
 pub fn population_limits(hosted: bool) -> (usize, usize) {
     crate::execution_policy::Profile::from_hosted(hosted).population_limits()
 }
 
 pub fn error(code: &str, message: impl Into<String>) -> Value {
-    json!({"error":{"code":code,"message":message.into(),"suggestion":"Read qspquest://guide/requests; use explicit units, reduce the request, run locally, or submit a managed job."}})
+    // Size and budget refusals point to smaller requests or jobs; other refusals point back to
+    // the named field, because job advice does not help an argument mistake.
+    let suggestion = match code {
+        "input_limit" | "budget" | "deadline" | "result_output_budget" | "result_artifact_required" => {
+            "Reduce the request (fewer points, outputs or members), run it locally with --artifact-dir, or submit a local or managed job."
+        }
+        "not_found" => "Use search_models to find the exact model_id, then get_model.",
+        _ => "Correct the field named in the message and retry; the tool's input schema and qspquest://guide/requests list the accepted fields and units.",
+    };
+    json!({"error":{"code":code,"message":message.into(),"suggestion":suggestion}})
 }
 /// Validate inline workload limits before inserting any run defaults.
 /// Rejected requests retain their submitted bytes and report a JSON pointer.

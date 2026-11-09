@@ -1,6 +1,11 @@
-"""Generate the MCP documentation index and the installed Python security policy."""
+"""Generate the MCP documentation index and the installed Python security policy.
+
+The index records each resource's URI, source path, media type and headings,
+and the link rewrites the server applies. It stores no content digests: the
+server embeds each source file at build time, so the served text cannot differ
+from the checkout it was built from.
+"""
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -19,6 +24,7 @@ GUIDES = {
     'deploy': 'docs/tutorials/mcp-deploy.md',
     'predictive-checks': 'docs/tutorials/parallel-predictive-checks.md',
     'library-fitting': 'docs/tutorials/library-fitting.md',
+    'extend-model': 'docs/tutorials/extend-library-model.md',
     'paired-endpoint-fitting': 'docs/tutorials/paired-endpoint-fitting.md',
 }
 EXAMPLES = {'synthetic-model': 'conformance/models/synthetic-one-compartment.json',
@@ -52,10 +58,6 @@ def encode(value):
     return json.dumps(value, indent=2, ensure_ascii=False) + '\n'
 
 
-def sha(text):
-    return hashlib.sha256(text.encode()).hexdigest()
-
-
 def build(root):
     root = root.resolve()
     assets = Path('bindings/mcp/assets')
@@ -72,6 +74,8 @@ def build(root):
         if path.suffix != '.md':
             continue
         for link in LINK.finditer(prose(path.read_text())):
+            if link.group(0).startswith('!'):
+                continue  # Figures are replaced by their text alternative below.
             target = local_target(root, path, link.group(1))
             if target is None:
                 continue
@@ -95,6 +99,13 @@ def build(root):
         if path.suffix == '.md':
             edits = []
             for link in LINK.finditer(prose(source)):
+                if link.group(0).startswith('!'):
+                    # MCP resources are text: serve a figure as its alternative text.
+                    local_target(root, path, link.group(1))
+                    alt = link.group(0)[2:link.group(0).index('](')]
+                    edits.append((link.start(0), link.end(0),
+                                  f'*Figure: {alt}. The image is included in the HTML documentation.*'))
+                    continue
                 target = local_target(root, path, link.group(1))
                 if target is not None:
                     file, fragment = target
@@ -113,7 +124,7 @@ def build(root):
         texts[uri] = text
         entries.append({'uri': uri, 'title': source.splitlines()[0].lstrip('# ') if path.suffix == '.md' else path.name,
                         'mime_type': mime, 'asset': relative,
-                        'source': relative, 'source_sha256': sha(source), 'content_sha256': sha(text),
+                        'source': relative,
                         'anchors': sorted(anchors(source)) if path.suffix == '.md' else []})
     output[assets / 'documentation-links.json'] = encode(links)
     manifest = (root / 'Cargo.toml').read_text()

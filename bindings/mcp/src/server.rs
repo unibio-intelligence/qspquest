@@ -3,6 +3,8 @@ mod execution;
 mod local_jobs;
 #[cfg(feature = "managed")]
 mod managed;
+#[cfg(feature = "analysis")]
+mod population;
 use crate::model_cards::{compact_model_card, model_details, model_details_resource};
 use crate::{
     cache::Cache,
@@ -29,6 +31,7 @@ pub struct Server {
     local_jobs: Option<Arc<crate::local_jobs::Store>>,
     local_job_slots: Arc<tokio::sync::Semaphore>,
     compute_slots: usize,
+    hosted_deadline: Option<tokio::time::Instant>,
     pub tier: Tier,
     pub semaphore: Arc<tokio::sync::Semaphore>,
     pub cache: Arc<Cache>,
@@ -81,6 +84,9 @@ struct PreparedComparison {
         crate::planning::ComparisonInputReceipt,
     )>,
     plan: crate::planning::RequestPlan,
+    /// Admitted native compare_regimens envelope of a population comparison.
+    #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
+    population: Option<Value>,
 }
 impl Server {
     pub fn new(library: Library, hosted: bool, tier: Tier, concurrency: usize) -> Self {
@@ -101,6 +107,7 @@ impl Server {
             local_jobs: None,
             local_job_slots: Arc::new(tokio::sync::Semaphore::new(concurrency)),
             compute_slots: concurrency,
+            hosted_deadline: None,
             tier,
             semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
             cache: Arc::new(Cache::default()),
@@ -222,9 +229,10 @@ impl Server {
         .map_err(|e| e.to_string())?
     }
     fn scoped(&self, ctx: &RequestContext<RoleServer>) -> Self {
-        let server = self.clone();
-        #[cfg(feature = "managed")]
-        let mut server = server;
+        let mut server = self.clone();
+        if server.hosted && server.hosted_deadline.is_none() {
+            server.hosted_deadline = Some(tokio::time::Instant::now() + policy::HOSTED_DEADLINE);
+        }
         #[cfg(feature = "managed")]
         if let Ok(scope) = crate::jobs::Scope::from_context(ctx) {
             server.tier = Tier::parse(&scope.tier).unwrap_or(Tier::Free);
@@ -285,7 +293,7 @@ impl Server {
                 managed_artifact_retrieval_deadline_ms: (cfg!(feature = "managed") && self.hosted).then_some(15_000),
                 population_subjects: if self.hosted {16} else {128}, population_observations: if self.hosted {256} else {10_000} },
             library_version: library.version.clone(), model_records: library.records.len(),
-            availability_counts: serde_json::from_value(library.availability_counts.clone()).ok(), current_engine_qualification: crate::contract::ArchiveQualification::NotAssessed,
+            availability_counts: serde_json::from_value(library.availability_counts.clone()).ok(), archive_holds: library.holds(), current_engine_qualification: crate::contract::ArchiveQualification::NotAssessed,
             qualification_notice: "Execution availability and stored evidence do not establish qualification for this engine build, target, operation or modified request. Inspect model availability and exact release evidence before interpreting results.".into(),
         }).unwrap()
     }
@@ -384,6 +392,10 @@ impl Server {
                     "sampling",
                     "scientific_status",
                     "scientific_assessment",
+                    "analysis_operation",
+                    "analysis_status",
+                    "comparison_summary",
+                    "comparison_notice",
                     "source_interpretation_summary",
                     "identity",
                     "run_id",
@@ -404,6 +416,17 @@ impl Server {
                         compact.insert(key.into(), field.clone());
                     }
                 }
+                if let Some(points) = v["results"].as_array() {
+                    // Scan points keep their identity, parameters, readouts and summaries.
+                    let kept: Vec<Value> = points
+                        .iter()
+                        .map(|point| {
+                            json!({"id":point["id"],"parameters":point["parameters"],"readouts":point["readouts"],
+                                "result":{"summary":point["result"]["summary"],"trajectory_kind":"summary_only"}})
+                        })
+                        .collect();
+                    compact.insert("results".into(), json!(kept));
+                }
                 if let Some(regimens) = v["regimens"].as_array() {
                     let members: Vec<Value> = regimens.iter().map(|record| {
                         let mut member = record.clone();
@@ -411,7 +434,9 @@ impl Server {
                             let omitted_boundaries = result.remove("scheduled_boundary_receipt").is_some_and(|v| !v.is_null());
                             let omitted_initialization = result.remove("initialization_receipt").is_some_and(|v| !v.is_null());
                             let omitted_scientific = result.remove("scientific_assessment").is_some_and(|v| !v.is_null());
-                            result.retain(|key, _| matches!(key.as_str(), "identity" | "run_id" | "full_result_resource" | "result_artifact" | "plan_hash" | "effective_request_hash" | "saved_csv" | "trajectory_kind" | "trajectory_notice"));
+                            // Readouts and per-output summaries are bounded scalars; agents decide on them, so
+                            // they stay inline even when receipts and trajectories are compacted away.
+                            result.retain(|key, _| matches!(key.as_str(), "identity" | "run_id" | "full_result_resource" | "result_artifact" | "plan_hash" | "effective_request_hash" | "saved_csv" | "trajectory_kind" | "trajectory_notice" | "readouts" | "summary" | "resolved_doses"));
                             if omitted_scientific { result.insert("scientific_assessment_notice".into(), json!("Scoped archive assessment omitted inline. The current engine and request remain not_assessed. Read this named member's full_result_resource or saved CSV sidecar for the declaration and applicability; numerical execution does not qualify any scientific axis.")); }
                             if omitted_boundaries { result.insert("scheduled_boundary_receipt_notice".into(), json!("Scheduled boundary receipt omitted inline. Read this named member's full_result_resource or saved CSV sidecar for forcing origins and observation conventions.")); }
                             if omitted_initialization {
@@ -704,7 +729,10 @@ impl Server {
         if record.model.is_null() {
             return Err(policy::error(
                 "model_unavailable",
-                "This model is metadata only. Inspect get_model.metadata for its source-rights or execution blocker; no substitute model is implied.",
+                record.metadata["execution_blocker"]
+                    .as_str()
+                    .filter(|_| record.metadata.get("archive_hold").is_some())
+                    .unwrap_or("This model is metadata only. Inspect get_model.metadata for its source-rights or execution blocker; no substitute model is implied."),
             ));
         }
         let mut base = if let Some(sid) = sid {
@@ -875,9 +903,33 @@ impl Server {
                 || !crate::fitting::supports_operation(contract, operation)
             {
                 return Err(policy::error(
-                        "fitting_unsupported",
-                        "This released library version is not qualified for the requested fitting operation. Read get_model.fitting; use an explicitly labeled user candidate for exploratory fitting.",
-                    ));
+                    "fitting_unsupported",
+                    contract["reason"]
+                        .as_str()
+                        .filter(|_| contract.get("archive_hold").is_some())
+                        .unwrap_or("This released library version is not qualified for the requested fitting operation. Read get_model.fitting; use an explicitly labeled user candidate for exploratory fitting."),
+                ));
+            }
+        }
+        if trusted
+            && operation == "analyze"
+            && args["request"]["operation"].as_str().is_some_and(|op| {
+                crate::core::analysis_request::ESTIMATION_OPERATIONS.contains(&op)
+            })
+        {
+            let contract = &metadata["fitting"];
+            let name = format!(
+                "analysis.{}",
+                args["request"]["operation"].as_str().unwrap()
+            );
+            if metadata["fit_ready"] != true
+                || metadata["fitting_supported"] != true
+                || !crate::fitting::supports_operation(contract, &name)
+            {
+                return Err(policy::error(
+                    "fitting_unsupported",
+                    "This released library version declares no qualified native analysis estimation workflow. Visual predictive checks, event sensitivities and record analyses run on library models; for exploratory estimation, supply the model source as an explicitly labeled user candidate.",
+                ));
             }
         }
         let mut metadata = metadata;
@@ -922,6 +974,38 @@ impl Server {
                 &model_json,
             )?;
         }
+        if matches!(operation, "simulate" | "scan_parameters" | "fit_individual")
+            && args.get("fit_request").is_none()
+        {
+            // Covariates named under parameters move to covariates before name admission.
+            crate::core::requests::route_covariates(&mut args, &model_json)
+                .map_err(|e| e.into_value("covariates"))?;
+            if operation == "scan_parameters" {
+                // scan_parameters itself turns this refusal into a per-point covariate scan; it
+                // reaches the caller only through plan_run.
+                if let Some(name) = args["parameter"].as_str() {
+                    if model_json["covariates"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .any(|c| c["name"] == name)
+                    {
+                        return Err(
+                            json!({"error":{"code":"scan_covariate","expression":"/parameter",
+                            "message":format!("'{name}' is a covariate. scan_parameters scans it directly with one simulate per point, so plan_run and expected_plan_hash cannot preview or bind the scan as one run."),
+                            "suggestion":"Call scan_parameters without plan_run, or plan_run one simulate with the covariate value of interest."}}),
+                        );
+                    }
+                }
+                if !args["dose_index"].is_null() {
+                    return Err(
+                        json!({"error":{"code":"scan_dose_amount","expression":"/dose_index",
+                        "message":"A dose-amount scan runs one simulate per point, so plan_run and expected_plan_hash cannot preview or bind it as one run.",
+                        "suggestion":"Call scan_parameters without plan_run, or plan_run one simulate with the dose amount of interest."}}),
+                    );
+                }
+            }
+        }
         if let Some(issue) = crate::core::input_names::check(operation, &args, &native) {
             let library_selection = args["model"]["source"].as_str().is_none();
             let index = if library_selection {
@@ -952,6 +1036,36 @@ impl Server {
             if let Some(route) = policy::async_route(&model_json, operation) {
                 return Err(route);
             }
+            if operation == "analyze" && model_json["states"].as_array().map_or(0, Vec::len) >= 64 {
+                return Err(policy::error(
+                    "async_required",
+                    "Analyses of models with 64 or more states exceed hosted interactive admission. Run them through local stdio, where submit_local_job accepts analyze work units.",
+                ));
+            }
+        }
+        // A library model whose availability record does not support exploratory simulation
+        // (source replay) runs its stored presets only; a free-form run would look like an
+        // ordinary result although the library has not qualified it.
+        if trusted
+            && matches!(
+                operation,
+                "simulate" | "scan_parameters" | "fit_scalar" | "fit_individual"
+            )
+            && args["model"]["library"].is_object()
+        {
+            if let Some(operations) = metadata["availability"]["supported_operations"].as_array() {
+                if !operations.iter().any(|o| o == "exploratory_simulation") {
+                    let presets = metadata["availability"]["preset_ids"].clone();
+                    return Err(
+                        json!({"error":{"code":"operation_outside_supported","expression":"/model/library",
+                        "message":format!("This model's library record supports {} only ({}); it does not support free-form simulation, so doses, parameters and scans cannot be applied to it.",
+                            operations.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "),
+                            metadata["availability"]["availability"].as_str().unwrap_or("restricted")),
+                        "suggestion":"Run one of its stored scenarios with model {scenario:{model_id, scenario_id}} (see preset_ids), or fork_model it and treat the copy as an unqualified research model.",
+                        "preset_ids":presets}}),
+                    );
+                }
+            }
         }
         if operation == "get_patient_parameters" {
             args["parameters"] = args.get("covariates").cloned().unwrap_or(json!({}));
@@ -961,7 +1075,9 @@ impl Server {
             );
             notes.push("Outputs are evaluated at time zero, before administrations. Model or selected scenario parameter values, scalar covariates and initial states are retained; administrations, resets, future changes, observation grids and solver settings are not applied.".into());
         }
-        if matches!(operation, "simulate" | "scan_parameters") {
+        if matches!(operation, "simulate" | "scan_parameters")
+            || (operation == "fit_individual" && args.get("fit_request").is_none())
+        {
             let supplied_args = args.clone();
             if let Some(name) = args["parameter"].as_str() {
                 if let Some(n) = native["parameters"][name]["native_name"].as_str() {
@@ -1048,7 +1164,7 @@ impl Server {
                 }
                 request
             }
-            "steady_state" | "morris_screening" => {
+            "steady_state" | "morris_screening" | "analyze" => {
                 crate::core::analysis_request::admit(operation, &args["request"])
                     .map_err(|error| error.into_value("request"))?;
                 args["request"].clone()
@@ -1094,6 +1210,17 @@ impl Server {
                 .map_err(|e| e.into_value("fit_request"))?;
         }
         if operation == "scan_parameters" {
+            // Accept the same friendly unit spellings as simulate (for example L/(mg*day)).
+            for quantity in args["values"].as_array_mut().into_iter().flatten() {
+                if let Some(unit) = quantity["unit"].as_str() {
+                    quantity["unit"] = json!(usability::normalize_unit(unit));
+                }
+            }
+            for key in ["lower", "upper"] {
+                if let Some(unit) = args["range"][key]["unit"].as_str().map(str::to_owned) {
+                    args["range"][key]["unit"] = json!(usability::normalize_unit(&unit));
+                }
+            }
             let points = crate::core::scan_request::prepare(&args)?;
             policy::admit(&mut request, self.hosted)?;
             request = points.into_request(request)?;
@@ -1118,7 +1245,14 @@ impl Server {
                 }
             }
         }
-        policy::admit(&mut request, self.hosted)?;
+        if operation == "analyze" {
+            crate::execution_policy::admit_analysis(
+                &mut request,
+                crate::execution_policy::Profile::from_hosted(self.hosted),
+            )?;
+        } else {
+            policy::admit(&mut request, self.hosted)?;
+        }
         if let Some(output) = args["output"].as_str() {
             if let Some(native) = native["outputs"][output]["native_name"].as_str() {
                 let native = native.to_owned();
@@ -1480,6 +1614,11 @@ impl Server {
             return Err(policy::error("input_limit", "Tool arguments exceed 1 MB"));
         }
         let original_args = args.clone();
+        let population = args.as_object_mut().unwrap().remove("population");
+        #[cfg(feature = "analysis")]
+        if let Some(population) = &population {
+            population::admit_inputs(&args, population)?;
+        }
         if let Some(output) = args["output"].as_str() {
             if args["outputs"].is_array() && args["outputs"] != json!([output]) {
                 return Err(policy::error(
@@ -1535,7 +1674,7 @@ impl Server {
                     row["precision_profile_id"].clone();
             }
             member_args["doses"] = row["doses"].clone();
-            for field in ["parameters", "initial_states"] {
+            for field in ["parameters", "initial_states", "covariates"] {
                 if let Some(overrides) = row[field].as_object() {
                     let mut quantities =
                         member_args[field].as_object().cloned().unwrap_or_default();
@@ -1632,6 +1771,35 @@ impl Server {
                 preparation: plan,
             });
         }
+        #[cfg(feature = "analysis")]
+        let population = match population {
+            Some(population) => {
+                let output = original_args["output"].as_str().unwrap_or_default();
+                let envelope = population::envelope(&population, &members, output, self.hosted)?;
+                let first = &members[0].1;
+                let plan = self
+                    .compute_versioned(
+                        first.source.clone(),
+                        "plan_analyze",
+                        envelope.clone(),
+                        first.trusted,
+                        &first.library_version,
+                    )
+                    .await?;
+                Some((envelope, plan))
+            }
+            None => None,
+        };
+        #[cfg(not(feature = "analysis"))]
+        let population: Option<(Value, Value)> = match population {
+            Some(_) => {
+                return Err(policy::error(
+                    "population_comparison",
+                    "Population comparisons require an analysis feature build",
+                ))
+            }
+            None => None,
+        };
         let mut group = group.unwrap();
         group["context"]["operation"] = json!("compare_regimens");
         group["context"]["adapter_arguments_sha256"] =
@@ -1639,6 +1807,9 @@ impl Server {
         group["context"]["effective_source_sha256"] =
             json!(hash(json!(source_hashes).to_string().as_bytes()));
         group["effective_request"] = json!({"regimens":effective});
+        if let Some((envelope, _)) = &population {
+            group["effective_request"]["population_analysis"] = envelope.clone();
+        }
         group["context"]["effective_request_hash"] =
             json!(hash(group["effective_request"].to_string().as_bytes()));
         group["row_mapping"] = json!([]);
@@ -1657,12 +1828,21 @@ impl Server {
         group["assumptions"] = json!(["Member plans preserve the complete per-regimen inputs, source, selected outputs, units, identities, workload ceilings and qualification limits in execution order.", "The comparison effective_source_sha256 hashes the ordered named member source digests. It is not a single model source digest.", "All members are admitted before numerical work. CSV destination inspection reserves no names; exclusive writes recheck after every numerical run succeeds. CSV bundles are individually completed, not a filesystem transaction across regimens."]);
         group["native_preparation"] = serde_json::to_value(NativePreparation::CompareRegimens(ComparisonPreparation {
             regimens: plans,
-            deferred_checks: vec!["Successful integration and requested trajectory readouts for every member".into(), "Independent scientific qualification for each effective request and engine".into(), "Exclusive CSV bundle creation after all numerical runs succeed; filesystem state can change after inspection".into()],
+            deferred_checks: if population.is_some() {
+                vec!["Every virtual-subject integration of every member and its exposure metrics".into(), "Independent scientific qualification for each effective request, variability model and engine".into()]
+            } else {
+                vec!["Successful integration and requested trajectory readouts for every member".into(), "Independent scientific qualification for each effective request and engine".into(), "Exclusive CSV bundle creation after all numerical runs succeed; filesystem state can change after inspection".into()]
+            },
+            population: population.as_ref().map(|(_, plan)| plan.clone()),
         })).map_err(|e| policy::error("plan_contract", e.to_string()))?;
         let mut plan: RequestPlan = serde_json::from_value(group)
             .map_err(|e| policy::error("plan_contract", e.to_string()))?;
         plan.seal()?;
-        Ok(PreparedComparison { members, plan })
+        Ok(PreparedComparison {
+            members,
+            plan,
+            population: population.map(|(envelope, _)| envelope),
+        })
     }
     async fn plan_invocation(&self, operation: &str, args: Value) -> Value {
         let prepare = async {
@@ -1684,7 +1864,7 @@ impl Server {
             self.complete_plan_payload(plan, &prepared.effective_hash, &prepared.library_version)
         };
         if self.hosted {
-            match tokio::time::timeout(std::time::Duration::from_secs(45), prepare).await {
+            match tokio::time::timeout(self.hosted_time_remaining(), prepare).await {
                 Ok(result) => result.unwrap_or_else(|e| e),
                 Err(_) => policy::error("deadline", "Hosted request planning exceeded its aggregate 45-second limit; active isolated/native work retains its slot until it exits."),
             }
@@ -1714,6 +1894,11 @@ impl Server {
             )
             .await
             .map_err(|error| usability::source_coordinate_refusal(error, &prepared.native))?;
+        let result = if operation == "analyze" {
+            analysis_payload(&prepared.request, result)
+        } else {
+            result
+        };
         self.finish_prepared_invocation(operation, prepared, plan_hash, result)
     }
     fn finish_prepared_invocation(
@@ -1911,8 +2096,12 @@ impl Server {
         );
         if operation == "simulate" {
             if args["readouts"].is_array() {
-                readouts = usability::readouts(&result, &args["readouts"], &native)
-                    .map_err(|e| policy::error("readouts", e))?;
+                let time_unit = result["time_unit"].as_str().unwrap_or("").to_owned();
+                result["_bolus_times"] =
+                    json!(crate::core::readouts::bolus_times(&request, &time_unit));
+                let computed = usability::readouts(&result, &args["readouts"], &native);
+                result.as_object_mut().map(|o| o.remove("_bolus_times"));
+                readouts = computed.map_err(|e| policy::error("readouts", e))?;
             }
             if let Some(times) = args["_requested_times"].as_array() {
                 if times.len() <= 60 {
@@ -2063,6 +2252,11 @@ impl Server {
                 ),
             ]));
         }
+        let scan_request = if operation == "scan_parameters" {
+            request.clone()
+        } else {
+            Value::Null
+        };
         result["effective_request"] = request;
         result["model_provenance"] = metadata;
         if result["precision_profile_receipt"].is_object() {
@@ -2098,6 +2292,30 @@ impl Server {
         }
         // Retain the complete numerical result and context before any inline sampling.
         let retained = self.persist_result(operation, &mut result)?;
+        if operation == "scan_parameters"
+            && !retained
+            && !self.hosted
+            && args["readouts"].is_array()
+        {
+            // Readout scans carry dense per-point trajectories; keep the complete result in the
+            // bounded local cache so the inline response can be compacted to its readouts.
+            let scan_id = hash(result.to_string().as_bytes());
+            if self.cache.put(scan_id.clone(), result.clone()) {
+                result["run_id"] = json!(scan_id);
+                result["full_result_resource"] = json!(format!("qspquest://runs/{scan_id}"));
+            }
+        }
+        if operation == "analyze" && !retained && !self.hosted {
+            let id = format!(
+                "analysis-{}",
+                hash(json!({"source":source,"request":compute_request,"plan_hash":result["plan_hash"]}).to_string().as_bytes())
+            );
+            if result.to_string().len() > policy::RESPONSE_LIMIT / 2
+                && self.cache.put(id.clone(), result.clone())
+            {
+                result["full_result_resource"] = json!(format!("qspquest://runs/{id}"));
+            }
+        }
         if operation == "simulate" {
             let run_id = run_id.unwrap();
             let cached =
@@ -2124,9 +2342,28 @@ impl Server {
         }
         if operation == "scan_parameters" {
             if let Some(results) = result["results"].as_array_mut() {
+                if args["readouts"].is_array() {
+                    // Readouts are bounded scalars per point; compute them before any compaction.
+                    for r in results.iter_mut() {
+                        let time_unit = r["result"]["time_unit"].as_str().unwrap_or("").to_owned();
+                        r["result"]["_bolus_times"] = json!(crate::core::readouts::bolus_times(
+                            &scan_request,
+                            &time_unit
+                        ));
+                        let computed =
+                            usability::readouts(&r["result"], &args["readouts"], &native);
+                        r["result"]
+                            .as_object_mut()
+                            .map(|o| o.remove("_bolus_times"));
+                        r["readouts"] = computed.map_err(|e| policy::error("readouts", e))?;
+                    }
+                }
+                // Readouts densify every point's grid; their scalars are the requested answer, so
+                // the dense trajectories are compacted like retained ones.
+                let compact = retained || args["readouts"].is_array();
                 for r in results {
-                    // Without retained artifacts, preserve every point's requested grid inline.
-                    if retained {
+                    // Without retained artifacts or readouts, preserve every point's requested grid inline.
+                    if compact {
                         r["result"] = summary::compact(
                             r["result"].take(),
                             &args
@@ -2223,6 +2460,7 @@ impl Server {
                     "expected_plan_hash must be the exact sha256: digest returned by plan_run",
                 ));
             }
+            let prepared_output = args["output"].as_str().map(str::to_owned);
             let prepared = self.prepare_comparison(args).await?;
             let plan_hash = prepared.plan.plan_hash.clone();
             let effective_request_hash = prepared.plan.context.effective_request_hash.clone();
@@ -2233,6 +2471,18 @@ impl Server {
                 return Err(
                     json!({"error":{"code":"plan_mismatch","message":"A regimen, source, library, preparation or deployment changed since planning.","expression":"expected_plan_hash","suggestion":"Call plan_run again and inspect the complete comparison plan."},"actual_plan_hash":plan_hash,"effective_request_hash":effective_request_hash}),
                 );
+            }
+            #[cfg(feature = "analysis")]
+            if let Some(envelope) = prepared.population {
+                return self
+                    .execute_population_comparison(
+                        prepared.members,
+                        envelope,
+                        plan_hash,
+                        effective_request_hash,
+                        prepared.plan.context.library_version,
+                    )
+                    .await;
             }
             let mut computed = Vec::new();
             // Keep captured inputs; no library/source lookup occurs between admission and execution.
@@ -2249,6 +2499,30 @@ impl Server {
                     .map_err(|error| usability::source_coordinate_refusal(error, &member.native))?;
                 computed.push((name, member, hash, input_receipt, value));
             }
+            // The deterministic comparison is the native compare_regimens with one
+            // subject and no variability, summarized from the solved members.
+            let (comparison, comparison_notice) = match prepared_output.as_deref() {
+                None => (Value::Null, None),
+                Some(output) => {
+                    let first = &computed[0].1;
+                    let entry = &first.native["outputs"][output];
+                    let native = entry
+                        .as_str()
+                        .or_else(|| entry["native_name"].as_str())
+                        .unwrap_or(output);
+                    let labels: Vec<String> = computed.iter().map(|c| c.0.clone()).collect();
+                    let solved: Vec<Value> = computed.iter().map(|c| c.4.clone()).collect();
+                    match qspquest_modeling::analysis::compare_solved(
+                        &labels, &solved, native, None,
+                    ) {
+                        Ok(record) => (record, None),
+                        Err(error) => (
+                            Value::Null,
+                            Some(format!("No paired exposure comparison: {}", error.message)),
+                        ),
+                    }
+                }
+            };
             let (mut results, mut brief) = (Vec::new(), Vec::new());
             for (name, member, hash, input_receipt, value) in computed {
                 let value =
@@ -2273,6 +2547,21 @@ impl Server {
                     }
                     if let Some(sampling) = o.get_mut("sampling") {
                         sampling["returned_points"] = json!(0);
+                    }
+                    // Per-mass doses: the amount resolved against this member's body weight.
+                    let resolved: Vec<Value> = o
+                        .get("notes")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter(|n| {
+                            n.as_str()
+                                .is_some_and(|n| n.starts_with("dose into") && n.contains(" kg ("))
+                        })
+                        .cloned()
+                        .collect();
+                    if !resolved.is_empty() {
+                        o.insert("resolved_doses".into(), json!(resolved));
                     }
                     o.insert("trajectory_kind".into(), json!("summary_only"));
                     o.insert("trajectory_notice".into(), json!("This regimen record contains sampled summaries. Read its full_result_resource for the complete grid, event sides, identity and effective request."));
@@ -2318,19 +2607,988 @@ impl Server {
             for (preview, record) in brief.iter_mut().zip(&results) {
                 preview["full_result_resource"] = record["result"]["full_result_resource"].clone();
             }
-            let text = usability::ordered(&[("regimens", &json!(brief))]);
+            let summary = (!comparison.is_null()).then(|| comparison_brief(&comparison));
+            let text = usability::ordered(&[
+                ("regimens", &json!(brief)),
+                ("comparison_summary", &json!(summary)),
+                ("comparison_notice", &json!(comparison_notice)),
+            ]);
             let mut result = json!({"regimens":results,"plan_hash":plan_hash,"effective_request_hash":effective_request_hash,"library_version":prepared.plan.context.library_version,"_text":text});
+            if !comparison.is_null() {
+                result["comparison"] = comparison;
+                result["comparison_summary"] = json!(summary);
+            }
+            if let Some(notice) = comparison_notice {
+                result["comparison_notice"] = json!(notice);
+            }
             self.persist_result("compare_regimens", &mut result)?;
             Ok(result)
         };
         if self.hosted {
-            match tokio::time::timeout(std::time::Duration::from_secs(45), execute).await {
+            match tokio::time::timeout(self.hosted_time_remaining(), execute).await {
                 Ok(result) => result.unwrap_or_else(|e| e),
                 Err(_) => policy::error("deadline", "Regimen comparison preparation plus computation exceeded its aggregate 45-second budget; active isolated/native work retains its slot until it exits"),
             }
         } else {
             execute.await.unwrap_or_else(|e| e)
         }
+    }
+    async fn simulate_steady_state_value(&self, p: SimulateSteadyState) -> Value {
+        if p.outputs.is_empty() || p.outputs.len() > 8 {
+            return policy::error("outputs", "outputs must name 1..8 outputs");
+        }
+        let tau = p.interval.value;
+        if !(tau.is_finite() && tau > 0.0) {
+            return policy::error("interval", "interval must be a positive time quantity");
+        }
+        let tolerance = p.relative_tolerance.unwrap_or(1e-3);
+        if !(1e-8..=0.1).contains(&tolerance) {
+            return policy::error(
+                "relative_tolerance",
+                "relative_tolerance must be between 1e-8 and 0.1",
+            );
+        }
+        let max_intervals = p.max_intervals.unwrap_or(400);
+        if !(4..=5000).contains(&max_intervals) {
+            return policy::error("max_intervals", "max_intervals must be 4..5000");
+        }
+        let unit = p.interval.unit.clone();
+        let q = |v: f64| json!({"value":v,"unit":unit});
+        let mut dose =
+            json!({"target":p.dose.target,"amount":p.dose.amount,"at":q(0.0),"every":p.interval});
+        for (key, value) in [
+            ("duration", serde_json::to_value(&p.dose.duration).unwrap()),
+            ("bioavailability", json!(p.dose.bioavailability)),
+            ("lag", serde_json::to_value(&p.dose.lag).unwrap()),
+        ] {
+            if !value.is_null() {
+                dose[key] = value;
+            }
+        }
+        // Per output: metrics for the first interval and the last three, and troughs at the
+        // starts of the last three intervals.
+        let specs = |n: u32| -> Vec<Value> {
+            let mut specs = Vec::new();
+            let nf = n as f64;
+            let windows = [
+                (0.0, tau),
+                ((nf - 3.0) * tau, (nf - 2.0) * tau),
+                ((nf - 2.0) * tau, (nf - 1.0) * tau),
+                ((nf - 1.0) * tau, nf * tau),
+            ];
+            for output in &p.outputs {
+                for (a, b) in windows {
+                    for kind in ["auc", "max", "min"] {
+                        specs.push(json!({"kind":kind,"output":output,"from":q(a),"to":q(b)}));
+                    }
+                }
+                for k in [3.0, 2.0, 1.0] {
+                    specs.push(json!({"kind":"trough","output":output,"at":q((nf - k) * tau)}));
+                }
+            }
+            specs
+        };
+        let mut n: u32 = 10.min(max_intervals).max(4);
+        let mut simulations = 0;
+        let mut history = Vec::new();
+        loop {
+            let mut maintenance = dose.clone();
+            maintenance["count"] = json!(n);
+            // Readouts use their own dense sampling; the returned trajectory needs one time only.
+            let mut args = json!({"model":p.model,"end":q(n as f64 * tau),"times":[q(n as f64 * tau)],"outputs":p.outputs,
+                "doses":[maintenance],"readouts":specs(n),"detail":"compact"});
+            for (key, value) in [
+                ("parameters", serde_json::to_value(&p.parameters).unwrap()),
+                (
+                    "initial_states",
+                    serde_json::to_value(&p.initial_states).unwrap(),
+                ),
+                ("covariates", serde_json::to_value(&p.covariates).unwrap()),
+            ] {
+                if !value.is_null() {
+                    args[key] = value;
+                }
+            }
+            simulations += 1;
+            let result = self.invoke("simulate", args).await;
+            if result.get("error").is_some() {
+                return result;
+            }
+            let rows = result["readouts"]["results"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            let per_output = 15;
+            if rows.len() != per_output * p.outputs.len() {
+                return policy::error("readout", "The steady-state readouts were not all returned; check that each output is a model output.");
+            }
+            let mut worst: f64 = 0.0;
+            let mut summary = Vec::new();
+            for (k, output) in p.outputs.iter().enumerate() {
+                let r = &rows[k * per_output..(k + 1) * per_output];
+                let v = |i: usize| r[i]["value"].as_f64().unwrap_or(f64::NAN);
+                // The interval length in model time: the AUC is integrated over model time.
+                let model_time = r[10]["time_unit"].as_str().unwrap_or("");
+                let tau_model = match usability::convert(
+                    tau,
+                    &usability::normalize_unit(&unit),
+                    model_time,
+                    "interval",
+                ) {
+                    Ok(t) => t,
+                    Err(e) => return policy::error("interval", e),
+                };
+                let series = |i: usize| [v(3 + i), v(6 + i), v(9 + i)];
+                let (auc, cmax, cmin, trough) =
+                    (series(0), series(1), series(2), [v(12), v(13), v(14)]);
+                let first_auc = v(0);
+                let change = |a: f64, b: f64| {
+                    if a == b {
+                        0.0
+                    } else if a.is_finite() && b.is_finite() {
+                        (a - b).abs() / a.abs().max(b.abs())
+                    } else {
+                        f64::INFINITY
+                    }
+                };
+                let changes = [
+                    change(auc[2], auc[1]),
+                    change(cmax[2], cmax[1]),
+                    change(cmin[2], cmin[1]),
+                    change(trough[2], trough[1]),
+                ];
+                let left = [
+                    remaining(auc),
+                    remaining(cmax),
+                    remaining(cmin),
+                    remaining(trough),
+                ];
+                // f64::max ignores NaN; remaining() maps non-finite values to infinity first.
+                worst = left.iter().cloned().fold(worst, f64::max);
+                summary.push(json!({"output":output,
+                    "auc_tau":{"value":auc[2],"unit":r[9]["unit"]},
+                    "cmax":{"value":cmax[2],"unit":r[10]["unit"]},
+                    "cmin":{"value":cmin[2],"unit":r[11]["unit"]},
+                    "trough":{"value":trough[2],"unit":r[14]["unit"],"at":q((n - 1) as f64 * tau)},
+                    "cavg":{"value":auc[2] / tau_model,"unit":r[10]["unit"]},
+                    "accumulation_ratio": if first_auc != 0.0 { json!(auc[2] / first_auc) } else { Value::Null },
+                    "relative_change_last_interval":{"auc":changes[0],"cmax":changes[1],"cmin":changes[2],"trough":changes[3]},
+                    "estimated_remaining_relative_change":{"auc":finite_or_null(left[0]),"cmax":finite_or_null(left[1]),"cmin":finite_or_null(left[2]),"trough":finite_or_null(left[3])}}));
+            }
+            history.push(
+                json!({"intervals":n,"largest_estimated_remaining_change":finite_or_null(worst)}),
+            );
+            if worst <= tolerance || n >= max_intervals {
+                let converged = worst <= tolerance;
+                let text = json!({"status": if converged {"steady_state"} else {"not_converged"}, "intervals": n, "summary": summary});
+                return json!({"status": if converged {"steady_state"} else {"not_converged"},
+                    "intervals_simulated": n, "interval": p.interval, "relative_tolerance": tolerance,
+                    "steady_state": summary, "convergence": history, "simulations": simulations,
+                    "criterion":"Steady state is declared when, for every metric, the change still to come is estimated below relative_tolerance. The estimate extrapolates the last three intervals geometrically: with successive changes d1 and d2 and r = |d2/d1| < 1, the remaining change is |d2| r/(1 - r). A non-finite value, or r >= 1, is not converged.",
+                    "explanation": if converged {"The estimated remaining change of every metric is within the tolerance; the last interval is reported as steady state."} else {"max_intervals was reached before the estimated remaining change fell within the tolerance; values are from the last interval and are not steady state. Raise max_intervals or check for drift (for example target depletion or slow turnover)."},
+                    "scope":"Deterministic typical-subject result for the stated model, dose and inputs; cavg is AUC over the interval divided by its length.",
+                    "_text": text});
+            }
+            n = (n * 2).min(max_intervals);
+        }
+    }
+    async fn sensitivity_value(&self, p: Sensitivity) -> Value {
+        let method = p.method.as_deref().unwrap_or("local");
+        if !matches!(method, "local" | "morris") {
+            return policy::error("method", "method must be local or morris");
+        }
+        if p.readouts.is_empty() || p.readouts.len() > 8 {
+            return policy::error("readouts", "readouts must contain 1..8 entries");
+        }
+        if p.vary.is_empty() || p.vary.len() > 12 {
+            return policy::error("vary", "vary must contain 1..12 parameters");
+        }
+        let mut base =
+            json!({"model":p.model,"end":p.end,"detail":"compact","readouts":p.readouts});
+        for (key, value) in [
+            ("doses", serde_json::to_value(&p.doses).unwrap()),
+            (
+                "initial_states",
+                serde_json::to_value(&p.initial_states).unwrap(),
+            ),
+            ("covariates", serde_json::to_value(&p.covariates).unwrap()),
+        ] {
+            if !value.is_null() {
+                base[key] = value;
+            }
+        }
+        let fixed: serde_json::Map<String, Value> = serde_json::to_value(&p.parameters)
+            .unwrap()
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        let mut runs = 0usize;
+        // One simulation with parameter overrides; returns the scalar readout values.
+        let evaluate = async |overrides: &serde_json::Map<String, Value>,
+                              runs: &mut usize|
+               -> Result<(Vec<f64>, Value), Value> {
+            let mut args = base.clone();
+            let mut parameters = fixed.clone();
+            parameters.extend(overrides.clone());
+            if !parameters.is_empty() {
+                args["parameters"] = Value::Object(parameters);
+            }
+            *runs += 1;
+            let result = self.invoke("simulate", args).await;
+            if result.get("error").is_some() {
+                return Err(json!({"error":result["error"],"failed_parameters":overrides}));
+            }
+            let rows = result["readouts"]["results"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            let mut values = Vec::new();
+            for (i, row) in rows.iter().enumerate() {
+                let v = row["value"].as_f64().ok_or_else(|| policy::error("readouts", format!("readouts[{i}] has no scalar value (use max, min, trough, value, auc, time_below or time_above)")))?;
+                values.push(v);
+            }
+            Ok((values, result))
+        };
+        let (base_values, base_result) = match evaluate(&serde_json::Map::new(), &mut runs).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        let used: std::collections::BTreeMap<String, (f64, String)> = base_result
+            ["parameters_used"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|r| {
+                Some((
+                    r["name"].as_str()?.to_owned(),
+                    (r["value"].as_f64()?, r["unit"].as_str()?.to_owned()),
+                ))
+            })
+            .collect();
+        let labels: Vec<Value> = base_result["readouts"]["results"].as_array().into_iter().flatten()
+            .map(|r| json!({"kind":r["kind"],"output":r["output"],"unit":r["unit"],"value":r["value"]}))
+            .collect();
+        let mut table: Vec<Vec<Value>> = vec![Vec::new(); base_values.len()];
+        if method == "local" {
+            let h = p.relative_step.unwrap_or(0.01);
+            if !(1e-6..=0.2).contains(&h) {
+                return policy::error(
+                    "relative_step",
+                    "relative_step must be between 1e-6 and 0.2",
+                );
+            }
+            for v in &p.vary {
+                let current = fixed
+                    .get(&v.name)
+                    .and_then(|q| Some((q["value"].as_f64()?, q["unit"].as_str()?.to_owned())))
+                    .or_else(|| used.get(&v.name).cloned());
+                let Some((x, unit)) = current else {
+                    return json!({"error":{"code":"vary","expression":"/vary","message":format!("'{}' is not a parameter that affects this run", v.name),
+                        "suggestion":format!("Vary one of: {}", used.keys().cloned().collect::<Vec<_>>().join(", "))}});
+                };
+                if x == 0.0 {
+                    return policy::error(
+                        "vary",
+                        format!(
+                            "'{}' is zero; an elasticity is undefined, use morris with a range",
+                            v.name
+                        ),
+                    );
+                }
+                let mut up = serde_json::Map::new();
+                up.insert(v.name.clone(), json!({"value":x * (1.0 + h),"unit":unit}));
+                let mut down = serde_json::Map::new();
+                down.insert(v.name.clone(), json!({"value":x * (1.0 - h),"unit":unit}));
+                let (hi, _) = match evaluate(&up, &mut runs).await {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+                let (lo, _) = match evaluate(&down, &mut runs).await {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+                for (i, base) in base_values.iter().enumerate() {
+                    let elasticity = if *base != 0.0 {
+                        json!((hi[i] - lo[i]) / (2.0 * h * base))
+                    } else {
+                        Value::Null
+                    };
+                    table[i].push(json!({"parameter":v.name,"value":{"value":x,"unit":unit},"elasticity":elasticity,"readout_minus":lo[i],"readout_plus":hi[i]}));
+                }
+            }
+            for rows in &mut table {
+                rows.sort_by(|a, b| {
+                    b["elasticity"]
+                        .as_f64()
+                        .map(f64::abs)
+                        .unwrap_or(-1.0)
+                        .total_cmp(&a["elasticity"].as_f64().map(f64::abs).unwrap_or(-1.0))
+                });
+            }
+        } else {
+            let trajectories = p.trajectories.unwrap_or(6);
+            let levels = p.levels.unwrap_or(4);
+            if !(2..=20).contains(&trajectories) || !(2..=10).contains(&levels) {
+                return policy::error("morris", "trajectories must be 2..20 and levels 2..10");
+            }
+            let k = p.vary.len();
+            if (trajectories as usize) * (k + 1) > 400 {
+                return policy::error("morris", "trajectories x (parameters + 1) exceeds 400 simulations; use fewer trajectories or parameters");
+            }
+            let mut ranges = Vec::new();
+            for v in &p.vary {
+                let (Some(lo), Some(hi)) = (&v.lower, &v.upper) else {
+                    return policy::error(
+                        "vary",
+                        format!("morris needs lower and upper for '{}'", v.name),
+                    );
+                };
+                let upper = if hi.unit == lo.unit {
+                    hi.value
+                } else {
+                    match usability::convert(
+                        hi.value,
+                        &hi.unit,
+                        &lo.unit,
+                        &format!("vary.{}.upper", v.name),
+                    ) {
+                        Ok(v) => v,
+                        Err(message) => return policy::error("vary", message),
+                    }
+                };
+                if !(upper > lo.value) {
+                    return policy::error("vary", format!("'{}' needs lower < upper", v.name));
+                }
+                ranges.push((v.name.clone(), lo.value, upper, lo.unit.clone()));
+            }
+            // Deterministic generator (SplitMix64) so a seed reproduces the design.
+            let mut state = p.seed.unwrap_or(1);
+            let mut next = move || {
+                state = state.wrapping_add(0x9E3779B97F4A7C15);
+                let mut z = state;
+                z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+                z ^ (z >> 31)
+            };
+            let (delta, grid_max) = morris_step(levels);
+            let mut effects: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); k]; base_values.len()];
+            for _ in 0..trajectories {
+                let mut x: Vec<f64> = (0..k)
+                    .map(|_| (next() % (grid_max + 1)) as f64 / (levels as f64 - 1.0))
+                    .collect();
+                let point = |x: &[f64]| -> serde_json::Map<String, Value> {
+                    ranges
+                        .iter()
+                        .zip(x)
+                        .map(|((n, lo, hi, u), s)| {
+                            (n.clone(), json!({"value":lo + s * (hi - lo),"unit":u}))
+                        })
+                        .collect()
+                };
+                let (mut y, _) = match evaluate(&point(&x), &mut runs).await {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+                let mut order: Vec<usize> = (0..k).collect();
+                for i in (1..k).rev() {
+                    order.swap(i, (next() % (i as u64 + 1)) as usize);
+                }
+                for j in order {
+                    x[j] += delta;
+                    let (y2, _) = match evaluate(&point(&x), &mut runs).await {
+                        Ok(v) => v,
+                        Err(e) => return e,
+                    };
+                    for r in 0..y.len() {
+                        effects[r][j].push((y2[r] - y[r]) / delta);
+                    }
+                    y = y2;
+                }
+            }
+            for (r, per_parameter) in effects.iter().enumerate() {
+                for (j, ee) in per_parameter.iter().enumerate() {
+                    let n = ee.len() as f64;
+                    let mu = ee.iter().sum::<f64>() / n;
+                    let mu_star = ee.iter().map(|e| e.abs()).sum::<f64>() / n;
+                    let sigma = if n > 1.0 {
+                        (ee.iter().map(|e| (e - mu).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+                    } else {
+                        0.0
+                    };
+                    let (name, lo, hi, unit) = &ranges[j];
+                    table[r].push(json!({"parameter":name,"range":[{"value":lo,"unit":unit},{"value":hi,"unit":unit}],"mu_star":mu_star,"mu":mu,"sigma":sigma,
+                        "unit":labels.get(r).map(|l| l["unit"].clone()).unwrap_or(Value::Null)}));
+                }
+                table[r].sort_by(|a, b| {
+                    b["mu_star"]
+                        .as_f64()
+                        .unwrap_or(0.0)
+                        .total_cmp(&a["mu_star"].as_f64().unwrap_or(0.0))
+                });
+            }
+        }
+        let rankings: Vec<Value> = labels
+            .iter()
+            .zip(table)
+            .map(|(label, rows)| json!({"readout":label,"ranking":rows}))
+            .collect();
+        let interpretation = if method == "local" {
+            "Elasticity: relative change in the readout per relative change in the parameter at the current values (1 = proportional). Local and one at a time; it does not capture interactions or nonlinearity away from this point."
+        } else {
+            "Morris: mu_star ranks overall influence in the readout's unit per unit of the scaled range; a large sigma relative to mu_star indicates nonlinearity or interaction. Screening only; not a variance decomposition."
+        };
+        json!({"method":method,"simulations":runs,"rankings":rankings,"interpretation":interpretation,
+            "scope":"Deterministic sensitivities of the stated model, schedule and inputs; parameter uncertainty and variability between subjects are not represented.",
+            "_text":usability::ordered(&[("rankings",&json!(rankings)),("interpretation",&json!(interpretation))])})
+    }
+    /// A scan over a dose amount or a covariate: one friendly simulate per point, so unit
+    /// conversion, per-mass dose resolution and covariate routing are exactly simulate's.
+    async fn scan_inputs_value(&self, p: Scan, covariate: Option<String>) -> Value {
+        if p.request.is_some() {
+            return policy::error("request", "Dose-amount and covariate scans use the friendly end, times, doses, parameters, covariates and readouts; a native request cannot be combined with them.");
+        }
+        if p.expected_plan_hash.is_some() {
+            return policy::error("expected_plan_hash", "Dose-amount and covariate scans run one simulate per point and have no single plan hash; omit expected_plan_hash.");
+        }
+        let values: Vec<Value> = match (&p.values, &p.range) {
+            (Some(values), None) => values
+                .iter()
+                .map(|q| serde_json::to_value(q).unwrap())
+                .collect(),
+            (None, Some(r)) => {
+                if r.lower.unit != r.upper.unit
+                    || !(r.lower.value.is_finite() && r.upper.value.is_finite())
+                    || r.upper.value <= r.lower.value
+                    || !(2..=25).contains(&r.count)
+                {
+                    return policy::error(
+                        "range",
+                        "range needs finite lower < upper in the same unit and count 2..25",
+                    );
+                }
+                (0..r.count)
+                    .map(|i| json!({"value": r.lower.value + (r.upper.value - r.lower.value) * i as f64 / (r.count - 1) as f64, "unit": r.lower.unit}))
+                    .collect()
+            }
+            _ => {
+                return policy::error(
+                    "values",
+                    "Give values (1..25 quantities) or range, not both.",
+                )
+            }
+        };
+        if values.is_empty() || values.len() > 25 {
+            return policy::error("values", "Give 1..25 values");
+        }
+        let doses = serde_json::to_value(p.doses.as_ref().map_or(&[][..], Vec::as_slice)).unwrap();
+        let scanned = match (p.dose_index, &covariate) {
+            (Some(i), _) => {
+                let count = doses.as_array().map_or(0, Vec::len);
+                if i >= count {
+                    return policy::error("dose_index", format!("dose_index {i} is out of range: doses has {count} entries. Add the dose whose amount is scanned (its amount is replaced per point)."));
+                }
+                json!({"kind":"dose_amount","dose_index":i,"target":doses[i]["target"]})
+            }
+            (None, Some(name)) => json!({"kind":"covariate","name":name}),
+            (None, None) => return policy::error("parameter", "Nothing to scan"),
+        };
+        let readouts = match (&p.readouts, &p.output) {
+            (Some(r), _) if !r.is_empty() => json!(r),
+            (_, Some(output)) => json!([{"kind":"max","output":output},{"kind":"auc","output":output}]),
+            _ => return policy::error("readouts", "Dose-amount and covariate scans report readouts per point; add readouts (for example [{\"kind\":\"trough\",\"output\":\"C\",\"at\":{\"value\":28,\"unit\":\"d\"}}]) or name an output for max and AUC."),
+        };
+        let mut base =
+            json!({"model":p.model,"readouts":readouts,"detail":"compact","doses":doses});
+        for (key, value) in [
+            ("end", serde_json::to_value(&p.end).unwrap()),
+            ("times", serde_json::to_value(&p.times).unwrap()),
+            ("parameters", serde_json::to_value(&p.parameters).unwrap()),
+            (
+                "initial_states",
+                serde_json::to_value(&p.initial_states).unwrap(),
+            ),
+            ("covariates", serde_json::to_value(&p.covariates).unwrap()),
+            ("solver", json!(p.solver)),
+        ] {
+            if !value.is_null() {
+                base[key] = value;
+            }
+        }
+        let mut points = Vec::new();
+        let mut table = Vec::new();
+        for value in &values {
+            let mut args = base.clone();
+            match (p.dose_index, &covariate) {
+                (Some(i), _) => args["doses"][i]["amount"] = value.clone(),
+                (None, Some(name)) => {
+                    if !args["covariates"].is_object() {
+                        args["covariates"] = json!({});
+                    }
+                    args["covariates"][name] = value.clone();
+                }
+                _ => {}
+            }
+            let mut result = self.invoke("simulate", args).await;
+            if result.get("error").is_some() {
+                result["error"]["failed_point"] = value.clone();
+                return result;
+            }
+            let rows = result["readouts"]["results"].clone();
+            let mut row = json!({"value":value["value"],"unit":value["unit"]});
+            for (k, r) in rows.as_array().into_iter().flatten().enumerate() {
+                row[format!("readout_{k}")] = r["value"].clone();
+            }
+            table.push(row);
+            // Per-mass doses: the resolved amount for this point.
+            let resolved: Vec<Value> = result["notes"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|n| {
+                    n.as_str()
+                        .is_some_and(|n| n.starts_with("dose into") && n.contains(" kg ("))
+                })
+                .cloned()
+                .collect();
+            let mut point = json!({"value":value,"readouts":rows});
+            if !resolved.is_empty() {
+                point["resolved_doses"] = json!(resolved);
+            }
+            points.push(point);
+        }
+        let columns: Vec<Value> = points[0]["readouts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .enumerate()
+            .map(|(k, r)| json!({"column":format!("readout_{k}"),"kind":r["kind"],"output":r["output"],"unit":r["unit"]}))
+            .collect();
+        let text = format!(
+            "{} scan over {} points; table columns: value, {}",
+            scanned["kind"].as_str().unwrap_or("input"),
+            points.len(),
+            columns
+                .iter()
+                .map(|c| format!(
+                    "{} {} [{}]",
+                    c["kind"].as_str().unwrap_or(""),
+                    c["output"].as_str().unwrap_or(""),
+                    c["unit"].as_str().unwrap_or("")
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        json!({"scanned":scanned,"points":points,"table":{"columns":columns,"rows":table},"simulations":points.len(),
+            "scope":"Each point is one deterministic simulate with every other input held at the stated values.",
+            "_text":usability::ordered(&[("summary",&json!(text)),("table",&json!(table))])})
+    }
+    async fn find_dose_value(&self, p: FindDose) -> Value {
+        let operator = p.constraint.operator.as_str();
+        if !matches!(operator, "at_most" | "at_least") {
+            return policy::error(
+                "constraint",
+                "constraint.operator must be at_most or at_least",
+            );
+        }
+        if !p.constraint.threshold.is_finite() {
+            return policy::error("constraint", "constraint.threshold must be finite");
+        }
+        let s = &p.search;
+        if s.lower.unit != s.upper.unit || !(s.lower.value >= 0.0 && s.upper.value > s.lower.value)
+        {
+            return policy::error(
+                "search",
+                "search.lower and search.upper need the same unit and 0 <= lower < upper",
+            );
+        }
+        let tolerance = s.relative_tolerance.unwrap_or(0.01);
+        if !(1e-6..=0.5).contains(&tolerance) {
+            return policy::error(
+                "search",
+                "search.relative_tolerance must be between 1e-6 and 0.5",
+            );
+        }
+        let budget = p.max_evaluations.unwrap_or(30);
+        if !(3..=40).contains(&budget) {
+            return policy::error("max_evaluations", "max_evaluations must be 3..40");
+        }
+        let unit = s.lower.unit.clone();
+        let mut base = json!({"model":p.model,"end":p.end,"detail":"compact","readouts":[p.constraint.readout.clone()]});
+        for (key, value) in [
+            ("parameters", serde_json::to_value(&p.parameters).unwrap()),
+            (
+                "initial_states",
+                serde_json::to_value(&p.initial_states).unwrap(),
+            ),
+            ("covariates", serde_json::to_value(&p.covariates).unwrap()),
+        ] {
+            if !value.is_null() {
+                base[key] = value;
+            }
+        }
+        let fixed = serde_json::to_value(p.doses.as_ref().map_or(&[][..], Vec::as_slice)).unwrap();
+        let mut varied = json!({"target":s.target,"at":s.at,"amount":{"value":0.0,"unit":unit}});
+        for (key, value) in [
+            ("every", serde_json::to_value(&s.every).unwrap()),
+            ("count", json!(s.count)),
+            ("duration", serde_json::to_value(&s.duration).unwrap()),
+            ("bioavailability", json!(s.bioavailability)),
+        ] {
+            if !value.is_null() {
+                varied[key] = value;
+            }
+        }
+        let mut trace: Vec<Value> = Vec::new();
+        let readout_unit = std::sync::Mutex::new(Value::Null);
+        let evaluate = async |amount: f64, trace: &mut Vec<Value>| -> Result<f64, Value> {
+            let mut args = base.clone();
+            let mut doses = fixed.as_array().cloned().unwrap_or_default();
+            if amount > 0.0 {
+                let mut dose = varied.clone();
+                dose["amount"]["value"] = json!(amount);
+                doses.push(dose);
+            }
+            args["doses"] = json!(doses);
+            let result = self.invoke("simulate", args).await;
+            if result.get("error").is_some() {
+                return Err(
+                    json!({"error":result["error"],"failed_amount":{"value":amount,"unit":unit}}),
+                );
+            }
+            let reading = &result["readouts"]["results"][0];
+            *readout_unit.lock().unwrap() = reading["unit"].clone();
+            let value = reading["value"].as_f64().ok_or_else(|| policy::error("readout", "The readout returned no numeric value; choose a readout kind with a scalar value (max, min, trough, value, auc, time_below, time_above)."))?;
+            trace.push(json!({"amount":{"value":amount,"unit":unit},"readout":value}));
+            Ok(value)
+        };
+        let meets = |v: f64| {
+            if operator == "at_most" {
+                v <= p.constraint.threshold
+            } else {
+                v >= p.constraint.threshold
+            }
+        };
+        let (mut lo, mut hi) = (s.lower.value, s.upper.value);
+        let at_lo = match evaluate(lo, &mut trace).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        let at_hi = match evaluate(hi, &mut trace).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        let (mut v_lo, mut v_hi) = (at_lo, at_hi);
+        let status;
+        if meets(at_lo) && meets(at_hi) {
+            status = "met_at_lower";
+        } else if !meets(at_lo) && !meets(at_hi) {
+            status = "not_met_at_upper";
+        } else if meets(at_lo) {
+            // Met at low doses only (for example a ceiling on exposure): find the largest amount.
+            status = "found_largest";
+            while trace.len() < budget as usize && (hi - lo) > tolerance * hi {
+                let mid = 0.5 * (lo + hi);
+                let v = match evaluate(mid, &mut trace).await {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+                if meets(v) {
+                    lo = mid;
+                    v_lo = v
+                } else {
+                    hi = mid;
+                    v_hi = v
+                }
+            }
+        } else {
+            status = "found";
+            while trace.len() < budget as usize && (hi - lo) > tolerance * hi {
+                let mid = 0.5 * (lo + hi);
+                let v = match evaluate(mid, &mut trace).await {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+                if meets(v) {
+                    hi = mid;
+                    v_hi = v
+                } else {
+                    lo = mid;
+                    v_lo = v
+                }
+            }
+        }
+        let midpoint_crosses = if matches!(status, "met_at_lower" | "not_met_at_upper") {
+            match evaluate(lo + (hi - lo) / 2.0, &mut trace).await {
+                Ok(value) => meets(value) != meets(at_lo),
+                Err(error) => return error,
+            }
+        } else {
+            false
+        };
+        // Readouts must change in one direction along the searched amounts.
+        let mut sorted: Vec<(f64, f64)> = trace
+            .iter()
+            .filter_map(|t| Some((t["amount"]["value"].as_f64()?, t["readout"].as_f64()?)))
+            .collect();
+        sorted.sort_by(|a, b| a.0.total_cmp(&b.0));
+        // Readouts carry solver error (relative tolerance 1e-6 or tighter); changes below that
+        // level are noise, not a change of direction.
+        let noise = |a: f64, b: f64| 1e-6 * a.abs().max(b.abs()) + 1e-300;
+        let rising = sorted
+            .windows(2)
+            .all(|w| w[1].1 >= w[0].1 - noise(w[0].1, w[1].1));
+        let falling = sorted
+            .windows(2)
+            .all(|w| w[1].1 <= w[0].1 + noise(w[0].1, w[1].1));
+        let status = if midpoint_crosses || (!rising && !falling) {
+            "not_monotonic"
+        } else {
+            status
+        };
+        let converged = (hi - lo) <= tolerance * hi;
+        let answer = match status {
+            "found" => {
+                json!({"amount":{"value":hi,"unit":unit},"readout":v_hi,"bracket":[{"value":lo,"unit":unit},{"value":hi,"unit":unit}],"bracket_readouts":[v_lo,v_hi],"converged":converged})
+            }
+            "found_largest" => {
+                json!({"amount":{"value":lo,"unit":unit},"readout":v_lo,"bracket":[{"value":lo,"unit":unit},{"value":hi,"unit":unit}],"bracket_readouts":[v_lo,v_hi],"converged":converged})
+            }
+            _ => Value::Null,
+        };
+        let explanation = match status {
+            "found" => "The evaluated upper bracket amount meets the requirement and the lower bracket amount fails.",
+            "found_largest" => "The evaluated lower bracket amount meets the requirement and the upper bracket amount fails.",
+            "met_at_lower" => "The evaluated endpoints and midpoint meet the requirement. Other amounts have not been assessed.",
+            "not_met_at_upper" => "The evaluated endpoints and midpoint fail the requirement. Other amounts have not been assessed.",
+            _ => "The evaluated readouts do not change in one direction with dose. Inspect the trace for amounts that meet the requirement.",
+        };
+        let readout_unit = readout_unit.into_inner().unwrap();
+        json!({"status":status,"answer":answer,"explanation":explanation,
+            "readout_unit":readout_unit,
+            "held_constant":{"parameters":p.parameters,"covariates":p.covariates,"initial_states":p.initial_states,"fixed_doses":p.doses},
+            "constraint":{"readout":p.constraint.readout,"operator":operator,"threshold":p.constraint.threshold,"threshold_unit":readout_unit},
+            "evaluations":trace.len(),"trace":trace,
+            "scope":"Deterministic typical-subject result for the stated model, schedule and inputs. It does not represent variability between subjects, uncertainty in parameters, or a clinical dosing recommendation.",
+            "_text":format!("find_dose {status}: {}", answer["amount"])})
+    }
+    /// A model card for inline source, built exactly as for a `.qsp` directory model.
+    fn source_model_card(&self, source: &str, p: &ModelCardRequest) -> Value {
+        if !p.model_id.is_empty() || p.version.is_some() {
+            return policy::error("source", "Use source or model_id/version, not both.");
+        }
+        if p.page.is_some()
+            || p.selection.is_some()
+            || p.expected_inspection_hash.is_some()
+            || p.outputs.is_some()
+        {
+            return policy::error("inspection_arguments", "Inline source cards support detail only; page, selection, outputs and expected_inspection_hash apply to library records.");
+        }
+        if self.hosted {
+            return policy::error("source", "Inline source cards are available on local stdio; use validate_model on hosted servers.");
+        }
+        if source.len() > policy::INPUT_LIMIT {
+            return policy::error("input_limit", "Model source exceeds 1 MB");
+        }
+        let record = match crate::library::source_record(source) {
+            Ok(record) => record,
+            Err(message) => {
+                // Return the located diagnostic that validate_model gives for the same text.
+                return compute::execute(source, "validate_model", json!({}))
+                    .err()
+                    .map(|error| json!({"error":error}))
+                    .unwrap_or_else(|| policy::error("source", message));
+            }
+        };
+        let library = Library::single(record);
+        let r = &library.records[0];
+        let details = model_details(r, &library);
+        if !details["error"].is_null() {
+            return details;
+        }
+        let mut value = if matches!(p.detail, Some(ModelDetail::Full))
+            && details.to_string().len() < policy::RESPONSE_LIMIT / 4
+        {
+            let mut full = details;
+            full["detail"] = json!("full");
+            full
+        } else {
+            compact_model_card(r, &details)
+        };
+        value["model_source"] = json!("inline_source");
+        value["hint"] = json!("Simulate this model with model {source: <the same text>}; names and units are those listed here.");
+        value
+    }
+    /// Readable, editable copy of a library model with its name map and an optional
+    /// scenario equivalence check.
+    fn fork_model_value(&self, p: Fork) -> Value {
+        let (model, native, scenario, metadata, archive_hash) = {
+            let l = self.library.read().unwrap();
+            let Some(r) = l.find(&p.model_id, p.version.as_deref()) else {
+                return policy::error(
+                    "not_found",
+                    "Model not found. Use search_models to find the exact model_id.",
+                );
+            };
+            if let Err(error) =
+                crate::inspection::check_context(r, p.expected_inspection_hash.as_deref())
+            {
+                return error;
+            }
+            if r.model.is_null() {
+                return policy::error("fork_unavailable", "This archive serves catalog metadata only (held or inspection-only); it has no executable native model to copy. Inspect get_model for the reason.");
+            }
+            let scenario = match p.scenario_id.as_deref() {
+                Some(id) => match r.scenarios.get(id) {
+                    Some(request) => Some((id.to_owned(), request.clone())),
+                    None => return policy::error("scenario", format!("Scenario {id} is not available for this model; choose one of get_model.scenario_ids.")),
+                },
+                None => None,
+            };
+            (
+                r.model.clone(),
+                r.index["native_execution"].clone(),
+                scenario,
+                r.metadata.clone(),
+                r.archive_hash.clone(),
+            )
+        };
+        let model_id = metadata["id"].as_str().unwrap_or(&p.model_id).to_owned();
+        let (mut copy, mut rows) = crate::fork::readable_model_with(
+            &model,
+            &native,
+            &metadata["parameter_metadata"],
+            &model_id,
+        );
+        let mut dropped_outputs = Vec::new();
+        if let Some(roles) = p.exclude_roles.as_ref().filter(|r| !r.is_empty()) {
+            if roles.iter().any(|r| r == "structural") {
+                return policy::error(
+                    "exclude_roles",
+                    "structural parameters change the dynamics and cannot be excluded",
+                );
+            }
+            if !metadata["parameter_metadata"].is_object() {
+                return policy::error("exclude_roles", "This archive has no library parameter metadata (parameters.json), so parameter roles are unknown; nothing can be excluded by role.");
+            }
+            match crate::fork::drop_roles(&mut copy, &mut rows, roles) {
+                Ok(outputs) => dropped_outputs = outputs,
+                Err(message) => return policy::error("exclude_roles", message),
+            }
+        }
+        let validated = match compute::execute(&copy.to_string(), "validate_model", json!({})) {
+            Ok(v) => v,
+            Err(error) => {
+                return json!({"error":{"code":"fork_validation","message":"The renamed copy failed validation; this is a server defect, not an input error.","detail":error}})
+            }
+        };
+        let canonical = validated["canonical_source"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        let renamed = rows.iter().filter(|r| r["native"] != r["readable"]).count();
+        let dropped_parameters = rows
+            .iter()
+            .filter(|r| r["kind"] == "parameter" && r["dropped"] == true)
+            .count();
+        let dose_targets: Vec<Value> = copy["states"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|s| !s["dosing"].is_null())
+            .map(|s| json!({"target":s["name"],"amount_unit":s["dosing"]["amount_unit"],"state_unit":s["unit"]}))
+            .collect();
+        let mut notes = vec![
+            format!("{renamed} of {} symbols were renamed; expressions, units, defaults and descriptions are unchanged.", rows.len()),
+            "Archive evidence, stored reference results and qualification describe the original archive only; the copy and any edit need their own checks.".to_owned(),
+        ];
+        let derived = rows
+            .iter()
+            .filter(|r| {
+                r["reason"]
+                    .as_str()
+                    .is_some_and(|s| s.starts_with("derived"))
+            })
+            .count();
+        if derived > 0 {
+            notes.push(format!("{derived} names were derived from parameter descriptions because the archive declares no readable name; check them before relying on them."));
+        }
+        let units: Vec<&str> = copy["parameters"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| p["default"]["unit"].as_str())
+            .collect();
+        if !units.is_empty() && units.iter().all(|u| *u == "1") {
+            notes.push("Every parameter has unit 1: this archive keeps the source's numbers without physical units, so the compiler cannot check dimensions. Declare physical units (for example with edit_model set_parameter) before adapting it.".into());
+        }
+        if metadata["parameter_metadata"].is_object() {
+            notes.push("Names, roles, variability and provenance come from the library's parameter metadata (parameters.json). Only parameters with role structural change the dynamics; iiv_sd, residual_error, information_criterion, subject_replay and source_check values are carried unchanged for reference.".into());
+        }
+        if dropped_parameters > 0 {
+            notes.push(format!("{dropped_parameters} parameters with excluded roles and {} outputs that used them were dropped: {}.", dropped_outputs.len(), dropped_outputs.join(", ")));
+        }
+        if dose_targets.is_empty() {
+            notes.push("The model declares no dosing target. To give doses, add a dosing mapping to a state (for example `central [mg] = 1` for an amount state) and the matching input_<state> term in its equation.".into());
+        }
+        let mut result = json!({
+            "canonical_source": canonical,
+            "model_content_hash": validated["model_content_hash"],
+            "forked_model_id": copy["model_id"],
+            "source_model": {"model_id": model_id, "version": metadata["version"], "archive_sha256": archive_hash},
+            "name_map": rows,
+            "dose_targets": dose_targets,
+            "notes": notes,
+            "hint": "Edit canonical_source (add states, terms, covariates or dosing), check it with validate_model, inspect it with get_model {source}, and simulate with model {source}. Compare against the original with the translated scenario request.",
+        });
+        if let Some((id, request)) = scenario {
+            let mut translated = crate::fork::readable_request(&request, &rows);
+            if let Some(parameters) = translated
+                .get_mut("parameters")
+                .and_then(Value::as_object_mut)
+            {
+                for row in rows
+                    .iter()
+                    .filter(|r| r["dropped"] == true && r["kind"] == "parameter")
+                {
+                    if let Some(name) = row["readable"].as_str() {
+                        parameters.remove(name);
+                    }
+                }
+            }
+            let mut scenario = json!({"scenario_id": id, "request": translated});
+            if p.verify.unwrap_or(true) {
+                if self.hosted {
+                    scenario["equivalence"] = json!({"status":"not_run","reason":"Equivalence runs are local stdio only."});
+                } else {
+                    let original = compute::execute(&model.to_string(), "simulate", request);
+                    let forked = compute::execute(&canonical, "simulate", translated);
+                    scenario["equivalence"] = match (original, forked) {
+                        (Ok(a), Ok(b)) => match crate::fork::compare_runs(&a, &b, &rows) {
+                            Ok(mut check) => {
+                                let worst = check["max_relative_difference"]
+                                    .as_f64()
+                                    .unwrap_or(f64::INFINITY);
+                                check["status"] = json!(if worst <= 1e-12 {
+                                    "identical"
+                                } else {
+                                    "differs"
+                                });
+                                check
+                            }
+                            Err(message) => json!({"status":"differs","reason":message}),
+                        },
+                        (Err(error), _) => {
+                            json!({"status":"not_run","reason":"The original scenario did not run","error":error})
+                        }
+                        (_, Err(error)) => {
+                            json!({"status":"differs","reason":"The copy did not run the translated scenario","error":error})
+                        }
+                    };
+                }
+            }
+            result["scenario"] = scenario;
+        }
+        result
     }
     async fn invoke(&self, operation: &str, args: Value) -> Value {
         let raw = args.get("request").is_some_and(|r| !r.is_null());
@@ -2380,7 +3638,7 @@ impl Server {
                 .await
         };
         let mut value = if self.hosted {
-            match tokio::time::timeout(std::time::Duration::from_secs(45), execute).await {
+            match tokio::time::timeout(self.hosted_time_remaining(), execute).await {
                 Ok(result) => result.unwrap_or_else(|e| e),
                 Err(_) => policy::error(
                     "deadline",
@@ -2409,12 +3667,43 @@ impl Server {
     ) -> CallToolResult {
         let mut filters = p.filters.clone().unwrap_or_else(|| json!({}));
         if !filters.is_object() {
-            filters = json!({});
+            return self.response(policy::error(
+                "filters",
+                "filters must be an object; see the search_models input schema for its keys",
+            ));
+        }
+        const FILTERS: [&str; 10] = [
+            "model_id",
+            "version",
+            "license",
+            "has_output",
+            "tag",
+            "availability",
+            "unit_status",
+            "fit_ready",
+            "fitting_supported",
+            "supports",
+        ];
+        if let Some(unknown) = filters
+            .as_object()
+            .unwrap()
+            .keys()
+            .find(|k| !FILTERS.contains(&k.as_str()) && *k != "execution_available")
+        {
+            return self.response(json!({"error":{"code":"filters","expression":format!("/filters/{unknown}"),
+                "message":format!("Unknown search filter '{unknown}'; it would otherwise be ignored silently."),
+                "suggestion":format!("Use one of: {}, execution_available. Put free text such as species, target or drug in query.", FILTERS.join(", "))}}));
         }
         if let Some(offset) = p.offset {
             filters["offset"] = json!(offset);
         }
+        let mut limit_note = None;
         if let Some(limit) = p.limit {
+            if limit > 25 {
+                limit_note = Some(format!(
+                    "limit {limit} was reduced to 25; page with offset and next_offset"
+                ));
+            }
             filters["limit"] = json!(limit.min(25));
         }
         if let Some(id) = p.model_id {
@@ -2436,6 +3725,11 @@ impl Server {
             filters["version"] = json!(version);
         }
         let mut value = self.library_search(&p.query, &filters);
+        if let Some(note) = limit_note {
+            value["limit_applied"] = json!(25);
+            value["limit_note"] = json!(note);
+        }
+
         #[cfg(feature = "managed")]
         if let Ok(scope) = crate::jobs::Scope::from_context(&ctx) {
             if scope.admitted().is_ok() {
@@ -2470,9 +3764,43 @@ impl Server {
                 }
             }
         }
-        value["hint"] = json!(
-            "Call get_model with the id for its compact interface; request detail full for equations and complete metadata. Retrieve a stored scenario with get_scenario_request."
-        );
+        if let Some(rows) = value.get_mut("models").and_then(Value::as_array_mut) {
+            // Compact rows: identity, status, why it matched and what it can do; get_model has the rest.
+            for row in rows.iter_mut() {
+                if let Some(fields) = row.as_object_mut() {
+                    for key in [
+                        "archive",
+                        "omex_sha256",
+                        "interchange",
+                        "source_scenario_ids",
+                        "source_model_id",
+                    ] {
+                        fields.remove(key);
+                    }
+                    if fields
+                        .get("unavailable_scenario_ids")
+                        .and_then(Value::as_array)
+                        .is_some_and(Vec::is_empty)
+                    {
+                        fields.remove("unavailable_scenario_ids");
+                    }
+                    if let Some(aliases) = fields.remove("output_aliases") {
+                        let n = aliases.as_object().map_or(0, |m| m.len());
+                        fields.insert("output_alias_count".into(), json!(n));
+                    }
+                    if let Some(outputs) = fields.get_mut("outputs").and_then(Value::as_array_mut) {
+                        outputs.truncate(8);
+                    }
+                }
+            }
+        }
+        if value["total"] == 0 && !p.query.trim().is_empty() {
+            value["hint"] = json!("No model matched every word. Try a drug name, a mechanism word (tmdd, adc, crs, idr), a species, or fewer words; remove filters to widen the search. Search covers model names, descriptions, scenario ids and outputs; targets such as CD20 appear only where a model's text names them.");
+        } else {
+            value["hint"] = json!(
+                "Call get_model with the id for its compact interface; request detail full for equations and complete metadata. Retrieve a stored scenario with get_scenario_request."
+            );
+        }
         self.response(value)
     }
     #[tool(output_schema = crate::contract::output_schema(),
@@ -2483,6 +3811,31 @@ impl Server {
         Parameters(p): Parameters<ModelCardRequest>,
         ctx: RequestContext<RoleServer>,
     ) -> CallToolResult {
+        let mut p = p;
+        match p.model.take() {
+            Some(ModelRef::Library { library }) => {
+                p.model_id = library.model_id;
+                p.version = p.version.or(library.version);
+                p.expected_inspection_hash = p
+                    .expected_inspection_hash
+                    .or(library.expected_inspection_hash);
+            }
+            Some(ModelRef::Scenario { scenario }) => {
+                p.model_id = scenario.model_id;
+                p.version = p.version.or(scenario.version);
+            }
+            Some(ModelRef::Source { source }) => p.source = Some(source),
+            None => {}
+        }
+        if let Some(source) = p.source.as_deref() {
+            return self.response(self.source_model_card(source, &p));
+        }
+        if p.model_id.is_empty() {
+            return self.response(policy::error(
+                "model_id",
+                "Supply model_id for a library model or source for inline .qsp text or model JSON.",
+            ));
+        }
         let value = {
             let l = self.library.read().unwrap();
             if let Some(r) = l.find(&p.model_id, p.version.as_deref()) {
@@ -2685,11 +4038,89 @@ impl Server {
         let scoped = self.scoped(&ctx);
         let _ = self;
         let server = &scoped;
-        let r = server
+        let mut r = server
             .compute(p.source, "validate_model", json!({}), false)
             .await
             .unwrap_or_else(|e| e);
+        if r["valid"] == true {
+            let warnings = crate::edit::lints(&r["model"]);
+            if !warnings.is_empty() {
+                r["warnings"] = json!(warnings);
+            }
+        }
         server.response(r)
+    }
+    #[tool(output_schema = crate::contract::output_schema(),
+        description = "Copy a library model into readable, editable .qsp: every opaque native symbol is renamed to a legal readable identifier (archive names where declared), the mathematics is unchanged, and name_map links each new name to its native symbol, unit and description. With scenario_id, the stored request is translated to the new names and, on local stdio, run on the original and the copy to report their largest relative difference. Edit canonical_source, then validate_model and simulate with model {source}. Archive evidence and qualification do not transfer to the copy."
+    )]
+    async fn fork_model(&self, Parameters(p): Parameters<Fork>) -> CallToolResult {
+        self.response(self.fork_model_value(p))
+    }
+    #[tool(output_schema = crate::contract::output_schema(),
+        description = "Edit a model by mechanism instead of rewriting it: add parameters, states, equation terms, fluxes, a peripheral compartment, covariates and covariate effects, a dosing input or outputs, or rename a symbol. Operations apply in order to .qsp text or model JSON; the result is compiled like validate_model and returns canonical_source, its hash and a semantic change list. Added parameters need a description stating their source or that they are assumptions. Nothing is simulated or qualified."
+    )]
+    async fn edit_model(
+        &self,
+        Parameters(p): Parameters<EditModel>,
+        ctx: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let scoped = self.scoped(&ctx);
+        let value = scoped
+            .within_hosted_deadline(async {
+                scoped
+                    .compute(
+                        p.source,
+                        "edit_model",
+                        json!({"operations":p.operations}),
+                        false,
+                    )
+                    .await
+                    .unwrap_or_else(|error| error)
+            })
+            .await;
+        scoped.response(value)
+    }
+    #[tool(output_schema = crate::contract::output_schema(),
+        description = "Steady state for any model, nonlinear included: give one maintenance dose every interval and simulate more intervals until the change still to come in AUC, peak, minimum and pre-dose trough, extrapolated from the last three intervals, is within relative_tolerance. Returns the steady-state interval's readouts with units, the number of intervals needed, the accumulation ratio (AUC at steady state / AUC of the first interval) and the convergence evidence."
+    )]
+    async fn simulate_steady_state(
+        &self,
+        Parameters(p): Parameters<SimulateSteadyState>,
+        ctx: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let scoped = self.scoped(&ctx);
+        let value = scoped
+            .within_hosted_deadline(scoped.simulate_steady_state_value(p))
+            .await;
+        scoped.response(value)
+    }
+    #[tool(output_schema = crate::contract::output_schema(),
+        description = "Rank which parameters drive one or more readouts, with the same doses, covariates and readouts as simulate. method local gives central-difference elasticities (d ln readout / d ln parameter) at the current values; method morris gives elementary-effects screening (mu_star, mu, sigma) over each parameter's lower..upper range. Results are inline, ranked per readout, under the names you supplied."
+    )]
+    async fn sensitivity(
+        &self,
+        Parameters(p): Parameters<Sensitivity>,
+        ctx: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let scoped = self.scoped(&ctx);
+        let value = scoped
+            .within_hosted_deadline(scoped.sensitivity_value(p))
+            .await;
+        scoped.response(value)
+    }
+    #[tool(output_schema = crate::contract::output_schema(),
+        description = "Find the dose amount that meets a readout requirement for a typical subject: bisect one dose's amount between lower and upper (timing, fixed doses, parameters and covariates held constant) until the readout is at most or at least the threshold. Returns the bracketing amounts with their readout values, every evaluation, and a status (found, met_at_lower, not_met_at_upper, not_monotonic). Deterministic: it does not account for variability between subjects."
+    )]
+    async fn find_dose(
+        &self,
+        Parameters(p): Parameters<FindDose>,
+        ctx: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let scoped = self.scoped(&ctx);
+        let value = scoped
+            .within_hosted_deadline(scoped.find_dose_value(p))
+            .await;
+        scoped.response(value)
     }
     #[tool(output_schema = crate::contract::output_schema(),
         description = "Copy exact computed simulation columns into requested response keys, with explicit pre/post/both event-side selection and complete per-run mapping receipts. Optionally reject a proposed final response with missing conditions/keys, wrong identifiers, event objects, nonnumeric arrays or changed values. Reads retained local results or pinned supplied complete JSON; performs no solve, interpolation, unit conversion, file write or job submission. Supplied data is not producer authentication or scientific qualification.")]
@@ -2859,9 +4290,15 @@ impl Server {
         )
     }
     #[tool(output_schema = crate::contract::output_schema(),
-        description = "Summarize a concentration-time profile you already have (from a file, a paper or your own run): cmax, tmax, cmin, AUC, average and terminal half-life, plus time below and above an optional threshold."
+        description = "Noncompartmental analysis (NCA) of a concentration-time profile you already have (from a file, a paper or your own run): cmax, tmax, cmin, AUC, average and time below or above a threshold; with route (iv_bolus or extravascular), time_unit and concentration_unit it adds single-dose NCA with CDISC codes (AUCLST, AUCIFO, AUCPEO, LAMZ, LAMZHL, and CL(F) and VZ(F) with dose) as qspquest.noncompartmental_analysis computes them, including BLQ rows (blq flags with blq_rule). AUC and half-life are then reported once, under nca."
     )]
     async fn summarize_profile(&self, Parameters(p): Parameters<Profile>) -> CallToolResult {
+        if self.hosted && p.times.len().max(p.values.len()) > policy::HOSTED_PROFILE_ROWS {
+            return self.response(policy::error(
+                "budget",
+                format!("Hosted profile summaries support up to {} rows. Use local execution for a larger profile.", policy::HOSTED_PROFILE_ROWS),
+            ));
+        }
         if p.times.len() < 2
             || p.times.len() != p.values.len()
             || p.times.windows(2).any(|w| w[1] < w[0])
@@ -2872,7 +4309,18 @@ impl Server {
             ));
         }
         let (from, to) = (p.times[0], *p.times.last().unwrap());
-        let result = json!({"time_unit":p.time_unit.clone().unwrap_or_default(),"times":p.times,"outputs":[{"name":"profile","values":p.values}]});
+        // BLQ values enter the trapezoidal summaries as zero.
+        let summarized: Vec<f64> = match &p.blq {
+            Some(flags) if flags.len() == p.values.len() => p
+                .values
+                .iter()
+                .zip(flags)
+                .map(|(v, b)| if *b { 0.0 } else { *v })
+                .collect(),
+            Some(_) => return self.response(policy::error("blq", "blq needs one flag per time")),
+            None => p.values.clone(),
+        };
+        let result = json!({"time_unit":p.time_unit.clone().unwrap_or_default(),"times":p.times,"outputs":[{"name":"profile","values":summarized,"unit":p.concentration_unit.clone().unwrap_or_else(|| "1".into())}]});
         let window = json!({"output":"profile","from":{"value":from},"to":{"value":to}});
         let mut specs =
             vec![json!({"kind":"nca","output":"profile","from":window["from"],"to":window["to"]})];
@@ -2881,8 +4329,81 @@ impl Server {
                 specs.push(json!({"kind":kind,"output":"profile","threshold":c,"from":window["from"],"to":window["to"]}));
             }
         }
+        let mut nca = Value::Null;
+        if let Some(route) = p.route.as_deref() {
+            let route = match route {
+                "iv_bolus" => crate::core::nca::Route::IvBolus,
+                "extravascular" => crate::core::nca::Route::Extravascular,
+                _ => {
+                    return self.response(policy::error(
+                        "route",
+                        "route must be iv_bolus or extravascular",
+                    ))
+                }
+            };
+            let method = match p.auc_method.as_deref().unwrap_or("linear_up_log_down") {
+                "linear_up_log_down" => crate::core::nca::Method::LinearUpLogDown,
+                "linear" => crate::core::nca::Method::Linear,
+                _ => {
+                    return self.response(policy::error(
+                        "auc_method",
+                        "auc_method must be linear_up_log_down or linear",
+                    ))
+                }
+            };
+            let (Some(time_unit), Some(concentration_unit)) =
+                (p.time_unit.as_deref(), p.concentration_unit.as_deref())
+            else {
+                return self.response(policy::error("units", "NCA needs time_unit and concentration_unit so every parameter carries its unit"));
+            };
+            let blq = match p
+                .blq_rule
+                .as_ref()
+                .map(crate::core::nca::BlqRule::parse)
+                .transpose()
+            {
+                Ok(rule) => rule,
+                Err(message) => return self.response(policy::error("blq_rule", message)),
+            };
+            let settings = crate::core::nca::Settings {
+                route,
+                method,
+                dose: p.dose.as_ref().map(|d| d.value),
+                units: crate::core::nca::Units {
+                    time: time_unit,
+                    concentration: concentration_unit,
+                    amount: p.dose.as_ref().map(|d| d.unit.as_str()),
+                },
+                blq,
+                min_points: p.lambda_z_min_points.unwrap_or(3).max(3),
+                tolerance: 1e-4,
+                rows: true,
+            };
+            match crate::core::nca::analyze(&p.times, &p.values, p.blq.as_deref(), &settings) {
+                Ok(v) => nca = v,
+                Err(message) => return self.response(policy::error("profile", message)),
+            }
+        } else if p.blq.is_some() || p.blq_rule.is_some() {
+            return self.response(policy::error(
+                "blq",
+                "blq and blq_rule apply to the NCA; give route as well",
+            ));
+        }
         match usability::readouts(&result, &json!(specs), &Value::Null) {
             Ok(mut r) => {
+                if !nca.is_null() {
+                    r["nca"] = nca;
+                    // One AUC and one half-life per response: the trapezoidal summary gives way.
+                    if let Some(row) = r["results"].get_mut(0).filter(|row| row["kind"] == "nca") {
+                        for key in ["auc", "cavg", "terminal_half_life"] {
+                            row["value"].as_object_mut().map(|o| o.remove(key));
+                            row["units"].as_object_mut().map(|o| o.remove(key));
+                        }
+                        row["note"] = json!(
+                            "AUC and half-life are reported under nca (AUCLST, AUCIFO, LAMZHL)."
+                        );
+                    }
+                }
                 r["method"] = json!(
                     "Trapezoidal AUC on the supplied points; crossings interpolated linearly between points."
                 );
@@ -2912,7 +4433,7 @@ impl Server {
         )
     }
     #[tool(output_schema = crate::contract::output_schema(),
-        description = "Scan one parameter over 1..25 explicit quantities or a unit-bearing range. Returns compact trajectories and summaries."
+        description = "Scan one parameter, one covariate (parameter names it) or one dose amount (dose_index) over 1..25 explicit quantities or a unit-bearing range, with the same friendly end, times, doses, parameters, covariates and readouts as simulate. Dose amounts may be per body mass (mg/kg), resolved against body weight. Returns each point's readouts; trajectories are compacted when readouts are requested."
     )]
     async fn scan_parameters(
         &self,
@@ -2922,11 +4443,23 @@ impl Server {
         let scoped = self.scoped(&ctx);
         let _ = self;
         let server = &scoped;
-        server.response(
-            server
-                .invoke("scan_parameters", serde_json::to_value(p).unwrap())
-                .await,
-        )
+        let result = server.within_hosted_deadline(async {
+            match (&p.parameter, p.dose_index) {
+            (None, None) => policy::error("parameter", "Name the parameter or covariate to vary, or set dose_index to vary the amount of doses[dose_index]."),
+            (Some(_), Some(_)) => policy::error("dose_index", "Give either parameter (a parameter or covariate) or dose_index (a dose amount), not both."),
+            (None, Some(_)) => server.scan_inputs_value(p, None).await,
+            (Some(name), None) => {
+                let name = name.clone();
+                let result = server.invoke("scan_parameters", serde_json::to_value(&p).unwrap()).await;
+                if result["error"]["code"] == "scan_covariate" {
+                    server.scan_inputs_value(p, Some(name)).await
+                } else {
+                    result
+                }
+            }
+            }
+        }).await;
+        server.response(result)
     }
     #[tool(output_schema = crate::contract::output_schema(),
         description = "Fit one estimated parameter with explicit bounds and Gaussian observations; supports a native scalar fit_request."
@@ -2980,6 +4513,117 @@ impl Server {
         )
     }
 }
+/// Relative change still to come in a geometrically converging series of three successive
+/// interval values; infinity when it is not converging or a value is not finite.
+fn remaining(x: [f64; 3]) -> f64 {
+    if x.iter().any(|v| !v.is_finite()) {
+        return f64::INFINITY;
+    }
+    let scale = x[2].abs().max(f64::MIN_POSITIVE);
+    let (d1, d2) = (x[1] - x[0], x[2] - x[1]);
+    // Changes at the level of solver round-off are treated as no change.
+    if d2.abs() <= 1e-10 * scale {
+        return 0.0;
+    }
+    if d1 == 0.0 {
+        return f64::INFINITY;
+    }
+    let r = (d2 / d1).abs();
+    if r >= 1.0 {
+        return f64::INFINITY;
+    }
+    d2.abs() * r / (1.0 - r) / scale
+}
+
+/// Morris step and the largest starting grid index for `levels` grid levels on [0, 1]: the
+/// step is floor(levels/2) grid intervals (levels/(2(levels-1)) for even levels), so every
+/// start plus one step stays on the grid and inside the requested range.
+fn morris_step(levels: u32) -> (f64, u64) {
+    let steps = (levels / 2) as u64;
+    (
+        steps as f64 / (levels as f64 - 1.0),
+        levels as u64 - 1 - steps,
+    )
+}
+
+fn finite_or_null(x: f64) -> Value {
+    if x.is_finite() {
+        json!(x)
+    } else {
+        Value::Null
+    }
+}
+
+#[cfg(test)]
+mod morris_design {
+    #[test]
+    fn steps_stay_on_the_grid_inside_the_range() {
+        for levels in 2..=10u32 {
+            let (delta, grid_max) = super::morris_step(levels);
+            let top = grid_max as f64 / (levels as f64 - 1.0) + delta;
+            assert!(top <= 1.0 + 1e-12, "levels {levels}: {top}");
+            assert!(delta > 0.0);
+            if levels % 2 == 0 {
+                assert!((delta - levels as f64 / (2.0 * (levels as f64 - 1.0))).abs() < 1e-12);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod steady_state_criterion {
+    use super::remaining;
+
+    #[test]
+    fn remaining_change_bounds_the_geometric_shortfall() {
+        // x_n = 1 - r^n with r = 0.98 (accumulation ratio 50): the last change alone is 50
+        // times smaller than the shortfall that remains.
+        let r: f64 = 0.98;
+        let x = |n: i32| 1.0 - r.powi(n);
+        let (a, b, c) = (x(200), x(201), x(202));
+        let shortfall = (1.0 - c) / c;
+        assert!((remaining([a, b, c]) - shortfall).abs() < 1e-9 * shortfall.max(1e-300));
+        assert!((c - b) / c < shortfall / 40.0);
+    }
+
+    #[test]
+    fn non_finite_or_non_contracting_series_never_converge() {
+        assert_eq!(remaining([1.0, f64::NAN, 1.0]), f64::INFINITY);
+        assert_eq!(remaining([1.0, 2.0, 3.0]), f64::INFINITY);
+        assert_eq!(remaining([2.0, 2.0, 2.0]), 0.0);
+    }
+}
+/// Scalar summary of a native regimen comparison: exposure percentiles and
+/// paired differences. It is kept when larger fields are compacted.
+fn comparison_brief(record: &Value) -> Value {
+    let regimens: Vec<Value> = record["regimen_order"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(|label| {
+            let r = &record["regimens"][label];
+            json!({"name":label,"unit":r["unit"],"time_unit":r["time_unit"],
+                "metric_percentiles":r["metric_percentiles"],
+                "paired_differences_vs_reference":r["paired_differences_vs_reference"]})
+        })
+        .collect();
+    json!({"reference":record["reference"],"subjects":record["subjects"],
+        "seed":record["seed"],"variability":record["variability"],
+        "percentiles":record["regimens"][record["reference"].as_str().unwrap_or("")]["percentiles"],
+        "regimens":regimens,"simulations":record["simulations"]})
+}
+/// Wrap a native analysis record. The record stays verbatim under `analysis`;
+/// its identity is the analysis identity, which covers every simulation.
+fn analysis_payload(request: &Value, record: Value) -> Value {
+    let status = record["status"].clone();
+    json!({
+        "analysis_operation": request["operation"],
+        "analysis_status": status,
+        "identity": record["identity"],
+        "analysis": record,
+    })
+}
 pub fn templates(kind: &str) -> Option<&'static str> {
     match kind {
         "iv_one_compartment" => Some(include_str!("../assets/templates/iv.qsp")),
@@ -3024,6 +4668,7 @@ impl ServerHandler for Server {
                         | "fit_population"
                         | "steady_state"
                         | "morris_screening"
+                        | "analyze"
                 ) {
                     tool.annotations = Some(ToolAnnotations::from_raw(
                         None,
@@ -3061,6 +4706,7 @@ impl ServerHandler for Server {
                 | "fit_population"
                 | "steady_state"
                 | "morris_screening"
+                | "analyze"
                 | "submit_local_job"
                 | "get_local_job"
                 | "cancel_local_job"
@@ -3112,7 +4758,7 @@ impl ServerHandler for Server {
         }
     }
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(serde_json::from_value(json!({"tools":{},"resources":{},"prompts":{},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}})).unwrap()).with_server_info(Implementation::new("qspquest-mcp", env!("CARGO_PKG_VERSION"))).with_instructions("Workflow: search_models to find a published model; get_model for its compact interface (dose targets, parameters with units, outputs, scenario ids; detail full for equations and complete metadata); get_model.selection for known output names, stored scenarios and batched advertised inspection resources, binding later calls with expected_inspection_hash; get_patient_parameters for the clearance, volume and other quantities the model derives for given covariates; simulate or compare_regimens with doses, parameters, parameter_changes (a parameter that changes at a given time), times and readouts (window AUC, minimum, time below a threshold, pre-dose trough, nca) for the numbers. Use the names and units shown by get_model; unit \"1\" means the model's own number. Results lead with the requested values; save_csv writes the full CSV trajectory and a .manifest.json with units, effective inputs, identity and qualification limits; keep both files together. Read full_result_resource when the contract links a resource and you need the complete numerical payload. Use format_response for requested scalar arrays and decision identifiers: declare every condition, actual returned column, unit, time and explicit pre/post/both event side; inspect the source and copying receipts. Missing conditions and event objects inside scalar arrays fail; formatting does not qualify science. Preset scenarios are declared input sets; recorded evidence covers only its named scope. A modified run needs applicable evidence. Label synthetic examples and nonconverged fits as such.")
+        ServerConfig::new(serde_json::from_value(json!({"tools":{},"resources":{},"prompts":{},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}})).unwrap()).with_server_info(Implementation::new("qspquest-mcp", env!("CARGO_PKG_VERSION"))).with_instructions("QSPQuest runs pharmacology models (PK, PK/PD, QSP) with explicit units. Typical workflows:\n- Find and inspect: search_models (words, drug, mechanism such as tmdd/adc/crs, species; typed filters such as fit_ready or availability), then get_model for the compact card (parameters, covariates, dose targets, outputs, scenario ids; detail full for equations). Run a stored scenario with model {scenario:{model_id, scenario_id}}.\n- Simulate and compare: simulate or compare_regimens with friendly doses (target, amount, at, every with count, duration), parameters, covariates, times and readouts (max, min, trough, auc, nca, time_below, time_above, first_crossing; every result carries its unit). scan_parameters varies one parameter, covariate or dose amount (dose_index) with the same fields. Dose amounts may be per body mass (mg/kg), resolved against body weight. find_dose bisects a dose amount to meet a readout requirement for a typical subject. get_patient_parameters gives derived quantities (clearance, volume) for given covariates.\n- Build models: fork_model copies a library model into readable editable .qsp with a name map and a scenario equivalence check; edit_model adds mechanisms by typed operations (states, terms, fluxes, peripheral compartments, covariate effects, dosing, outputs); validate_model checks .qsp text and warns on likely transcription errors; model_template gives small starting models; get_model and simulate accept model {source: text}.\n- Fit: fit_individual with end, doses and observations given by time; fit_population for NONMEM-style rows; fit_scalar for one parameter. Check status and convergence before using estimates.\n- Analysis: sensitivity ranks which parameters drive each readout (local elasticities, or morris screening over ranges) with the same friendly fields as simulate; steady_state (linear_pk models; see steady_state_supported on the card) and morris_screening take native requests; simulate_steady_state gives steady-state trough, peak and AUC over the interval for any model with a friendly maintenance dose; summarize_profile with route, time_unit, concentration_unit and dose gives full single-dose NCA (AUC to infinity, lambda_z, CL, Vz) (see qspquest://documentation); plan_run previews any call without computing, and expected_plan_hash optionally binds execution to that preview.\nUse the names and units from get_model; unit 1 means the model's own number. Results lead with the requested values; save_csv writes a CSV with a .manifest.json of units and inputs. Read full_result_resource when a result is compacted. Report each result's limitations: library qualification, unit status, assumed values and convergence. Guides: qspquest://documentation, including qspquest://guide/extend-model.")
     }
     async fn list_resources(
         &self,
@@ -3122,6 +4768,7 @@ impl ServerHandler for Server {
         let mut uris = vec![
             "qspquest://capabilities".to_owned(),
             "qspquest://schema/mcp-result".to_owned(),
+            "qspquest://schema/tools/simulate".to_owned(),
             "qspquest://schema/capabilities".to_owned(),
             "qspquest://schema/result-artifact".to_owned(),
             "qspquest://schema/local-job".to_owned(),
@@ -3316,6 +4963,20 @@ impl ServerHandler for Server {
             serde_json::to_string(&family).unwrap()
         } else if uri == crate::table::SCHEMA_URI {
             crate::table::schema().to_string()
+        } else if let Some(tool) = uri.strip_prefix("qspquest://schema/tools/") {
+            if !Self::tool_router()
+                .map
+                .keys()
+                .any(|name| name.as_ref() == tool)
+            {
+                return Err(ErrorData::invalid_params(
+                    format!("No tool named {tool}; see tools/list"),
+                    None,
+                ));
+            }
+            serde_json::to_value(crate::contract::output_schema_for(tool))
+                .unwrap()
+                .to_string()
         } else if uri == "qspquest://schema/mcp-result" {
             serde_json::to_value(crate::contract::output_schema())
                 .unwrap()
@@ -3433,31 +5094,85 @@ impl ServerHandler for Server {
         _: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, ErrorData> {
-        serde_json::from_value(json!({"prompts":[{"name":"build-pk-model","description":"Build a unit-bearing model"},{"name":"simulate-regimen","description":"Simulate a library regimen"},{"name":"fit-observations","description":"Prepare and assess a bounded fit"},{"name":"compare-dosing","description":"Compare named regimens"}]})).map_err(|e|ErrorData::internal_error(e.to_string(),None))
+        let prompts: Vec<Value> = PROMPTS
+            .iter()
+            .map(|(name, description, arguments, _)| {
+                json!({"name":name,"description":description,
+                    "arguments":arguments.iter().map(|(a, d)| json!({"name":a,"description":d,"required":false})).collect::<Vec<_>>()})
+            })
+            .collect();
+        serde_json::from_value(json!({"prompts":prompts}))
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))
     }
     async fn get_prompt(
         &self,
         p: GetPromptRequestParams,
         _: RequestContext<RoleServer>,
     ) -> Result<GetPromptResponse, ErrorData> {
-        if ![
-            "build-pk-model",
-            "simulate-regimen",
-            "fit-observations",
-            "compare-dosing",
-        ]
-        .contains(&p.name.as_str())
-        {
-            return Err(ErrorData::invalid_params("Unknown prompt", None));
-        }
-        serde_json::from_value::<GetPromptResult>(json!({"messages":[{"role":"user","content":{"type":"text","text":format!("For {}, first read qspquest://guide/language and qspquest://guide/requests. Inspect model units and fitting capabilities, use explicit quantities, validate source edits, and report exact identity, synthetic provenance, convergence and limitations. {}",p.name,serde_json::to_string(&p.arguments).unwrap_or_default())}}]})).map(Into::into).map_err(|e|ErrorData::internal_error(e.to_string(),None))
+        let Some((_, _, arguments, steps)) =
+            PROMPTS.iter().find(|(name, ..)| *name == p.name.as_str())
+        else {
+            return Err(ErrorData::invalid_params(
+                format!(
+                    "Unknown prompt; available: {}",
+                    PROMPTS.iter().map(|p| p.0).collect::<Vec<_>>().join(", ")
+                ),
+                None,
+            ));
+        };
+        let supplied: Vec<String> = arguments
+            .iter()
+            .filter_map(|(a, _)| {
+                p.arguments
+                    .as_ref()
+                    .and_then(|m| m.get(*a))
+                    .and_then(|v| v.as_str())
+                    .map(|v| format!("{a}: {v}"))
+            })
+            .collect();
+        let context = if supplied.is_empty() {
+            String::new()
+        } else {
+            format!("\n\nGiven: {}.", supplied.join("; "))
+        };
+        let text = format!("{steps}\n\nThroughout: use the names and units from get_model; treat unit 1 as the model's own number; report every result with its units and limitations (library qualification, unit status, assumed values, convergence).{context}");
+        serde_json::from_value::<GetPromptResult>(
+            json!({"messages":[{"role":"user","content":{"type":"text","text":text}}]}),
+        )
+        .map(Into::into)
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))
     }
 }
+
+/// MCP prompts: one workflow each, with optional arguments and the tools in order.
+const PROMPTS: [(&str, &str, &[(&str, &str)], &str); 7] = [
+    ("find-model", "Find library models for a question and judge whether they apply",
+        &[("question", "What the model should describe: drug, target, mechanism, species or population")],
+        "Find models that answer the question. 1. search_models with the key words (drug, target, mechanism such as tmdd/adc/crs, species); use filters such as availability or fit_ready rather than words for status. 2. For each candidate, get_model: read its description, scenario ids, dose targets, covariates, unit status and availability (dynamic, source_replay or inspection_only). 3. Prefer models whose availability supports what you need; say which assumptions or populations differ from the question."),
+    ("simulate-regimen", "Simulate a dosing regimen with a library model",
+        &[("model_id", "Library model id"), ("regimen", "Doses in words, for example 1000 mg IV on days 0 and 14")],
+        "Simulate a regimen. 1. get_model for dose targets (with their amount units and any model lag or bioavailability), covariates and outputs. 2. simulate with model {library:{model_id}}, doses [{target, amount, at, every and count, duration}], covariates, end and readouts for the quantities asked (max, trough, auc, nca, time_below). 3. Report readouts with their units. If the model supports stored presets only, run a scenario with model {scenario:{model_id, scenario_id}} instead."),
+    ("compare-dosing", "Compare regimens or find the dose that meets a target",
+        &[("model_id", "Library model id or omit to use source"), ("target", "The exposure or response requirement, for example trough at least 10 mg/L")],
+        "Compare regimens against a requirement. 1. get_model for dose targets and outputs. 2. compare_regimens with named members (doses, optional per-member covariates) and readouts for the requirement; every member's readouts are returned inline. 3. To find a dose, find_dose with the fixed doses, the searched dose (target, timing, lower and upper amount) and the constraint (readout, at_most or at_least, threshold). 4. Test the choice with scan_parameters over uncertain parameters (it takes the same doses and readouts). These are typical-subject results; say so."),
+    ("extend-library-model", "Copy a library model and add a mechanism",
+        &[("model_id", "Library model to start from"), ("mechanism", "What to add, for example a peripheral compartment or a weight effect on clearance")],
+        "Extend a library model. 1. fork_model with model_id and a scenario_id; confirm scenario.equivalence.status is identical; optionally exclude_roles such as source_check. 2. edit_model on canonical_source with typed operations (set_initial, add_dosing or set_dosing, add_state, add_term, add_flux, add_peripheral_compartment, add_covariate, add_covariate_effect, add_output, set_rhs); give every added parameter a description stating its source or that it is an assumption. 3. Check warnings, then get_model {source} for the new interface. 4. Show that the extension reduces to the original when the new mechanism is switched off, then simulate. Guide: qspquest://guide/extend-model."),
+    ("build-model-from-paper", "Write a model from published equations and check it against reported values",
+        &[("description", "The equations, parameters and units as stated in the source")],
+        "Write the model as .qsp text. 1. Start from model_template if one fits. 2. Declare every parameter and state with a unit; use quantity(value, \"unit\") for constants; dose mapping with the amount unit given in the paper (for example central [mg/kg] = wt / mw for per-kg dosing into a molar state). 3. validate_model and fix located errors; read its warnings (for example [%] outputs multiplied by 100). 4. Simulate the reported regimen and compare readouts with the reported values, including their units. Guides: qspquest://guide/language and qspquest://guide/units."),
+    ("fit-observations", "Fit a model to observed data and report estimates with their limits",
+        &[("data", "What was measured, in which units, and how many subjects")],
+        "Fit observations. 1. For one subject, fit_individual with model, end, doses, parameters_to_fit (bounds with units) and observations [{time, output, value, error:{additive_sd, proportional_sd}}]. 2. For several subjects in NONMEM-style rows, fit_population; read its tool description for supported methods and effects. 3. Check status, convergence and active bounds before using estimates; simulate the fitted model at the observation times to inspect residuals. Report estimates with units and any uncertainty returned."),
+    ("build-pk-model", "Build a unit-bearing model (alias of build-model-from-paper)",
+        &[("description", "The model in words")],
+        "Write the model as .qsp text: start from model_template, declare units for every parameter and state, validate_model, then simulate. Guide: qspquest://guide/language."),
+];
 
 #[cfg(feature = "analysis")]
 #[tool_router(router=analysis_tools)]
 impl Server {
-    #[tool(output_schema = crate::contract::output_schema(), description = "Periodic steady state; supply a native steady-state request.")]
+    #[tool(output_schema = crate::contract::output_schema(), description = "Exact periodic steady state for models with a linear_pk declaration (see get_model steady_state_supported), from a native steady-state request. For any model, nonlinear included, use simulate_steady_state with friendly doses.")]
     async fn steady_state(
         &self,
         Parameters(p): Parameters<NativeAnalysis>,
@@ -3469,6 +5184,19 @@ impl Server {
         server.response(
             server
                 .invoke("steady_state", serde_json::to_value(p).unwrap())
+                .await,
+        )
+    }
+    #[tool(output_schema = crate::contract::output_schema(), description = "Native analysis workflows from the QSPQuest engine: bounded likelihood fit (fit_data), SAEM population fit (fit_population), visual predictive check, likelihood profile, subject bootstrap, event sensitivities, and exposure_summary or fit_diagnostics on an existing record. Supply a complete qspquest.analysis/v0.2 request with native names and units. Inspect plan_run first: it prepares every embedded run without simulation or random draws and reports required simulations. Hosted calls state max_simulations (at most 500) and run on one worker. For paired population regimen comparisons use compare_regimens with a population block.")]
+    async fn analyze(
+        &self,
+        Parameters(p): Parameters<AnalysisWorkflow>,
+        ctx: RequestContext<RoleServer>,
+    ) -> CallToolResult {
+        let scoped = self.scoped(&ctx);
+        scoped.response(
+            scoped
+                .invoke("analyze", serde_json::to_value(p).unwrap())
                 .await,
         )
     }
@@ -3507,7 +5235,7 @@ impl Server {
                 || name == "preview_job"
                 || matches!(name, "get_job" | "wait_for_job" | "get_artifact")
                 || cfg!(feature = "managed") && matches!(name, "search_models" | "get_model");
-            route.attr.output_schema = Some(crate::contract::output_schema_for(name));
+            route.attr.output_schema = Some(crate::contract::advertised_output_schema(name));
             route.attr.annotations = Some(ToolAnnotations::from_raw(
                 None,
                 Some(!csv && !submit && !local_mutation),
@@ -4902,6 +6630,244 @@ mod core_library_response_tests {
         assert_eq!(
             server.plan_invocation("steady_state", args).await["error"]["code"],
             "WorkBudget"
+        );
+    }
+
+    #[cfg(feature = "analysis")]
+    fn fit_data_args(source: &str) -> Value {
+        let run: Value = serde_json::from_str(include_str!(
+            "../../../conformance/requests/synthetic-one-compartment.json"
+        ))
+        .unwrap();
+        // cp(t) = 2 exp(-0.1 t) mg/L for a 6 mg bolus into 3 L with clearance 0.3 L/h.
+        let observations: Vec<Value> = [1.0f64, 2.0, 4.0, 8.0, 12.0]
+            .iter()
+            .enumerate()
+            .map(|(i, t)| json!({"row":i+1,"output":"cp","value":{"value":2.0*(-0.1*t).exp(),"unit":"mg/L"}}))
+            .collect();
+        json!({"model":{"source":source},"request":{"schema":"qspquest.analysis/v0.2","operation":"fit_data",
+            "arguments":{"run":run,"observations":observations,
+                "parameters":[{"name":"cl","initial":0.5,"lower":0.05,"upper":2.0,"unit":"L/h"}],
+                "error":{"additive":0.01},"max_simulations":2000}}})
+    }
+
+    #[cfg(feature = "analysis")]
+    #[tokio::test]
+    async fn analysis_plans_admit_without_simulation_and_execution_binds_the_plan() {
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
+        let source = include_str!("../../../conformance/models/synthetic-one-compartment.qsp");
+        let mut args = fit_data_args(source);
+        let plan = server.plan_invocation("analyze", args.clone()).await;
+        assert!(plan["error"].is_null(), "{plan}");
+        let native = &plan["plan"]["native_preparation"];
+        assert_eq!(native["kind"], "analyze");
+        assert_eq!(native["plan"]["schema"], "qspquest.analysis-plan/v0.2");
+        assert_eq!(native["plan"]["simulations"], 0);
+        assert_eq!(native["plan"]["random_draws"], 0);
+        assert_eq!(native["plan"]["max_simulations"], 2000);
+        assert_eq!(native["plan"]["runs"][0]["pointer"], "/arguments/run");
+        assert_eq!(native["plan"]["runs"][0]["observation_records"], 5);
+        args["expected_plan_hash"] = plan["plan_hash"].clone();
+        let result = server.invoke("analyze", args.clone()).await;
+        assert!(result["error"].is_null(), "{result}");
+        assert_eq!(result["plan_hash"], plan["plan_hash"]);
+        assert_eq!(result["analysis_operation"], "fit_data");
+        assert_eq!(result["analysis_status"], "converged");
+        let cl = result["analysis"]["parameters"]["cl"]["value"]
+            .as_f64()
+            .unwrap();
+        assert!((cl - 0.3).abs() < 1e-4, "{cl}");
+        assert_eq!(result["identity"], result["analysis"]["identity"]);
+        assert_eq!(
+            result["identity"]["model_content_hash"],
+            native["plan"]["model_content_hash"]
+        );
+        args["request"]["arguments"]["parameters"][0]["initial"] = json!(0.6);
+        let refused = server.invoke("analyze", args).await;
+        assert_eq!(refused["error"]["code"], "plan_mismatch", "{refused}");
+        assert!(refused.get("analysis").is_none());
+    }
+
+    #[cfg(feature = "analysis")]
+    #[tokio::test]
+    async fn analysis_plans_never_integrate_and_execution_reports_native_failures() {
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
+        let poisoned = include_str!("../../../conformance/models/synthetic-one-compartment.qsp")
+            .replace("((cl / v) * central)", "((cl / (v - v)) * central)");
+        let args = fit_data_args(&poisoned);
+        let plan = server.plan_invocation("analyze", args.clone()).await;
+        assert!(plan["error"].is_null(), "{plan}");
+        let result = server.invoke("analyze", args.clone()).await;
+        assert!(result["error"].is_object(), "{result}");
+        assert!(result.get("analysis").is_none());
+        // Static admission locates argument errors before any compute permit.
+        let mut bad = args;
+        bad["request"]["arguments"]["observations"][2]["value"]["unit"] = json!("ng/mL");
+        let outcome = server.plan_invocation("analyze", bad.clone()).await;
+        assert_eq!(
+            outcome["error"]["expression"], "/arguments/observations/2",
+            "{outcome}"
+        );
+        bad["request"]["arguments"]["unknown"] = json!(1);
+        assert!(
+            server.plan_invocation("analyze", bad).await["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("unknown analysis argument")
+        );
+    }
+
+    #[cfg(feature = "analysis")]
+    #[tokio::test]
+    async fn analyze_routes_one_name_per_tool_and_gates_library_estimation() {
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
+        let source = include_str!("../../../conformance/models/synthetic-one-compartment.qsp");
+        let mut args = fit_data_args(source);
+        args["request"]["operation"] = json!("compare_regimens");
+        for outcome in [
+            server.plan_invocation("analyze", args.clone()).await,
+            server.invoke("analyze", args.clone()).await,
+        ] {
+            assert_eq!(
+                outcome["error"]["expression"], "/request/operation",
+                "{outcome}"
+            );
+            assert!(outcome["error"]["suggestion"]
+                .as_str()
+                .unwrap()
+                .contains("compare_regimens"));
+        }
+        let mut library = fit_data_args(source);
+        library["model"] = json!({"library":{"model_id":"qspquest_diffdose_2026_idr_benchmark"}});
+        assert_eq!(
+            server.invoke("analyze", library).await["error"]["code"],
+            "fitting_unsupported"
+        );
+    }
+
+    #[cfg(feature = "analysis")]
+    #[test]
+    fn analysis_admission_bounds_hosted_work_without_the_generic_walker() {
+        use crate::execution_policy::{admit_analysis, Profile};
+        let run = json!({"schema":"qspquest.run/v0.1","budgets":{"solver_callbacks":10000,"events":10,"output_values":1000}});
+        let compare = |arguments: Value| json!({"schema":"qspquest.analysis/v0.2","operation":"compare_regimens","arguments":arguments});
+        // Analysis fields keep their own meaning: an integer subject count and eight effects.
+        let mut local = compare(
+            json!({"subjects":40,"random_effects":["a","b","c","d","e","f","g","h"],
+            "regimens":[{"label":"a","run":{"schema":"qspquest.run/v0.1"}}]}),
+        );
+        admit_analysis(&mut local, Profile::Local).unwrap();
+        assert_eq!(
+            local["arguments"]["regimens"][0]["run"]["budgets"]["solver_callbacks"],
+            1_000_000
+        );
+        for (arguments, pointer) in [
+            (
+                json!({"regimens":[{"label":"a","run":run}]}),
+                "/arguments/max_simulations",
+            ),
+            (
+                json!({"max_simulations":501,"regimens":[{"label":"a","run":run}]}),
+                "/arguments/max_simulations",
+            ),
+            (
+                json!({"max_simulations":10,"workers":2,"regimens":[{"label":"a","run":run}]}),
+                "/arguments/workers",
+            ),
+            (
+                json!({"max_simulations":500,"regimens":[{"label":"a","run":{"schema":"qspquest.run/v0.1"}}]}),
+                "/arguments/regimens/0/run/budgets/solver_callbacks",
+            ),
+        ] {
+            let mut request = compare(arguments);
+            let before = request.clone();
+            let error = admit_analysis(&mut request, Profile::Hosted).unwrap_err();
+            assert_eq!(error["error"]["expression"], pointer, "{error}");
+            assert_eq!(error["error"]["code"], "budget");
+            assert_eq!(request, before);
+        }
+        let mut hosted = compare(
+            json!({"max_simulations":500,"workers":1,"regimens":[{"label":"a","run":run}]}),
+        );
+        admit_analysis(&mut hosted, Profile::Hosted).unwrap();
+        let mut record = json!({"schema":"qspquest.analysis/v0.2","operation":"exposure_summary","arguments":{"result":{}}});
+        admit_analysis(&mut record, Profile::Hosted).unwrap();
+    }
+
+    #[cfg(feature = "analysis")]
+    fn population_args() -> Value {
+        json!({"model":{"source":include_str!("../assets/templates/iv.qsp")},
+            "output":"cp","end":{"value":12,"unit":"h"},
+            "times":([0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0].iter().map(|t| json!({"value":t,"unit":"h"})).collect::<Vec<_>>()),
+            "regimens":[
+                {"name":"low","doses":[{"target":"central","at":{"value":0,"unit":"h"},"amount":{"value":3,"unit":"mg"}}]},
+                {"name":"high","doses":[{"target":"central","at":{"value":0,"unit":"h"},"amount":{"value":6,"unit":"mg"}}]}],
+            "population":{"parameters":[{"name":"cl","value":0.3,"unit":"L/h"}],"omega":[[0.09]],
+                "subjects":20,"seed":7,"max_simulations":40}})
+    }
+
+    #[cfg(feature = "analysis")]
+    #[tokio::test]
+    async fn population_comparison_pairs_virtual_subjects_across_prepared_members() {
+        let server = Server::new(Library::fixture().unwrap(), false, policy::Tier::Free, 1);
+        let mut args = population_args();
+        let plan = server
+            .plan_invocation("compare_regimens", args.clone())
+            .await;
+        assert!(plan["error"].is_null(), "{plan}");
+        let native = &plan["plan"]["native_preparation"]["plan"];
+        assert_eq!(
+            native["population"]["schema"],
+            "qspquest.analysis-plan/v0.2"
+        );
+        assert_eq!(native["population"]["required_simulations"], 40);
+        assert_eq!(native["population"]["random_draws"], 0);
+        assert_eq!(native["regimens"].as_array().unwrap().len(), 2);
+        args["expected_plan_hash"] = plan["plan_hash"].clone();
+        let result = server.execute_comparison(args.clone()).await;
+        assert!(result["error"].is_null(), "{result}");
+        assert_eq!(result["plan_hash"], plan["plan_hash"]);
+        let record = &result["population"]["analysis"];
+        assert_eq!(record["schema"], "qspquest.regimen-comparison/v0.2");
+        assert_eq!(record["regimen_order"], json!(["low", "high"]));
+        assert_eq!(record["simulations"], 40);
+        assert_eq!(result["population"]["members"][1]["name"], "high");
+        assert!(result.get("regimens").is_none());
+        // Linear kinetics: each subject's AUC doubles with the dose.
+        let low = record["regimens"]["low"]["subject_metrics"]
+            .as_array()
+            .unwrap();
+        let high = record["regimens"]["high"]["subject_metrics"]
+            .as_array()
+            .unwrap();
+        assert_eq!(low.len(), 20);
+        for (l, h) in low.iter().zip(high) {
+            let (l, h) = (l["auc"].as_f64().unwrap(), h["auc"].as_f64().unwrap());
+            assert!((h / l - 2.0).abs() < 1e-6, "{l} {h}");
+        }
+        assert_eq!(
+            server.execute_comparison(args.clone()).await["population"],
+            result["population"]
+        );
+
+        let mut overridden = population_args();
+        overridden["regimens"][1]["parameters"] = json!({"cl":{"value":0.5,"unit":"L/h"}});
+        let refused = server.plan_invocation("compare_regimens", overridden).await;
+        assert_eq!(
+            refused["error"]["code"], "population_comparison",
+            "{refused}"
+        );
+        let mut short = population_args();
+        short["population"]["max_simulations"] = json!(39);
+        assert_eq!(
+            server.plan_invocation("compare_regimens", short).await["error"]["code"],
+            "budget"
+        );
+        let mut csv = population_args();
+        csv["save_csv"] = json!("population.csv");
+        assert_eq!(
+            server.plan_invocation("compare_regimens", csv).await["error"]["code"],
+            "population_comparison"
         );
     }
 

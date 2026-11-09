@@ -2,19 +2,19 @@
 
 from pathlib import Path
 import json, subprocess, sys
-import qspquest as pf
+import qspquest as qq
 from qspquest.doctor import check_environment
 
 out = Path("/work")
 out.mkdir(exist_ok=True)
 root = Path("/checks")
 model = root / "examples/synthetic/absorption.qsp"
-run = pf.run_request(
-    end=24, times=[0, 1, 2, 4, 8, 12, 24], administrations=[pf.bolus("depot", 72, "mg")]
+run = qq.run_request(
+    end=24, times=[0, 1, 2, 4, 8, 12, 24], administrations=[qq.bolus("depot", 72, "mg")]
 )
 request = out / "request.json"
 request.write_text(json.dumps(run))
-python_result = pf.CompiledModel(model.read_text()).run(run)
+python_result = qq.CompiledModel(model.read_text()).run(run)
 cli_result = json.loads(
     subprocess.check_output(["qspquest", "run", str(model), str(request)], text=True)
 )

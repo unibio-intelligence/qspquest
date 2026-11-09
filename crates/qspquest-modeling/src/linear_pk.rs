@@ -93,11 +93,11 @@ impl LinearPk {
             return Ok(amounts.to_vec());
         }
         let mut block = vec![vec![0.; 2 * n]; 2 * n];
-        for i in 0..n {
-            for j in 0..n {
-                block[i][j] = self.matrix[i][j] * duration;
+        for (i, row) in block.iter_mut().take(n).enumerate() {
+            for (value, rate) in row[..n].iter_mut().zip(&self.matrix[i]) {
+                *value = rate * duration;
             }
-            block[i][i + n] = 1.;
+            row[i + n] = 1.;
         }
         let propagator = exponential(block)?;
         let input: Vec<_> = rates.iter().map(|r| r * duration).collect();
@@ -218,6 +218,33 @@ impl crate::IntervalPropagator for LinearPk {
         self.advance(amounts, rates, duration)
     }
 }
+impl BoundLinearPk {
+    /// Amounts must be finite and at least `-tolerance`; the tolerance is zero
+    /// except for states produced by numerical integration.
+    fn check_amounts(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: Option<&[f64]>,
+    ) -> Result<(), Error> {
+        if let Some(tolerances) = absolute_tolerances {
+            crate::validate_invariant_tolerances(tolerances, state.len())?;
+        }
+        let valid = state.len() == self.initial.len()
+            && state.iter().enumerate().all(|(index, v)| {
+                v.is_finite() && *v >= -absolute_tolerances.map_or(0.0, |t| t[index])
+            });
+        if !valid {
+            let mut error = Error::new(
+                ErrorCode::Invariant,
+                "linear PK amounts must be finite and nonnegative",
+            );
+            error.time = Some(time);
+            return Err(error);
+        }
+        Ok(())
+    }
+}
 impl crate::Model for BoundLinearPk {
     fn interval_propagator(&self) -> Option<&dyn crate::IntervalPropagator> {
         Some(&self.kernel)
@@ -232,15 +259,15 @@ impl crate::Model for BoundLinearPk {
         (target < self.initial.len()).then_some(1.)
     }
     fn check_state(&self, time: f64, state: &[f64]) -> Result<(), Error> {
-        if state.len() != self.initial.len() || state.iter().any(|v| !v.is_finite() || *v < 0.) {
-            let mut error = Error::new(
-                ErrorCode::Invariant,
-                "linear PK amounts must be finite and nonnegative",
-            );
-            error.time = Some(time);
-            return Err(error);
-        }
-        Ok(())
+        self.check_amounts(time, state, None)
+    }
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        self.check_amounts(time, state, Some(absolute_tolerances))
     }
     fn rhs(&self, _time: f64, x: &[f64], rates: &[f64], out: &mut [f64]) -> Result<(), Error> {
         let n = self.initial.len();
@@ -264,8 +291,8 @@ impl crate::Model for BoundLinearPk {
         if v.len() != n || out.len() != n {
             return Err(invalid("linear PK Jacobian shape differs"));
         }
-        for i in 0..n {
-            out[i] = (0..n).map(|j| self.kernel.matrix[i][j] * v[j]).sum();
+        for (i, value) in out.iter_mut().enumerate() {
+            *value = (0..n).map(|j| self.kernel.matrix[i][j] * v[j]).sum();
         }
         Ok(())
     }

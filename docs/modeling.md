@@ -1,7 +1,7 @@
 # Models and simulation
 
-QSPQuest accepts a text `.qsp` model or a JSON model document. A small
-synthetic one-compartment model looks like this:
+QSPQuest accepts a text `.qsp` model or a JSON model document. A
+synthetic one-compartment model is shown below:
 
 ```text
 model synthetic_one_compartment
@@ -27,7 +27,7 @@ end
 
 Use `quantity(value, "unit")` for a physical constant in an expression, such as
 `quantity(0, "mg/h")` for a zero mass rate or `quantity(500, "mL")` in a volume
-expression. Their units carry through sensitivities and fitting. Plain numeric literals are dimensionless, including
+expression. Their units are propagated through sensitivity calculations and fitting. Plain numeric literals are dimensionless, including
 zero; they cannot replace a rate with physical dimensions.
 
 Parameters, states, outputs, and doses carry explicit units. The dosing
@@ -60,22 +60,22 @@ sample times and event sides. These synthetic examples
 are illustrative and make no clinical prediction.
 
 Solver tolerances control local integration error. Check convergence under tighter
-tolerances for the selected model and execution target. Native and Wasm results
+tolerances for the selected model and execution target. Native and WebAssembly (Wasm) results
 are not guaranteed to be bitwise identical.
 
-Start stiff ODE workflows with `diffsol_bdf`. For a simulation that previously
+Start stiff ordinary differential equation (ODE) workflows with `diffsol_bdf`. For a simulation that previously
 selected an unavailable method, choose the replacement explicitly and check its
 outputs against the model's reference or analytic solution. `diffsol_esdirk34`
 provides another implicit method for simulation; sensitivity-based fitting uses
-BDF. Tighter tolerances can improve accuracy but cost more callbacks. Extra
+the backward differentiation formula (BDF) method. Tighter tolerances can improve accuracy but require more solver callbacks. Extra
 observation times do not prescribe the solver's internal step sizes.
 
 Compare numerical results using output-specific bounds in their declared units:
 `abs(a - b) <= absolute_i + relative_i * max(abs(a), abs(b))`. Choose those bounds
 from the model's accuracy requirements and independent reference before running
 the comparison. Check output names, units, sample times and event sides exactly.
-Report exact-bit differences separately; one fixed absolute threshold is not a
-useful accuracy target for every output scale. Agreement between targets alone
+Report exact-bit differences separately; a single absolute threshold is not an
+appropriate accuracy criterion for outputs of different scales. Agreement between targets alone
 does not establish accuracy.
 
 For the included one-compartment example, compare BDF with a tenfold tighter
@@ -111,14 +111,14 @@ PY
 ```
 
 The bounds above apply only to this synthetic example. General models need
-their own output scales and reference checks. A convergence failure calls for
-investigating the model, tolerances or callback budget; it does not justify
+their own output scales and reference checks. A convergence failure requires
+investigation of the model, tolerances or callback budget; it does not justify
 loosening biological constraints or acceptance bounds.
 
 See [fitting](fitting.md) for estimation requests and [browser integration](browser.md)
 for local simulation in a Web Worker.
 
-TR-BDF2 checks convergence of the sampled state trajectory by repeating each
+The TR-BDF2 solver (`diffsol_tr_bdf2`) checks convergence of the sampled state trajectory by repeating each
 interval with tighter local tolerances. It returns the finer trajectory after
 agreement within the requested state-error scale. This costs additional solver
 work, shares the callback budget, and fails explicitly if six passes cannot

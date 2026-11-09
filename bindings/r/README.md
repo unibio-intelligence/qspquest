@@ -15,23 +15,25 @@ bytes; model text and requests up to one million bytes.
 
 ## Installation
 
-Install the standalone `qspquest_0.1.0.tar.gz` archive with R, its compatible C
-compiler, Rust 1.98.1 and Cargo on `PATH`:
+Install the standalone `qspquest_0.1.1.tar.gz` archive with R, its compatible C
+compiler, Rust 1.89 or newer and Cargo on `PATH`:
 
 ```r
 install.packages("jsonlite", repos = "https://cloud.r-project.org")
-install.packages("qspquest_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages("qspquest_0.1.1.tar.gz", repos = NULL, type = "source")
 library(qspquest)
 packageVersion("qspquest")
 ```
 
-Expected version: `0.1.0`. The archive contains the Rust workspace and builds the
+Expected version: `0.1.1`. The archive contains the Rust workspace and builds the
 native engine locally. Cargo downloads locked registry dependencies on the first
 installation. An offline installation requires those dependencies already cached;
 set `CARGO_NET_OFFLINE=true` to require offline operation. The package links to
 the installed R runtime and does not bundle R. `jsonlite` >= 2.0.0 is required
 to preserve numeric request precision; `rxode2`
-is optional for exporting an rxode2 UI.
+is optional for exporting an rxode2 UI, and `ggplot2` is optional for the
+journal-sized figures described in [publication
+figures](../../docs/tutorials/publication-figures.md#r).
 
 See [installation](../../docs/installation.md#r) for terminal commands, platform
 limits and preparing the archive, and the [R guide](../../docs/R-USER-GUIDE.md)
@@ -44,7 +46,7 @@ checkout run:
 
 ```sh
 python3 scripts/prepare-r-source.py /tmp/qspquest-cran --cran
-R CMD check --as-cran /tmp/qspquest-cran/qspquest_0.1.0.tar.gz
+R CMD check --as-cran /tmp/qspquest-cran/qspquest_0.1.1.tar.gz
 ```
 
 Preparation uses the existing Cargo cache to bundle the locked Rust dependency
@@ -59,8 +61,8 @@ archive on the target platforms before submission. Rust 1.89 or newer is require
 
 `fit_gamma_poisson(request)` estimates a shared Gamma shape/rate from independent
 count/exposure rows. `fit_probit_normal_binomial(request)` estimates two group
-means and litter-effect SDs from independent binomial litters. Supply a complete
-versioned request as an R list or JSON string; a compiled ODE model is not needed.
+means and litter-effect standard deviations (SDs) from independent binomial litters. Supply a complete
+versioned request as an R list or JSON string; a compiled ordinary differential equation (ODE) model is not needed.
 Inspect the returned `status` and work counts. These are bounded point estimates.
 
 The [count and binomial tutorial](../../docs/tutorials/discrete-data-fitting.md)
@@ -113,9 +115,9 @@ The converter is independently authored from the data contract.
 
 ## Fit observations from a dataset
 
-`fit_data_requests(dataset, template, endpoints, mode)` prepares inspectable
+`individual_fit_data_requests(dataset, template, endpoints, mode)` prepares inspectable
 versioned fit requests and source-row mappings. Mode is `individual` (one fit per
-subject) or `pooled` (shared selected parameters). `fit_data(model, prepared)`
+subject) or `pooled` (shared selected parameters). `fit_individual_data(model, prepared)`
 executes them and retains the requests' subject mapping and original data.
 
 The template is an individual `qspquest.fit/v0.1` envelope containing bounds,
@@ -129,8 +131,8 @@ template$problem$request$objective$observations <- list()
 endpoints <- list("0" = list(output = "cp", value_unit = "mg/L",
   error = list(additive_sd = list(value = 0.1, unit = "mg/L"),
                proportional_sd = 0)))
-prepared <- fit_data_requests(dataset, template, endpoints, mode = "pooled")
-fit <- fit_data(model, prepared)
+prepared <- individual_fit_data_requests(dataset, template, endpoints, mode = "pooled")
+fit <- fit_individual_data(model, prepared)
 fit$results[[1]]$fit$status
 fit_parameter_data_frame(fit)
 observed <- fit_observation_data_frame(model, fit)
@@ -141,7 +143,7 @@ Included DV values must be finite. Exclude missing measurements explicitly with
 MDV; no silent dropping occurs. Duplicate observations remain separate likelihood
 terms. `SOURCE_ROW` is one-based in the original data; `RESULT_ROW` is zero-based
 in that subject's simulation, matching the native request schema. Units are
-validated and converted by the engine. Pooled MAP counts the template prior once;
+validated and converted by the engine. Pooled maximum a posteriori (MAP) estimation counts the template prior once;
 independent MAP fits each receive the prior. Check every fit status before using
 estimates. This adapter supports fixed-error Gaussian individual/pooled fits;
 random effects, censoring, residual-error estimation and covariate import are
@@ -157,7 +159,8 @@ Replay requires converged fits and costs one additional simulation per subject.
 ## Population FOCEI and SAEM from rows
 
 `population_fit_data_requests()` takes the same explicit NONMEM record subset as
-`nonmem_requests()` and constructs one FOCEI or SAEM population request. The
+`nonmem_requests()` and constructs one first-order conditional estimation with interaction (FOCEI)
+or stochastic approximation expectation-maximization (SAEM) population request. The
 template has exactly one empty subject objective with a versioned sensitivity
 selection and an empty run regimen; its fixed effects, random effects, Omega,
 seed, and optimizer settings are retained. Dose CMT values map to model targets,

@@ -8,6 +8,8 @@ use qspquest_core::{
     identity::canonical_hash,
 };
 
+type RunObserver<'a> = &'a mut dyn FnMut(&PreparedRun) -> Result<(), Error>;
+
 struct PreparedScalarFit {
     lower: f64,
     upper: f64,
@@ -250,7 +252,7 @@ impl CompiledDocument {
     fn prepare_scalar_fit_observed(
         self: &Arc<Self>,
         request: &ScalarGaussianFitRequest,
-        mut observer: Option<&mut dyn FnMut(&PreparedRun) -> Result<(), Error>>,
+        mut observer: Option<RunObserver<'_>>,
     ) -> Result<PreparedScalarFit, Error> {
         if request.max_iterations == 0
             || request.max_iterations > 1000

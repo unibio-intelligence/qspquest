@@ -150,6 +150,59 @@ pub(crate) fn observation(value: &Value, index: usize) -> Result<GaussianObserva
     serde_json::from_value(value.clone()).map_err(|e| fail(&path, e.to_string(), OBSERVATION_HINT))
 }
 
+/// Observations given by `time` (and optional `side`, default post) define the run's
+/// observation plan in request order, one row each; the server assigns the rows, so data can
+/// never be paired with the wrong grid point. Rows and times cannot be mixed.
+fn observations_by_time(mut run: Value, raw: &[Value]) -> Result<(Value, Vec<Value>), Failure> {
+    // Typed tool arguments serialise absent optional fields as null.
+    let raw: Vec<Value> = raw
+        .iter()
+        .map(|o| {
+            let mut o = o.clone();
+            if let Some(fields) = o.as_object_mut() {
+                fields.retain(|_, v| !v.is_null());
+            }
+            o
+        })
+        .collect();
+    let timed = raw.iter().filter(|o| o.get("time").is_some()).count();
+    if timed == 0 {
+        return Ok((run, raw));
+    }
+    if timed != raw.len() || raw.iter().any(|o| o.get("row").is_some()) {
+        return Err(fail("/observations", "Give every observation a time (preferred) or every observation a row, not a mixture",
+            "Use time with an explicit unit; the server builds the observation grid and assigns rows."));
+    }
+    let mut plan = Vec::with_capacity(raw.len());
+    let mut rows = Vec::with_capacity(raw.len());
+    for (index, o) in raw.iter().enumerate() {
+        let path = format!("/observations/{index}");
+        quantity(
+            &o["time"],
+            &child(&path, "time"),
+            &format!("observations[{index}].time"),
+        )?;
+        let side = o.get("side").and_then(Value::as_str).unwrap_or("post");
+        if !matches!(side, "pre" | "post") {
+            return Err(fail(
+                &child(&path, "side"),
+                "side must be pre or post",
+                OBSERVATION_HINT,
+            ));
+        }
+        plan.push(json!({"time":o["time"],"side":side}));
+        let mut row = o.clone();
+        let fields = row.as_object_mut().unwrap();
+        fields.remove("time");
+        fields.remove("side");
+        fields.insert("row".into(), json!(index));
+        rows.push(row);
+    }
+    run["regimen"]["observations"] = json!(plan);
+    run["regimen"]["samples"] = json!([]);
+    Ok((run, rows))
+}
+
 pub(crate) fn prepare(args: &Value, run: Value, model: &Value) -> Result<Value, Failure> {
     // The native override retains its complete submitted representation.
     if let Some(request) = args.get("fit_request") {
@@ -236,9 +289,11 @@ pub(crate) fn prepare(args: &Value, run: Value, model: &Value) -> Result<Value, 
             OBSERVATION_HINT,
         )
     })?;
+    let (run, raw_observations) = observations_by_time(run, raw_observations)?;
     for (index, raw) in raw_observations.iter().enumerate() {
         observation(raw, index)?;
     }
+    let raw_observations = &raw_observations;
     let request = Request {
         schema: FitSchema::V01,
         problem: Problem {

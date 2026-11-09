@@ -69,11 +69,15 @@ impl Server {
             Operation::SteadyState => typed::<NativeAnalysis>(&unit.arguments),
             #[cfg(feature = "analysis")]
             Operation::MorrisScreening => typed::<MorrisAnalysis>(&unit.arguments),
+            #[cfg(feature = "analysis")]
+            Operation::Analyze => typed::<AnalysisWorkflow>(&unit.arguments),
             #[cfg(not(feature = "analysis"))]
-            Operation::SteadyState | Operation::MorrisScreening => Err(policy::error(
-                "local_job_operation",
-                "This work unit requires an analysis feature build",
-            )),
+            Operation::SteadyState | Operation::MorrisScreening | Operation::Analyze => {
+                Err(policy::error(
+                    "local_job_operation",
+                    "This work unit requires an analysis feature build",
+                ))
+            }
         }
     }
     pub(super) async fn submit_local_work(

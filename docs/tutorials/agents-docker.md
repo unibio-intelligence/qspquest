@@ -1,13 +1,14 @@
-# Use QSPQuest with your agent
+# QSPQuest MCP server in Docker
 
-QSPQuest supplies modeling tools through an MCP server. Connect your own agent
-client, choose its model, and ask it to inspect models, simulate doses or fit
-observations. QSPQuest runs the numerical calculations and returns structured
-results with units. The container needs no AI account or provider configuration.
+QSPQuest supplies modeling tools through a Model Context Protocol (MCP) server.
+Connect your own agent client, choose its model, and ask it to inspect models,
+simulate doses or fit observations. QSPQuest runs the numerical calculations
+and returns structured results with units. The container needs no account with
+an artificial intelligence (AI) provider and no provider configuration.
 
 Purpose: connect an MCP client and complete a synthetic one-compartment
-simulation. You need Docker Engine or Desktop running and an MCP client
-supporting Streamable HTTP or stdio. Python 3 is optional for the connection
+simulation. You need a running Docker Engine or Docker Desktop and an MCP client
+that supports Streamable HTTP or stdio. Python 3 is optional for the connection
 check below.
 
 ## Get the image
@@ -20,9 +21,9 @@ docker pull ghcr.io/unibio-intelligence/qspquest-mcp:latest
 ```
 
 Use `:latest` for the newest release, or pin a version such as
-`ghcr.io/unibio-intelligence/qspquest-mcp:0.1.0`. The image includes a small
-synthetic model, so no model library or extra arguments are needed for this
-first run.
+`ghcr.io/unibio-intelligence/qspquest-mcp:0.1.1`. The image includes a small
+synthetic model, so this first run needs no model library or additional
+arguments.
 
 To build the same image from the complete QSPQuest source root instead (the
 first build compiles dependencies and can take tens of minutes):
@@ -77,7 +78,7 @@ python3 bindings/mcp/scripts/quickstart.py --url http://127.0.0.1:8080/mcp
 Expect `checks_passed: true`, four sample times and the concentrations below.
 This checks the connection and the result without an AI client.
 
-## Ask your agent for the first simulation
+## First simulation from an MCP client
 
 Paste this prompt into the connected agent:
 
@@ -205,8 +206,8 @@ or `--tty`, because MCP uses stdin and stdout for protocol messages.
 
 If the client cannot find Docker, replace `docker` with the absolute executable
 path reported by `command -v docker` on macOS/Linux or `where docker` on
-Windows. The server runs offline in this mode. You can check this exact
-container command from the source root:
+Windows. The server runs offline in this mode. To check this container command,
+run from the source root:
 
 ```sh
 python3 bindings/mcp/scripts/quickstart.py --stdio-image ghcr.io/unibio-intelligence/qspquest-mcp:latest
@@ -245,5 +246,5 @@ If port 8080 is in use, publish `127.0.0.1:8081:8080` and change the client's
 URL to `http://127.0.0.1:8081/mcp`. For startup errors, run
 `docker logs qspquest-mcp`. Docker must be running and the image architecture
 must match the host. Keep the server on loopback (`127.0.0.1`) for this
-workflow; serving remote clients needs HTTPS and access control, as described in
+workflow; serving remote clients requires HTTPS and access control, as described in
 [deployment profiles](mcp-deploy.md#choose-an-mcp-deployment-profile).

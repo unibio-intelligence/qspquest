@@ -2,7 +2,7 @@
 
 Model compiler, simulation, sensitivity and fitting engine for QSPQuest.
 
-Add `qspquest-modeling = "=0.1.0"` to your Cargo dependencies. This crate uses
+Add `qspquest-modeling = "=0.1.1"` to your Cargo dependencies. This crate uses
 [Diffsol](https://crates.io/crates/diffsol) 0.18 from crates.io.
 
 QSPQuest's own CLI, Python, R and MCP builds use a newer upstream Diffsol

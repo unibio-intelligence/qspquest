@@ -39,7 +39,6 @@ fn step_boundaries_hold_left_binding_and_project_both_sides() {
         assert_eq!(row.values[2], if right { 140. } else { 70. });
     }
     // Selected observations preserve order and side-specific bindings after solve.
-    let mut req = req;
     req.samples.clear();
     req.observations = Some(vec![
         ObservationPoint {

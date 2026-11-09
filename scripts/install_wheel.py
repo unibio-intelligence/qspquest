@@ -9,11 +9,9 @@ parser.add_argument("directory", type=Path)
 parser.add_argument(
     "--extra",
     choices=[
-        "analysis",
         "notebook",
         "docs",
         "interchange",
-        "analysis,interchange",
         "notebook,interchange",
     ],
 )

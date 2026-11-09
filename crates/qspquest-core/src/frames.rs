@@ -304,8 +304,11 @@ pub fn convert(result: &Value, kind: &str) -> Result<Frame, Error> {
             Ok(f)
         }
         "vpc_bins" => {
-            if result["schema"] != "qspquest.vpc/v0.1" {
-                return Err(invalid("vpc requires qspquest.vpc/v0.1"));
+            if !matches!(
+                result["schema"].as_str(),
+                Some("qspquest.vpc/v0.1" | "qspquest.vpc/v0.2")
+            ) {
+                return Err(invalid("vpc requires qspquest.vpc/v0.1 or v0.2"));
             }
             let mut f = Frame::new(
                 "stratum,start,end,mid,percentile,observed,simulated,ci_low,ci_high,n,obs_blq,sim_blq,blq_low,blq_high",
@@ -334,8 +337,11 @@ pub fn convert(result: &Value, kind: &str) -> Result<Frame, Error> {
             Ok(f)
         }
         "profile" => {
-            if result["schema"] != "qspquest.profile/v0.1" {
-                return Err(invalid("profile requires qspquest.profile/v0.1"));
+            if !matches!(
+                result["schema"].as_str(),
+                Some("qspquest.profile/v0.1" | "qspquest.profile/v0.2")
+            ) {
+                return Err(invalid("profile requires qspquest.profile/v0.1 or v0.2"));
             }
             let mut f = Frame::new("parameter,value,delta_nll,unit,status", result);
             for r in array(result, "profile")? {
@@ -354,8 +360,13 @@ pub fn convert(result: &Value, kind: &str) -> Result<Frame, Error> {
             Ok(f)
         }
         "bootstrap" => {
-            if result["schema"] != "qspquest.bootstrap/v0.1" {
-                return Err(invalid("bootstrap requires qspquest.bootstrap/v0.1"));
+            if !matches!(
+                result["schema"].as_str(),
+                Some("qspquest.bootstrap/v0.1" | "qspquest.bootstrap/v0.2")
+            ) {
+                return Err(invalid(
+                    "bootstrap requires qspquest.bootstrap/v0.1 or v0.2",
+                ));
             }
             let mut f = Frame::new("replicate,parameter,value,status,unit", result);
             for r in array(result, "replicates")? {
@@ -436,8 +447,13 @@ pub fn convert(result: &Value, kind: &str) -> Result<Frame, Error> {
             Ok(f)
         }
         "population_fan" => {
-            if result["schema"] != "qspquest.regimen-comparison/v0.1" {
-                return Err(invalid("fan requires qspquest.regimen-comparison/v0.1"));
+            if !matches!(
+                result["schema"].as_str(),
+                Some("qspquest.regimen-comparison/v0.1" | "qspquest.regimen-comparison/v0.2")
+            ) {
+                return Err(invalid(
+                    "fan requires qspquest.regimen-comparison/v0.1 or v0.2",
+                ));
             }
             let mut f = Frame::new(
                 "time,side,output,value,unit,series,regimen,percentile",

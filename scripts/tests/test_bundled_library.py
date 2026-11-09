@@ -17,7 +17,7 @@ class BundledLibraryTests(unittest.TestCase):
         self.assertEqual(catalog['availability_sha256'], hashlib.sha256(availability_path.read_bytes()).hexdigest())
         selected = {row['id']: row['version'] for row in catalog['models']}
         self.assertEqual(selected['qspquest_diffdose_2026_idr_benchmark'], '0.3.1')
-        self.assertEqual(selected['qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp'], '2.1.2')
+        self.assertEqual(selected['qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp'], '2.2.0')
         self.assertEqual(sum(len(row['scenario_ids']) for row in catalog['models']), 47)
         for row in catalog['models']:
             with self.subTest(model=row['id']):
@@ -35,6 +35,8 @@ class BundledLibraryTests(unittest.TestCase):
                 self.assertEqual('sha256:' + hashlib.sha256(evidence).hexdigest(), availability[key]['evidence_id'])
                 with zipfile.ZipFile(archive) as package:
                     index = json.loads(package.read('index.json'))
+                    for member in package.namelist():
+                        self.assertNotIn(b'validation_run_nonce', package.read(member), member)
                     self.assertEqual(index['model_id'], row['id'])
                     self.assertEqual(index['model_version'], row['version'])
                     self.assertEqual(set(index['native_execution']['scenarios']), set(row['scenario_ids']))

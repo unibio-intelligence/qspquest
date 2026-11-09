@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "qspquest"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.10"
 description = "Rust pharmacology model compiler and simulation engine"
 readme = "bindings/python/README.md"
@@ -13,9 +13,9 @@ license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
 
 [project.optional-dependencies]
 interchange = ["python-libsbml>=5.21.1,<6"]
-analysis = ["numpy>=1.24,<3", "scipy>=1.11,<2"]
-docs = ["mistune>=3,<4", "nbformat>=5,<6", "nbconvert>=7,<8"]
-notebook = ["numpy>=1.24,<3", "scipy>=1.11,<2", "pandas>=2,<4", "matplotlib>=3.7,<4", "jupyterlab>=4,<5", "nbconvert>=7,<8"]
+docs = ["mistune>=3,<4", "nbformat>=5,<6", "nbconvert>=7,<8", "numpy>=1.24,<3", "scipy>=1.11,<2", "pandas>=2,<4", "plotnine>=0.15,<0.16"]
+plot = ["pandas>=2,<4", "plotnine>=0.15,<0.16"]
+notebook = ["pandas>=2,<4", "matplotlib>=3.7,<4", "jupyterlab>=4,<5", "nbconvert>=7,<8"]
 
 [project.scripts]
 qspquest-doctor = "qspquest.doctor:main"
@@ -58,6 +58,7 @@ include = [
   { path = "bindings/python/python/**/*.py", format = "sdist" },
   { path = "bindings/python/python/**/*.pyi", format = "sdist" },
   { path = "bindings/python/python/**/py.typed", format = "sdist" },
+  { path = "bindings/python/python/qspquest/plot/figure-style.json", format = "sdist" },
 ]
 
 # Keep source distributions limited to installation inputs.

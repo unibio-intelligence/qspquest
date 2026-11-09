@@ -55,14 +55,14 @@
       "publication_status": "pending"
     },
     {
-      "archive": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/model.omex",
+      "archive": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.2.0/model.omex",
       "description": "Mechanistic rat QSP linking IV, intracisterna-magna, or intrastriatal AAV delivery to whole-body vector disposition, transgene-derived anti-TargetX antibody, FcRn-aware protein distribution, and free TargetX in plasma, brain ISF, and CSF.",
       "fit_ready": false,
       "fitting_supported": false,
       "id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
       "license": "Apache-2.0",
-      "name": "Whole-body AAV\u2013anti-TargetX rat brain QSP",
-      "omex_sha256": "15d69ba86b5a021f6716b1a5d0ce1735bc0effed5d4d9a6601e9a3742171d8c7",
+      "name": "Whole-body AAV–anti-TargetX rat brain QSP",
+      "omex_sha256": "f1dd609fdae37bd1de8907ac56049b3389176233d1586c2e2bac33faa86bcd41",
       "scenario_ids": [
         "source_structure_no_dose_smoke",
         "figure3a_exogenous_targetx_shape",
@@ -78,23 +78,23 @@
         "ist_2_5e11_aav9",
         "icm_5e12_aav5"
       ],
-      "version": "2.1.2",
+      "version": "2.2.0",
       "publication_status": "pending",
       "source_family": {
         "family_id": "liu-2026-aav-mab-targetx-rat-brain",
         "paper_id": "10.1007/s10928-026-10051-w",
         "canonical_model": {
           "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
-          "version": "2.1.2"
+          "version": "2.2.0"
         }
       },
       "model_fidelity": "full",
       "source_interpretations": {
         "schema": "qspquest.source-interpretations/v1",
         "model_id": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp",
-        "model_version": "2.1.2",
-        "archive_sha256": "15d69ba86b5a021f6716b1a5d0ce1735bc0effed5d4d9a6601e9a3742171d8c7",
-        "native_model_sha256": "47ca5c6823c4a8068ff65f0d9369e9ff64fe750da4c1b0cca4e4793c0d69ac01",
+        "model_version": "2.2.0",
+        "archive_sha256": "f1dd609fdae37bd1de8907ac56049b3389176233d1586c2e2bac33faa86bcd41",
+        "native_model_sha256": "257b9259c36763cd3fd96b497f7b1e7d964916c9acda32479bb73d2791c721aa",
         "coverage": "selected_structural_interpretations",
         "author_code_qualification": "not_assessed",
         "dimensional_qualification": false,
@@ -204,25 +204,25 @@
         }
       },
       "protocol_initialization": {
-        "path": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.1.2/PROTOCOL_INITIALIZATION.json",
-        "sha256": "31e6c377d0dd5ca3ae7271ab1b0d72d31ab17dbaf6682f5e81c5875c3e692a96"
+        "path": "models/qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp/2.2.0/PROTOCOL_INITIALIZATION.json",
+        "sha256": "45dd1f4adc33a2a38744b06737cd03cede37d81d7940386d7206b2580290b1e2"
       }
     },
     {
-      "archive": "models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.1.0/model.omex",
+      "archive": "models/qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk/0.2.0/model.omex",
       "description": "Mouse systems model linking an IV AAV8 dose to tissue vector genomes, intracellular transduction, secreted trastuzumab, whole-body antibody distribution, FcRn salvage, and vector/antibody immunogenicity losses.",
       "fit_ready": false,
       "fitting_supported": false,
       "id": "qspquest_rajwade_2026_aav8_trastuzumab_nonlinear_pbpk",
       "license": "Apache-2.0",
       "name": "Whole-body AAV8 gene-delivery and transgene-antibody PBPK",
-      "omex_sha256": "b41fd4238bcccffdf9ab64d6e9b9a4c7b78b4626d2605b6962176b72bbdc01cb",
+      "omex_sha256": "2b4a7e45ac06a8de0b9ec3a4c106d6318c3f52a03fb9517dfa60e0b491d20d53",
       "scenario_ids": [
         "figure3_5_iv_aav8_2e10_vg_mouse",
         "figure3_5_iv_aav8_1e11_vg_mouse",
         "figure3_5_iv_aav8_2e11_vg_mouse"
       ],
-      "version": "0.1.0",
+      "version": "0.2.0",
       "publication_status": "pending"
     },
     {
@@ -266,12 +266,12 @@
     },
     {
       "archive": "models/qspquest_yuan_2026_cd3x5t4_in_vitro_qsp/2.0.2/model.omex",
-      "description": "Links per-cell CD3\u00d75T4 trimer formation to resting-to-activated-to-effector T-cell dynamics and three-stage apoptotic tumor-cell loss across drug affinity, concentration, antigen density, and effector-to-target ratio.",
+      "description": "Links per-cell CD3×5T4 trimer formation to resting-to-activated-to-effector T-cell dynamics and three-stage apoptotic tumor-cell loss across drug affinity, concentration, antigen density, and effector-to-target ratio.",
       "fit_ready": false,
       "fitting_supported": false,
       "id": "qspquest_yuan_2026_cd3x5t4_in_vitro_qsp",
       "license": "Apache-2.0",
-      "name": "CD3\u00d75T4 In Vitro Activation and Cytotoxicity QSP",
+      "name": "CD3×5T4 In Vitro Activation and Cytotoxicity QSP",
       "omex_sha256": "dd53f6655418a0327566cad3d069494995ac4d200e4304e04c543324610b146d",
       "scenario_ids": [
         "mda_mb_468_untreated_et4",
@@ -294,5 +294,5 @@
   "license": "Apache-2.0",
   "comparison_evidence": "separate_one_time_dump",
   "availability_schema": "qspquest.model-availability/v1",
-  "availability_sha256": "3dbdf86390e520d957efcd7f1119f91123b3a4645b1ec2c816321f646053dd9c"
+  "availability_sha256": "65a2a25e577c4c36950e96ef2a05187068479cbf8be39766a326cfe5bef9d09a"
 }

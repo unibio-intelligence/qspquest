@@ -14,7 +14,7 @@ def api_text():
     lines = [
         "# Python API reference",
         "",
-        "Generated from Python source signatures and docstrings. Units and the scientific contract are checked by the native binder and analysis validators. Optional numerical dependencies are loaded on scientific use.",
+        "Generated from Python source signatures and docstrings. Units and the scientific contract are checked by the native binder and analysis validators. Analysis workflows run in the native engine.",
         "",
     ]
     folder = ROOT / "bindings/python/python/qspquest"
@@ -29,13 +29,19 @@ def api_text():
         "diagnostics",
         "uncertainty",
         "exposure",
+        "nca",
         "derivatives",
         "report",
         "interchange",
         "individual",
+        "tables",
+        "plot/__init__",
+        "plot/style",
+        "plot/pkpd",
     ]:
         tree = ast.parse((folder / (name + ".py")).read_text())
-        lines += [f"## {name}", "", ast.get_docstring(tree) or "", ""]
+        module = name.removesuffix("/__init__").replace("/", ".")
+        lines += [f"## {module}", "", ast.get_docstring(tree) or "", ""]
         for node in tree.body:
             if not isinstance(
                 node, (ast.FunctionDef, ast.ClassDef)

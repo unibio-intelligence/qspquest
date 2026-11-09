@@ -1,6 +1,6 @@
 # Python API reference
 
-Generated from Python source signatures and docstrings. Units and the scientific contract are checked by the native binder and analysis validators. Optional numerical dependencies are loaded on scientific use.
+Generated from Python source signatures and docstrings. Units and the scientific contract are checked by the native binder and analysis validators. Analysis workflows run in the native engine.
 
 ## __init__
 
@@ -407,10 +407,14 @@ Return independent long-format rows, preserving times, sides and units.
 ### AnalysisResult.to_frame
 
 ```python
-AnalysisResult.to_frame(self)
+AnalysisResult.to_frame(self, table=None)
 ```
 
-Create a pandas DataFrame; requires qspquest[notebook].
+Create a pandas DataFrame; requires pandas (qspquest[plot]).
+
+Without ``table``, trajectories and fitted observations give the rows
+of ``rows()``. Other results, or a named ``table``, use
+``qspquest.to_frame``.
 
 ### AnalysisResult.plot
 
@@ -450,8 +454,8 @@ Progress callback, cooperative cancellation, and optional restart state.
 ``progress`` receives an independent dict after a complete work unit. Call
 ``cancel()`` from it or another thread. Native solves finish their bounded
 call before cancellation raises ``QSPQuestError(code='cancelled')``.
-Checkpoints contain data and random-generator state, never executable pickle.
-Reuse requires identical inputs, environment and native compiler identity.
+Checkpoints contain JSON data written by the native analysis, never
+executable pickle. Reuse requires identical inputs and native build identity.
 A control is owned by one active analysis; create a new one to resume.
 
 ### AnalysisControl.__init__
@@ -481,26 +485,10 @@ See the versioned native request contract.
 ### AnalysisControl.start
 
 ```python
-AnalysisControl.start(self, operation, identity, native=None)
+AnalysisControl.start(self, operation, context)
 ```
 
 See the versioned native request contract.
-
-### AnalysisControl.boundary
-
-```python
-AnalysisControl.boundary(self, completed, total, budget, state, *, final=False)
-```
-
-See the versioned native request contract.
-
-### restore_budget
-
-```python
-restore_budget(budget, saved)
-```
-
-Count both retained work and the native validation calls made on restart.
 
 ## doctor
 
@@ -568,7 +556,7 @@ Bounded deterministic maximum likelihood using the native simulator.
 ### fit_data
 
 ```python
-fit_data(model, run, observations_data, parameters, error, *, max_simulations=2000, max_iterations=300, tolerance=1e-07, method='L-BFGS-B', _budget=None)
+fit_data(model, run, observations_data, parameters, error, *, max_simulations=2000, max_iterations=300, tolerance=1e-07, method='gradient')
 ```
 
 Fit bounded parameters and additive/proportional SDs by native simulation.
@@ -576,6 +564,8 @@ Fit bounded parameters and additive/proportional SDs by native simulation.
 Event parameters select quantity-valued paths in the run request. The normal
 combined-error model adds variances. Lognormal SD is on log concentration.
 All observations sharing this error must have the same unit and output.
+``method="gradient"`` uses projected BFGS with central-difference
+gradients; ``method="derivative_free"`` uses a compass pattern search.
 
 ## population
 
@@ -584,7 +574,7 @@ General bounded SAEM orchestrated over QSPQuest native simulations.
 ### fit_population
 
 ```python
-fit_population(model, subjects, parameters, omega, error, *, covariates=(), covariance='full', variance_bounds=(0.0001, 2.0), seed=1009, max_iterations=600, burn_in=150, sweeps=3, tolerance=0.01, max_simulations=200000, control=None, _budget=None)
+fit_population(model, subjects, parameters, omega, error, *, covariates=(), covariance='full', variance_bounds=(0.0001, 2.0), seed=1009, max_iterations=600, burn_in=150, sweeps=3, tolerance=0.01, max_simulations=200000, control=None)
 ```
 
 SAEM with 1..8 positive lognormal effects and exponential covariates.
@@ -592,8 +582,8 @@ SAEM with 1..8 positive lognormal effects and exponential covariates.
 Each selected parameter has one random effect. Each subject supplies a
 native ``run``, ``observations`` and optional constant ``covariates``. Both
 SDs of normal combined error can be fitted jointly with covariates. M3
-censoring uses its probability in sampling and conditional latent draws
-in the residual-error M step. Covariance is full or diagonal.
+censoring uses its probability in sampling and the analytic conditional
+second moment in the residual-error M step. Covariance is full or diagonal.
 
 The reported objective is a complete-data surrogate, never a marginal OFV.
 Convergence is a stationarity/mixing screen, not proof of a global optimum.
@@ -626,8 +616,9 @@ are checked separately; concentration quantiles use only quantifiable values
 in both observed and simulated data. Limits must be supplied for every row
 for a fully censored-data-aware check. Uncertainty is Monte Carlo uncertainty
 of replicate quantiles, not fitted-parameter uncertainty.
-Workers (1..8, default 1) preserve ordered random streams and records.
-Failed replicates remain in the denominator and suppress intervals.
+Each replicate draws from its own random substream, so results do not
+depend on ``workers`` (1..8, native threads). Failed replicates remain in
+the denominator and suppress intervals.
 
 ## uncertainty
 
@@ -675,7 +666,7 @@ ordered pre/post so no trapezoid spans a dose jump.
 ### compare_regimens
 
 ```python
-compare_regimens(model, regimens, parameters, omega, output, *, random_effects=None, subjects=100, seed=1009, threshold=None, percentiles=(0.05, 0.5, 0.95), parameter_draws=None, max_simulations=50000)
+compare_regimens(model, regimens, parameters, omega, output, *, random_effects=None, subjects=100, seed=1009, threshold=None, percentiles=(0.05, 0.5, 0.95), parameter_draws=None, max_simulations=50000, workers=1)
 ```
 
 Use the same virtual subjects for every regimen and return paired metrics.
@@ -683,6 +674,48 @@ Use the same virtual subjects for every regimen and return paired metrics.
 ``parameter_draws`` can propagate bootstrap parameter uncertainty separately
 from IIV. Concentration curves exclude measurement error. Endpoint means a
 trough only when the request samples the appropriate pre-dose boundary.
+The first regimen is the reference for paired differences.
+
+## nca
+
+Noncompartmental analysis of observed single-dose concentration-time profiles.
+
+Observation times are times after the dose of the same subject and occasion.
+Parameter keys follow CDISC SDTM PK parameter short names (PPTESTCD).
+Steady-state, multiple-dose and infusion analyses are not supported.
+
+### noncompartmental_analysis
+
+```python
+noncompartmental_analysis(observations, doses, *, units, auc_method='linear_up_log_down', blq=None, lambda_z=None)
+```
+
+Estimate conventional single-dose NCA parameters for each subject and occasion.
+
+``observations`` rows hold ``subject``, optional ``occasion`` (default 1),
+``time`` after the dose, and either a finite ``concentration`` or
+``blq=True`` with no concentration. ``doses`` rows hold ``subject``,
+optional ``occasion``, ``amount`` and ``route`` (``iv_bolus`` or
+``extravascular``). ``units`` declares ``time``, ``concentration`` and
+``amount`` units.
+
+Rows at or before time zero are pre-dose rows; they must be BLQ or zero.
+Post-dose BLQ rows raise an error unless ``blq`` assigns an action to
+leading, embedded and trailing positions. ``auc_method`` is ``linear`` or
+``linear_up_log_down``. ``lambda_z`` selects the terminal points:
+``{"rule": "adjusted_r2", "min_points": 3, "tolerance": 1e-4}`` (default)
+or ``{"rule": "last_points", "points": n}``. Parameters that need the
+terminal rate constant are ``None`` when it cannot be estimated, and the
+reason is reported. Extravascular clearance and volume are apparent values
+divided by an unknown bioavailability F.
+
+AUC is reported in the UCUM product unit ``concentration.time``. Clearance
+and volume are converted to ``L/time`` and ``L`` when the declared units
+are recognised and dimensionally compatible (``units["derived"]`` is
+``"converted"``). Otherwise they are reported without conversion in the
+literal unit ``amount/(concentration.time)`` or ``amount/(concentration)``
+(``"literal"``). Missing cells (None, NaN) in a ``blq`` column mean not BLQ,
+and BLQ rows may hold a missing concentration.
 
 ## derivatives
 
@@ -706,13 +739,23 @@ symbolic moving-boundary differentiation.
 
 Portable SVG/HTML views of scientific analysis results, without network I/O.
 
+Colours come from the figure style file shared with ``qspquest.plot``
+(``plot/figure-style.json``, light mode); the report needs no plotting
+packages.
+
 ### write_analysis_report
 
 ```python
-write_analysis_report(path, *, title='QSPQuest analysis', fit=None, vpc=None, comparison=None, profile=None, bootstrap=None)
+write_analysis_report(path, *, title='QSPQuest analysis', fit=None, vpc=None, comparison=None, profile=None, bootstrap=None, runs=None)
 ```
 
 Save a standalone report with curves, estimates, diagnostics and limits.
+
+``comparison`` is a compare_regimens result, or a dict of them keyed by
+model to overlay the models' median trajectories. ``runs`` is a dict of
+labelled run results or saved tables (``qspquest.read_table``), for
+example one per model; each output they share is drawn in one plot.
+Colours follow the figure style shared with ``qspquest.plot``.
 
 ## interchange
 
@@ -891,3 +934,558 @@ error. Native admission checks units and likelihood support later in plan()
 or fit(). No missing values, time alignment, unit inference or imputation.
 The template must be an individual request with empty observations and a
 fully explicit ordered observation grid; dosing and fitting controls persist.
+
+## tables
+
+Long-format pandas tables for QSPQuest results, with explicit unit columns.
+
+Every table keeps the units recorded in the result. Values are not converted.
+``read_table`` reads saved CSV tables with their manifests and needs only the
+standard library; the other functions require pandas (``qspquest[plot]``).
+
+### kind
+
+```python
+kind(result)
+```
+
+Return the result kind used by tables and figures, or fail if unknown.
+
+Kinds are run, table, fit, population, diagnostics, native_fit, vpc,
+profile, bootstrap, regimens, exposure, morris, scan, steady_state and
+event_sensitivities.
+
+### tables
+
+```python
+tables(result)
+```
+
+Return the table names available for a result; the first is the default.
+
+### collection_kind
+
+```python
+collection_kind(result)
+```
+
+Return the kind of a labelled collection, or None if ``result`` is not one.
+
+A collection is a dict whose keys are labels, or (series, panel) label
+pairs, and whose values are all run results, saved tables or all regimen
+comparisons.
+
+### to_frame
+
+```python
+to_frame(result, table=None)
+```
+
+Return one long-format DataFrame for a result.
+
+``table`` selects one of ``tables(result)``; the default is the first.
+A dict that maps labels to run results or saved tables gives one
+trajectory table with a ``group`` column; (series, panel) keys add a
+``panel`` column. A dict that maps model labels to regimen comparisons
+adds a ``model`` column. Unit columns are always included.
+
+### read_table
+
+```python
+read_table(path)
+```
+
+Read a saved CSV table and its ``.manifest.json``.
+
+Accepts tables written by the MCP ``save_csv`` tool, the CLI or the Python
+first run (``qspquest.table-manifest/v1``). The CSV byte count and SHA-256,
+header, row and event counts, finite values and the pre-then-post order of
+equal times are checked against the manifest. Units, column meanings and
+model identity are taken from the manifest; values are not converted.
+Outputs are named by their native model name where the manifest records
+one, otherwise by the CSV column. The returned table plots and converts
+like a run result, and the full manifest is kept under ``manifest``. Receipts in the manifest are kept but
+not re-validated here.
+
+### wilson_interval
+
+```python
+wilson_interval(successes, total, confidence=0.95)
+```
+
+Wilson score interval for a binomial proportion.
+
+### target_attainment
+
+```python
+target_attainment(result, metric, target, *, direction='below', confidence=0.95)
+```
+
+Fraction of virtual subjects whose metric meets a target, per regimen.
+
+``result`` is a compare_regimens result or a dict of them keyed by model.
+``metric`` is a per-subject metric (auc, cmax, cmin, tmax, endpoint or
+time_above_threshold). ``direction='below'`` counts subjects with
+metric <= target and ``'above'`` those with metric >= target. Intervals
+are Wilson score intervals. Metrics cover the sampled window of the
+comparison, so a window maximum below a target is ``cmax`` with
+``direction='below'``.
+
+## plot
+
+Publication figures for QSPQuest results.
+
+Two layers make up this package. ``qspquest.plot.style`` holds colour definitions,
+the theme, scales and journal-size export; it does not depend on
+pharmacometric results, and every colour comes from its ``figure-style.json``.
+``qspquest.plot.pkpd`` builds figures from QSPQuest results with that layer.
+``theme_qspquest`` and the ``scale_*_qspquest`` functions are the style
+layer's ``theme_style`` and ``scale_*`` functions under QSPQuest names. The data
+behind every figure are available from ``qspquest.to_frame``.
+Requires ``qspquest[plot]`` (pandas and plotnine).
+
+## plot.style
+
+Figure style: colour definitions, theme, scales and journal-size export.
+
+The layer is independent of pharmacometric results. Every colour, line
+weight, font list and journal preset is read from ``figure-style.json`` next to this
+file; no colour is defined in code. Requires pandas and plotnine.
+
+### StyleError
+
+A style request that the style definitions or journal presets cannot satisfy.
+
+### definitions
+
+```python
+definitions()
+```
+
+Return a copy of all style definitions.
+
+### modes
+
+```python
+modes()
+```
+
+Return the available colour modes.
+
+### set_mode
+
+```python
+set_mode(name)
+```
+
+Select the colour mode ('light' or 'dark') for figures built afterwards.
+
+### mode
+
+```python
+mode()
+```
+
+Return the current colour mode.
+
+### color
+
+```python
+color(name)
+```
+
+Return one named colour: surface, ink, muted, grid or fill.
+
+### palette
+
+```python
+palette(n=None)
+```
+
+Return the first ``n`` categorical colours (all by default), in their fixed order.
+
+### sequential
+
+```python
+sequential()
+```
+
+Return the single-hue sequential ramp, from the surface towards high contrast.
+
+### diverging
+
+```python
+diverging()
+```
+
+Return the diverging ramp; the middle colour is the neutral midpoint.
+
+### line
+
+```python
+line(name)
+```
+
+Return a plotnine line size for a named weight (grid, edge, reference, model, interval).
+
+### point_size
+
+```python
+point_size()
+```
+
+Return the plotnine point size.
+
+### fill_alpha
+
+```python
+fill_alpha()
+```
+
+Return the opacity of shaded intervals and ribbons.
+
+### journals
+
+```python
+journals()
+```
+
+Return the journal presets (widths and heights in mm, type in pt).
+
+### type_sizes
+
+```python
+type_sizes(journal=None)
+```
+
+Return the journal's (base, small) type sizes in pt.
+
+### font
+
+```python
+font(journal=None)
+```
+
+Return the first installed font of the journal's preferred list.
+
+### theme_style
+
+```python
+theme_style(base_size=None, small_size=None, *, journal=None)
+```
+
+Surface-coloured theme with a recessive grid and the legend below the panel.
+
+Type sizes and the font follow the journal preset unless given.
+
+### scale_color_categorical
+
+```python
+scale_color_categorical(**kwargs)
+```
+
+Categorical colour scale in the fixed palette order.
+
+### scale_fill_categorical
+
+```python
+scale_fill_categorical(**kwargs)
+```
+
+Categorical fill scale in the fixed palette order.
+
+### scale_fill_sequential
+
+```python
+scale_fill_sequential(**kwargs)
+```
+
+Single-hue sequential fill for magnitudes.
+
+### scale_color_sequential
+
+```python
+scale_color_sequential(**kwargs)
+```
+
+Sequential colour for lines and points; omits the two steps nearest the surface.
+
+### scale_fill_diverging
+
+```python
+scale_fill_diverging(**kwargs)
+```
+
+Diverging fill with a neutral midpoint; set ``limits`` symmetric about it.
+
+### size
+
+```python
+size(fig, width_mm, height_mm)
+```
+
+Set the intended figure size in mm; ``save`` keeps this aspect ratio.
+
+### save
+
+```python
+save(fig, path, *, width=None, height=None, journal=None, formats=None, dpi=600, svg_text='paths')
+```
+
+Write a figure as PDF, SVG and PNG at a journal column width.
+
+``path`` is a file name; its suffix selects one format, and a name without
+a suffix writes ``formats`` (default PDF, SVG and PNG). ``width`` is
+'single-column', 'double-column' or a width in mm; by default figures
+designed for one column (up to 100 mm) use the single-column width and
+others the double-column width. ``height`` (mm) defaults to the figure's
+own aspect ratio, limited to the journal's maximum figure height. Type
+sizes and font follow the journal preset.
+
+PDF fonts are embedded as TrueType (Type 42) and the text stays editable.
+SVG text is drawn as glyph outlines by default (``svg_text='paths'``), so
+the file looks the same without the font; ``svg_text='text'`` keeps
+editable text that needs the font on the reader's computer. Creation
+dates and software names are omitted from file metadata, so a rerun with
+the same inputs, plotnine and Matplotlib versions and fonts gives the same
+files. Returns the paths.
+
+## plot.pkpd
+
+Pharmacometric figures built from QSPQuest results.
+
+Each function takes a native QSPQuest result, reads axis labels and units from
+that result, and returns a plotnine object that can be extended with ``+``.
+Colours, line weights and sizes come only from the public API of
+``qspquest.plot.style``.
+
+### profile
+
+```python
+profile(result, output=None, *, log=False, label=None, observed=None, subjects=None, time_unit=None)
+```
+
+Concentration-time (or any output-time) profile.
+
+Accepts a run result, a saved table from ``qspquest.read_table``, a dict of
+labelled runs or tables (one line each), a scan result (one line per
+point), or a fit, population fit, diagnostics or native population fit
+(observations as points, predictions as lines, one panel per subject).
+Dict keys may be (series, panel) pairs, for example (model, regimen):
+lines are then coloured by the first element and drawn in one panel per
+second element. ``observed`` adds points from a DataFrame with columns
+``time``, ``value``, ``unit`` and ``time_unit`` (and optionally ``group``).
+Up to three series are coloured; more series are drawn in separate panels.
+
+### observed_vs_predicted
+
+```python
+observed_vs_predicted(result, *, prediction=None, output=None, log=False, label=None)
+```
+
+Observed versus predicted values with the line of identity.
+
+``prediction`` is 'individual' (default) or 'population' for population
+fits; individual fits have one model prediction. Rows below the LLOQ are
+omitted and counted in a warning.
+
+### residuals
+
+```python
+residuals(result, *, x='time', standardized=None, output=None, time_unit=None)
+```
+
+Residuals against time or a prediction, with a zero reference line.
+
+Standardized residuals are the conditional residuals recorded by the fit
+(residual divided by the residual-error SD at the prediction); they are
+not CWRES or NPDE. Dashed lines mark ±1.96. Native population fits record
+no standardized residuals; their raw residuals are observed minus
+individual prediction. ``x`` is 'time', 'prediction' or
+'individual_prediction'.
+
+### goodness_of_fit
+
+```python
+goodness_of_fit(result, *, output=None, log=False, time_unit=None)
+```
+
+Standard goodness-of-fit panels, labelled A–D.
+
+Population fits: observed vs population and individual predictions, and
+residuals vs time and vs the prediction the residual is computed against.
+Individual fits have three panels. Returns a plotnine composition.
+
+### vpc
+
+```python
+vpc(result, *, log=False, label=None)
+```
+
+Visual predictive check, or prediction-corrected VPC.
+
+Shaded boxes span each time bin and show the Monte Carlo confidence
+interval of each simulated percentile; points joined by lines are the
+observed percentiles at bin midpoints. Intervals are absent when any
+replicate failed; the simulated percentiles are then drawn as dashed
+lines and a warning is issued.
+
+### vpc_blq
+
+```python
+vpc_blq(result)
+```
+
+Fraction of rows below the LLOQ in each time bin.
+
+The line joins the observed fractions; shaded boxes are the confidence
+intervals of the simulated fractions.
+
+### parameters
+
+```python
+parameters(result, *, estimates=None)
+```
+
+Parameter estimates with confidence intervals, relative to the estimate.
+
+Accepts a bootstrap, likelihood profile or native population fit with
+fixed-effect intervals. Each row is labelled with its estimate, interval
+and unit; the x axis is the ratio to the estimate on a log scale. A bound
+the method did not reach is reported as 'not reached'. For a bootstrap,
+``estimates`` (the original fit) supplies the point estimates; otherwise
+the bootstrap median is used.
+
+### bootstrap
+
+```python
+bootstrap(result, *, estimates=None, bins=20)
+```
+
+Distribution of converged bootstrap estimates, one panel per parameter.
+
+Dashed lines mark the percentile interval; the solid line marks the
+original estimate when ``estimates`` is given, otherwise the median.
+
+### likelihood_profile
+
+```python
+likelihood_profile(result)
+```
+
+Profile of the negative log-likelihood for one parameter.
+
+The dashed horizontal line is the likelihood-ratio threshold; dotted
+vertical lines mark the interval bounds the grid reached. Grid points that
+did not converge are omitted and counted in a warning.
+
+### regimens
+
+```python
+regimens(result, *, log=False, label=None, target=None)
+```
+
+Percentile bands of simulated profiles for each regimen.
+
+The line is the requested percentile nearest 0.5 (the median when
+requested), and the band spans the outermost requested percentiles.
+Concentration curves exclude measurement error.
+``result`` may also be a dict of comparisons keyed by model, for example
+from two model variants with the same seed and regimens: models are then
+coloured and each regimen has its own panel. ``target`` draws a dashed
+reference line in the output unit.
+
+### target_attainment
+
+```python
+target_attainment(result, metric, target, *, direction='below', confidence=0.95)
+```
+
+Probability of target attainment per regimen, with Wilson intervals.
+
+Counts the virtual subjects of a compare_regimens result whose ``metric``
+is at most (``direction='below'``) or at least (``'above'``) ``target``,
+in the metric's unit. Bars are Wilson score intervals at ``confidence``.
+A dict of comparisons keyed by model overlays the models on the same
+regimens. Regimens are listed in comparison order. The data are
+``qspquest.tables.target_attainment`` with the same arguments.
+
+### exposure
+
+```python
+exposure(result, metric='auc', *, paired=True, log=False)
+```
+
+Per-subject exposure metric for each regimen.
+
+Points are virtual subjects; grey lines join the same subject across
+regimens when ``paired`` is true; the bar marks the median.
+
+### exposure_ratio
+
+```python
+exposure_ratio(result, metrics=('auc', 'cmax'), *, bounds=(0.8, 1.25))
+```
+
+Paired ratio of each regimen to the reference regimen, per metric.
+
+For every virtual subject the metric under a regimen is divided by the
+same subject's metric under the reference. The point is the median ratio
+and the bar spans the comparison's outermost percentiles. ``bounds`` draws
+a shaded reference range (set None to omit).
+
+### random_effects
+
+```python
+random_effects(result, *, covariates=None, bins=15)
+```
+
+Distribution of individual random effects (η), one panel per effect.
+
+Panel titles report the η-variance shrinkage recorded by the fit. With
+``covariates`` (a DataFrame with a ``subject`` column), η is plotted
+against each numeric covariate instead.
+
+### trace
+
+```python
+trace(result)
+```
+
+Parameter estimates over SAEM iterations or optimizer simulations.
+
+### morris
+
+```python
+morris(result, *, label=None)
+```
+
+Morris screening: μ* (mean absolute elementary effect) against σ.
+
+Points far from the origin along μ* have a large overall effect; a large
+σ relative to μ* indicates interaction or nonlinearity.
+
+### scan
+
+```python
+scan(result, output=None, *, metric='max', label=None, log=None)
+```
+
+Parameter scan: trajectories coloured by one varied parameter, or a heat map.
+
+With one varied parameter, each point's trajectory is drawn and coloured
+on a sequential scale. With two, each tile shows ``metric`` ('max', 'min',
+'last' or 'auc' over the sampled window) for one combination. ``log``
+selects logarithmic parameter axes; by default they are logarithmic when
+the scanned range spans a factor of 10 or more.
+
+### steady_state
+
+```python
+steady_state(result)
+```
+
+Pre-cycle amounts at periodic steady state, one row per state.
+
+Amounts are the states immediately before the cycle's start-time events.
+States with different units are drawn in separate panels.

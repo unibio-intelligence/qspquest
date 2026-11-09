@@ -40,10 +40,12 @@ pub struct UnitModelDefinition {
     pub bindings: Vec<BindingDefinition>,
     pub states: Vec<UnitStateDefinition>,
 }
+type BindingUnits = Vec<(Unit, Option<(f64, f64)>)>;
+
 #[derive(Debug)]
 pub struct UnitCompiledModel {
     compiled: Arc<CompiledModel>,
-    bindings: Vec<(Unit, Option<(f64, f64)>)>,
+    bindings: BindingUnits,
     pub time_unit: Unit,
     pub state_units: Vec<Unit>,
     pub dose_units: Vec<Option<Unit>>,
@@ -75,7 +77,7 @@ impl UnitCompiledModel {
     fn lower_definition(
         definition: &UnitModelDefinition,
         expanded: bool,
-    ) -> Result<(ModelDefinition, Vec<(Unit, Option<(f64, f64)>)>), Error> {
+    ) -> Result<(ModelDefinition, BindingUnits), Error> {
         definition.time_unit.conversion_to(Unit::parse("s")?)?;
         if definition.states.is_empty()
             || definition.states.len() > 1024

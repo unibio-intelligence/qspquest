@@ -1,7 +1,5 @@
+use super::tmdd::Tmdd;
 use qspquest_modeling::{simulate, Event, Model, Protocol};
-#[path = "../../../../conformance/tmdd.rs"]
-mod tmdd;
-use tmdd::Tmdd;
 
 fn model() -> Tmdd {
     Tmdd {

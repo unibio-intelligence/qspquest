@@ -1,4 +1,9 @@
-"""Portable SVG/HTML views of scientific analysis results, without network I/O."""
+"""Portable SVG/HTML views of scientific analysis results, without network I/O.
+
+Colours come from the figure style file shared with ``qspquest.plot``
+(``plot/figure-style.json``, light mode); the report needs no plotting
+packages.
+"""
 
 from html import escape
 import json
@@ -6,11 +11,20 @@ import math
 from pathlib import Path
 from ._analysis import fail
 
+_STYLE = json.loads((Path(__file__).parent / "plot" / "figure-style.json").read_text())
+_COLOURS = _STYLE["modes"]["light"]
+_DASHES = ("", "6 3", "2 3")  # series beyond the palette also differ in line pattern
+
+
+def _series_style(index):
+    palette = _COLOURS["categorical"]
+    return palette[index % len(palette)], _DASHES[(index // len(palette)) % len(_DASHES)]
+
 
 def _plot(title, series, xlabel, ylabel):
     points = [
         (float(x), float(y))
-        for _, xy in series
+        for _, xy, *_ in series
         for x, y in xy
         if x is not None and y is not None and math.isfinite(x) and math.isfinite(y)
     ]
@@ -19,9 +33,9 @@ def _plot(title, series, xlabel, ylabel):
     x0, x1 = min(x for x, _ in points), max(x for x, _ in points)
     y0, y1 = min(y for _, y in points), max(y for _, y in points)
     dx, dy = max(x1 - x0, 1e-12), max(y1 - y0, 1e-12)
-    colors = ["#2563eb", "#d97706", "#059669", "#9333ea", "#dc2626"]
     content, legends = [], []
-    for i, (name, xy) in enumerate(series):
+    lines = 0
+    for i, (name, xy, *chosen) in enumerate(series):
         valid = [
             (x, y)
             for x, y in xy
@@ -33,24 +47,34 @@ def _plot(title, series, xlabel, ylabel):
             valid = valid[:: max(1, math.ceil(len(valid) / 3000))]
             if valid[-1] != endpoint:
                 valid.append(endpoint)
-        color = colors[i % len(colors)]
+        points = "observed" in name.lower() or "residual" in name.lower()
+        if points:
+            color, dash = _COLOURS["ink"], ""
+        elif chosen:
+            color, dash = chosen[0]
+        else:
+            color, dash = _series_style(lines)
+            lines += 1
+        pattern = f' stroke-dasharray="{dash}"' if dash else ""
         if valid:
             coordinates = " ".join(
                 f"{60+480*(x-x0)/dx:.2f},{250-190*(y-y0)/dy:.2f}" for x, y in valid
             )
-            if "observed" in name.lower() or "residual" in name.lower():
+            if points:
                 content.extend(
-                    f'<circle cx="{60+480*(x-x0)/dx:.2f}" cy="{250-190*(y-y0)/dy:.2f}" r="2" fill="{color}"/>'
+                    f'<circle cx="{60+480*(x-x0)/dx:.2f}" cy="{250-190*(y-y0)/dy:.2f}" r="2" fill="{_COLOURS["surface"]}" stroke="{color}"/>'
                     for x, y in valid
                 )
             else:
                 content.append(
-                    f'<polyline points="{coordinates}" fill="none" stroke="{color}" stroke-width="1.8"/>'
+                    f'<polyline points="{coordinates}" fill="none" stroke="{color}" stroke-width="1.8"{pattern}/>'
                 )
-        legends.append(f'<span style="color:{color}">{escape(name)}</span>')
+        swatch = (f'<circle cx="9" cy="5" r="3" fill="{_COLOURS["surface"]}" stroke="{color}"/>' if points
+                  else f'<line x1="0" y1="5" x2="18" y2="5" stroke="{color}" stroke-width="2"{pattern}/>')
+        legends.append(f'<span><svg class="key" viewBox="0 0 18 10" aria-hidden="true">{swatch}</svg>{escape(name)}</span>')
     return (
         f'<figure><figcaption>{escape(title)}</figcaption><svg viewBox="0 0 600 300" role="img" aria-label="{escape(title, quote=True)}">'
-        '<path d="M60 55 V250 H550" stroke="#64748b" fill="none"/>'
+        f'<path d="M60 55 V250 H550" stroke="{_COLOURS["muted"]}" fill="none"/>'
         + "".join(content)
         + f'<text x="60" y="267" font-size="11">{x0:.3g}</text><text x="520" y="267" font-size="11">{x1:.3g}</text>'
         f'<text x="5" y="60" font-size="11">{y1:.3g}</text><text x="5" y="250" font-size="11">{y0:.3g}</text>'
@@ -70,9 +94,19 @@ def write_analysis_report(
     comparison=None,
     profile=None,
     bootstrap=None,
+    runs=None,
 ):
-    """Save a standalone report with curves, estimates, diagnostics and limits."""
+    """Save a standalone report with curves, estimates, diagnostics and limits.
+
+    ``comparison`` is a compare_regimens result, or a dict of them keyed by
+    model to overlay the models' median trajectories. ``runs`` is a dict of
+    labelled run results or saved tables (``qspquest.read_table``), for
+    example one per model; each output they share is drawn in one plot.
+    Colours follow the figure style shared with ``qspquest.plot``.
+    """
     sections = []
+    if runs is not None:
+        sections.extend(_run_sections(runs))
     if fit is not None:
         from .diagnostics import fit_diagnostics
         from .friendly import scientific_status
@@ -242,39 +276,7 @@ def write_analysis_report(
                     )
                 )
     if comparison is not None:
-        sections.append("<h2>Regimen comparison</h2>")
-        series = []
-        for name, r in comparison["regimens"].items():
-            j = min(
-                range(len(r["percentiles"])),
-                key=lambda i: abs(r["percentiles"][i] - 0.5),
-            )
-            series.append((name, list(zip(r["times"], r["curve_percentiles"][j]))))
-        first = next(iter(comparison["regimens"].values()))
-        sections.append(
-            _plot(
-                "Population median trajectories",
-                series,
-                first["time_unit"],
-                first["unit"],
-            )
-        )
-        sections.append(
-            "<p>Exposure summaries integrate the supplied sampled trajectory without extrapolation. Refine the grid to assess integration error.</p>"
-        )
-        sections.append(
-            "<table><tr><th>Regimen</th><th>Median AUC</th><th>Median peak</th><th>Median endpoint</th></tr>"
-            + "".join(
-                f"<tr><td>{escape(name)}</td>"
-                + "".join(
-                    f'<td>{r["metric_percentiles"][key][min(range(len(r["percentiles"])), key=lambda i:abs(r["percentiles"][i]-.5))]:.6g}</td>'
-                    for key in ("auc", "cmax", "endpoint")
-                )
-                + "</tr>"
-                for name, r in comparison["regimens"].items()
-            )
-            + "</table>"
-        )
+        sections.extend(_comparison_sections(comparison))
     if profile is not None:
         sections.append("<h2>Likelihood profile</h2>")
         sections.append(
@@ -305,7 +307,9 @@ def write_analysis_report(
     document = (
         '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>'
         + escape(title)
-        + "</title><style>body{font:16px system-ui;max-width:1050px;margin:40px auto;padding:0 20px;color:#172033}figure{display:inline-block;width:min(100%,480px);margin:12px 8px}figcaption{font-weight:600}table{border-collapse:collapse}td,th{text-align:left;padding:8px 20px;border-bottom:1px solid #ddd}pre{overflow:auto;background:#f4f6f9;padding:15px}.warning{color:#92400e}.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px}svg{width:100%}</style><h1>"
+        + "</title><style>"
+        + _css()
+        + "</style><h1>"
         + escape(title)
         + "</h1>"
         + "".join(sections)
@@ -313,3 +317,92 @@ def write_analysis_report(
     )
     Path(path).write_text(document, encoding="utf-8")
     return str(Path(path).resolve())
+
+
+def _css():
+    c = _COLOURS
+    font = ", ".join(f'"{name}"' for name in _STYLE["fonts"]["brand"]) + ", sans-serif"
+    return (f"body{{font:16px {font};max-width:1050px;margin:40px auto;padding:0 20px;"
+            f"color:{c['ink']};background:{c['surface']}}}"
+            "figure{display:inline-block;width:min(100%,480px);margin:12px 8px}"
+            "figcaption{font-weight:600}table{border-collapse:collapse}"
+            f"td,th{{text-align:left;padding:8px 20px;border-bottom:1px solid {c['grid']}}}"
+            f"pre{{overflow:auto;background:{c['grid']};padding:15px}}"
+            f".warning{{font-weight:600;border-left:3px solid {c['muted']};padding-left:10px}}"
+            ".legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px}"
+            "svg{width:100%}svg.key{width:18px;height:10px;margin-right:4px}"
+            f"svg text{{fill:{c['ink']}}}")
+
+
+def _comparisons(comparison):
+    from .tables import collection_kind
+
+    if collection_kind(comparison) == "regimens":
+        return list(comparison.items())
+    if not isinstance(comparison, dict) or comparison.get("schema") != "qspquest.regimen-comparison/v0.1":
+        fail("comparison must be a compare_regimens result or a dict of them keyed by model")
+    return [(None, comparison)]
+
+
+def _middle(record):
+    return min(range(len(record["percentiles"])), key=lambda i: abs(record["percentiles"][i] - 0.5))
+
+
+def _comparison_sections(comparison):
+    items = _comparisons(comparison)
+    units = {(r["unit"], r["time_unit"]) for _, c in items for r in c["regimens"].values()}
+    if len(units) != 1:
+        fail("compared models must report the same output unit and time unit")
+    unit, time_unit = units.pop()
+    sections = ["<h2>Regimen comparison</h2>"]
+    series, rows = [], []
+    palette = _COLOURS["categorical"]
+    if len(items) > len(palette):
+        fail(f"at most {len(palette)} models can be overlaid")
+    regimen_order = list(dict.fromkeys(name for _, result in items for name in result["regimens"]))
+    for m, (model, result) in enumerate(items):
+        for name, record in result["regimens"].items():
+            label = name if model is None else f"{model}: {name}"
+            curve = list(zip(record["times"], record["curve_percentiles"][_middle(record)]))
+            if model is None:
+                series.append((label, curve))
+            else:  # colour identifies the model, line pattern the regimen
+                pattern = _DASHES[regimen_order.index(name) % len(_DASHES)]
+                series.append((label, curve, (palette[m], pattern)))
+            rows.append((label, [record["metric_percentiles"][key][_middle(record)]
+                                 for key in ("auc", "cmax", "endpoint")]))
+    sections.append(_plot("Population median trajectories", series, time_unit, unit))
+    sections.append(
+        "<p>Exposure summaries integrate the supplied sampled trajectory without extrapolation. Refine the grid to assess integration error.</p>"
+    )
+    sections.append(
+        "<table><tr><th>Regimen</th><th>Median AUC</th><th>Median peak</th><th>Median endpoint</th></tr>"
+        + "".join(f"<tr><td>{escape(label)}</td>" + "".join(f"<td>{v:.6g}</td>" for v in values) + "</tr>"
+                  for label, values in rows)
+        + "</table>"
+    )
+    return sections
+
+
+def _run_sections(runs):
+    from .tables import collection_kind
+
+    if collection_kind(runs) != "run" or not all(isinstance(k, str) for k in runs):
+        fail("runs must be a dict of labelled run results or saved tables")
+    time_units = {r["time_unit"] for r in runs.values()}
+    if len(time_units) != 1:
+        fail("runs must share one time unit")
+    time_unit = time_units.pop()
+    outputs = {}
+    for label, result in runs.items():
+        for column in result["outputs"]:
+            outputs.setdefault(column["name"], []).append((label, result, column))
+    sections = ["<h2>Trajectories</h2>"]
+    for name, entries in outputs.items():
+        units = {column["unit"] for _, _, column in entries}
+        if len(units) != 1:
+            fail(f"output {name} has different units across runs: {sorted(map(str, units))}")
+        unit = units.pop()
+        series = [(label, list(zip(result["times"], column["values"]))) for label, result, column in entries]
+        sections.append(_plot(name, series, time_unit, unit if unit is not None else "unit not declared"))
+    return sections

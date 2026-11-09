@@ -61,6 +61,27 @@ class TableBundleTests(unittest.TestCase):
         self.assertTrue(value['manifest']['inputs']['modified'])
         self.assertFalse(value['manifest']['qualification']['qualified'])
 
+    def receipt_with_unit(self, unit):
+        return {'schema': 'qspquest.initialization-receipt/v1', 'stage': 'executed', 'time_unit': 'h',
+                'integration_start': 0, 'integration_end': 1, 'first_dose_time': None,
+                'predose_integration': None, 'initialized_states': [{'name': 'cells', 'unit': '[cell]/mm3', 'value': 200.0}],
+                'binding_phases': [{'time': 0, 'activation': 'initial', 'inputs': [
+                    {'name': 'baseline', 'kind': 'parameter', 'value': 200.0, 'unit': unit}]}],
+                'source_declaration': None, 'declared_scenario': None, 'normalization_receipts': [],
+                'planned_execution_identity': self.manifest['engine_identity'], 'notice': 'Executed clock.'}
+
+    def test_count_unit_entities_in_server_receipts_are_accepted(self):
+        unit = {'declared': '[cell]/mm3', 'dimensions': [0, -3, 0, 0, 0, 0, 0, 0],
+                'entities': {'cell': 1}, 'scale_numerator': '1000000000', 'scale_denominator': '1'}
+        self.manifest['initialization_receipt'] = self.receipt_with_unit(unit)
+        self.save_manifest()
+        self.assertEqual(read_table(self.path)['manifest']['initialization_receipt']['binding_phases'][0]['inputs'][0]['unit'], unit)
+        for entities in ({'virus': 1}, {'cell': 0}, {'cell': 1.5}, []):
+            self.manifest['initialization_receipt'] = self.receipt_with_unit(dict(unit, entities=entities))
+            self.save_manifest()
+            with self.assertRaisesRegex(ValueError, 'entity exponents'):
+                read_table(self.path)
+
     def test_edited_bytes_and_missing_sidecar_are_refused(self):
         self.path.write_bytes(self.path.read_bytes() + b'\n')
         with self.assertRaisesRegex(ValueError, 'SHA-256'):

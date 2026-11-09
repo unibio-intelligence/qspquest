@@ -1,8 +1,10 @@
 # Verify a release artifact
 
-Every GitHub release attaches the wheels, the source archive, an SPDX SBOM,
-build-provenance and SBOM attestation bundles, and a `SHA256SUMS` file. The MCP
-server image on GHCR carries the same two attestations. Verify a download with
+Every GitHub release attaches the wheels, the source archive, a Software
+Package Data Exchange (SPDX) software bill of materials (SBOM),
+build-provenance and SBOM attestation bundles, and a `SHA256SUMS` file. The
+Model Context Protocol (MCP) server image on the GitHub Container Registry
+(GHCR) carries the same two attestations. Verify a download with
 the [GitHub CLI](https://cli.github.com/) before installing it.
 
 ## Files
@@ -12,7 +14,7 @@ Actions built it from this repository's release workflow:
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify qspquest-0.1.0-cp310-abi3-manylinux_2_28_x86_64.whl \
+gh attestation verify qspquest-0.1.1-cp310-abi3-manylinux_2_28_x86_64.whl \
   --repo unibio-intelligence/qspquest \
   --signer-workflow unibio-intelligence/qspquest/.github/workflows/release.yml
 ```

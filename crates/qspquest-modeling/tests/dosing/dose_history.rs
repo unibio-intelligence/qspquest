@@ -66,7 +66,7 @@ fn model_history_drives_rhs_and_readouts_with_exact_sides() {
             }
         );
         assert_eq!(result.outputs[2].values[i], if first { 1. } else { 0. });
-        let integral = 8. * (t - 1.5).max(0.).min(2.) + 4. * (t - 3.5).max(0.);
+        let integral = 8. * (t - 1.5).clamp(0., 2.) + 4. * (t - 3.5).max(0.);
         assert!((result.outputs[3].values[i] - integral).abs() < 1e-7);
         assert_eq!(
             result.outputs[4].values[i],

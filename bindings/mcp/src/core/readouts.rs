@@ -1,5 +1,15 @@
 //! Typed admission and summaries of an already solved trajectory.
+// Window AUCs use the native analysis trapezoid, so exposure_summary and these
+// readouts integrate a sampled trajectory identically. Threshold durations
+// differ on purpose: time_above and time_below count strictly above or below
+// the threshold, so a segment lying exactly on it counts toward neither and
+// the two durations partition the window except for that plateau. The native
+// exposure_summary counts a value equal to the threshold as above it. Window
+// readouts also report first crossings, refuse overflowing intermediate
+// coordinates, and start and end on the post and pre rows of a window's
+// bounding dose events; exposure_summary always spans the complete grid.
 use qspquest_core::regimen::ObservationSide;
+use qspquest_modeling::analysis::sampled_auc;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -15,10 +25,10 @@ struct Trajectory {
     outputs: Vec<Column>,
 }
 
-#[derive(Deserialize)]
 struct Column {
     name: String,
     values: Vec<f64>,
+    unit: Option<String>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -79,6 +89,13 @@ struct Spec {
     side: Option<ObservationSide>,
     threshold: Option<f64>,
     direction: Option<Direction>,
+    /// A reported value to compare with: {value, unit?, relative_tolerance?, absolute_tolerance?, metric?}.
+    reported: Option<Value>,
+    /// nca only: single-dose analysis from the window start (iv_bolus or extravascular).
+    route: Option<String>,
+    /// nca only: dose amount {value, unit} for clearance and volume.
+    dose: Option<Value>,
+    auc_method: Option<String>,
     // Friendly aliases are retained for the request receipt after normalization.
     // Canonical at/from/to fields alone enter the calculation.
     #[serde(rename = "window")]
@@ -93,6 +110,84 @@ struct Spec {
     _end: Option<Value>,
     #[serde(rename = "stop")]
     _stop: Option<Value>,
+}
+
+/// Compare a computed readout with a reported value, converting the reported unit to the
+/// readout's unit. Tolerance: |computed - reported| <= absolute + relative * |reported|.
+fn apply_reported(row: &mut Value, reported: Option<&Value>, field: &str) -> Result<(), String> {
+    let Some(reported) = reported.filter(|r| !r.is_null()) else {
+        return Ok(());
+    };
+    let path = format!("{field}.reported");
+    let object = reported.as_object().ok_or_else(|| format!("{path} must be an object {{value, unit?, relative_tolerance?, absolute_tolerance?, metric?}}"))?;
+    if let Some(key) = object.keys().find(|k| {
+        ![
+            "value",
+            "unit",
+            "relative_tolerance",
+            "absolute_tolerance",
+            "metric",
+        ]
+        .contains(&k.as_str())
+    }) {
+        return Err(format!("{path}.{key} is unknown; use value, unit, relative_tolerance, absolute_tolerance or metric"));
+    }
+    let value = reported["value"]
+        .as_f64()
+        .filter(|v| v.is_finite())
+        .ok_or_else(|| format!("{path}.value must be a finite number"))?;
+    let relative = reported
+        .get("relative_tolerance")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.05);
+    let absolute = reported
+        .get("absolute_tolerance")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    if !(relative >= 0.0 && absolute >= 0.0 && relative.is_finite() && absolute.is_finite()) {
+        return Err(format!("{path} tolerances must be finite and nonnegative"));
+    }
+    let (computed, unit) = if row["kind"] == "nca" {
+        let metric = reported["metric"].as_str().ok_or_else(|| format!("{path}.metric is required for nca: cmax, tmax, cmin, tmin, auc, cavg or terminal_half_life"))?;
+        let unit = row["units"][metric]
+            .as_str()
+            .ok_or_else(|| format!("{path}.metric '{metric}' is not an nca metric"))?
+            .to_owned();
+        (row["value"][metric].as_f64(), unit)
+    } else if row["kind"] == "first_crossing" {
+        (
+            row["value"]["time"].as_f64(),
+            row["unit"].as_str().unwrap_or("1").to_owned(),
+        )
+    } else {
+        (
+            row["value"].as_f64(),
+            row["unit"].as_str().unwrap_or("1").to_owned(),
+        )
+    };
+    let Some(computed) = computed else {
+        row["comparison"] = json!({"reported":reported,"within_tolerance":Value::Null,"note":"The readout has no value to compare (for example no crossing in the window)."});
+        return Ok(());
+    };
+    let reported_unit = reported["unit"].as_str().unwrap_or(&unit).to_owned();
+    let in_output_unit = if reported_unit == unit {
+        value
+    } else {
+        super::usability::convert(value, &reported_unit, &unit, &format!("{path}"))?
+    };
+    let difference = computed - in_output_unit;
+    let within = difference.abs() <= absolute + relative * in_output_unit.abs();
+    row["comparison"] = json!({
+        "reported": {"value": value, "unit": reported_unit},
+        "reported_in_output_unit": in_output_unit,
+        "computed": computed,
+        "unit": unit,
+        "absolute_difference": difference,
+        "relative_error": if in_output_unit != 0.0 { json!(difference / in_output_unit.abs()) } else { Value::Null },
+        "tolerance": {"relative": relative, "absolute": absolute},
+        "within_tolerance": within
+    });
+    Ok(())
 }
 
 fn finite(value: f64, field: &str) -> Result<f64, String> {
@@ -186,6 +281,7 @@ impl Trajectory {
                 Ok(Column {
                     name: decode(&raw["name"], &format!("result.outputs[{index}].name"))?,
                     values: decode(&raw["values"], &format!("result.outputs[{index}].values"))?,
+                    unit: raw["unit"].as_str().map(str::to_owned),
                 })
             })
             .collect::<Result<_, String>>()?;
@@ -254,6 +350,44 @@ fn near(a: f64, b: f64) -> bool {
 }
 
 /// Starts on the post-event row and ends on the pre-event row.
+/// Model times of the bolus administrations in a native run request (lag and repeats
+/// included), for readouts that must know whether a window opens at a bolus.
+pub fn bolus_times(request: &Value, time_unit: &str) -> Vec<f64> {
+    let to_model = |q: &Value| -> Option<f64> {
+        let value = q["value"].as_f64()?;
+        let unit = q["unit"].as_str().unwrap_or(time_unit);
+        super::usability::convert(
+            value,
+            &super::usability::normalize_unit(unit),
+            time_unit,
+            "time",
+        )
+        .ok()
+    };
+    let mut times = Vec::new();
+    for a in request["regimen"]["administrations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        if a["delivery"]["kind"] != "bolus" {
+            continue;
+        }
+        let Some(start) = to_model(&a["time"]) else {
+            continue;
+        };
+        let lag = if a["lag"].is_null() {
+            0.0
+        } else {
+            to_model(&a["lag"]).unwrap_or(0.0)
+        };
+        let interval = to_model(&a["repeat"]["interval"]).unwrap_or(0.0);
+        let additional = a["repeat"]["additional"].as_u64().unwrap_or(0).min(10_000);
+        times.extend((0..=additional).map(|k| start + lag + k as f64 * interval));
+    }
+    times
+}
+
 pub(super) fn window(t: &[f64], from: f64, to: f64) -> Option<(usize, usize)> {
     let first = (0..t.len()).rev().find(|i| t[*i] == from)?;
     let last = (0..t.len()).find(|i| t[*i] == to)?;
@@ -299,7 +433,11 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
                 )
             })?;
         let y = &column.values;
-        let mut row = json!({"kind":kind,"output":name});
+        // Every number is returned with its unit: output values in the output's unit, times in
+        // the model time unit and integrals in their product.
+        let ou = column.unit.clone().unwrap_or_else(|| "1".into());
+        let auc_unit = format!("{ou}.{tu}");
+        let mut row = json!({"kind":kind,"output":name,"unit":ou});
         if matches!(spec.kind, Kind::Trough | Kind::Value) {
             let at = spec
                 .at
@@ -323,6 +461,7 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
                 row["pre"] = json!(y[first]);
                 row["post"] = json!(y[last]);
             }
+            apply_reported(&mut row, spec.reported.as_ref(), &field)?;
             out.push(row);
             continue;
         }
@@ -345,12 +484,10 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
         match kind {
             "auc" => {
                 row["value"] = json!(finite(
-                    (i0 + 1..=i1)
-                        .map(|i| (t[i] - t[i - 1]) * (y[i] + y[i - 1]) * 0.5)
-                        .sum::<f64>(),
+                    sampled_auc(&t[i0..=i1], &y[i0..=i1]),
                     &format!("{field}.value")
                 )?);
-                row["unit"] = json!(format!("(output unit)*{tu}"));
+                row["unit"] = json!(auc_unit);
             }
             "min" | "max" => {
                 let best = (i0..=i1)
@@ -367,9 +504,7 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
             }
             "nca" => {
                 let auc = finite(
-                    (i0 + 1..=i1)
-                        .map(|i| (t[i] - t[i - 1]) * (y[i] + y[i - 1]) * 0.5)
-                        .sum::<f64>(),
+                    sampled_auc(&t[i0..=i1], &y[i0..=i1]),
                     &format!("{field}.value.auc"),
                 )?;
                 let hi = (i0..=i1)
@@ -409,7 +544,94 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
                     Value::Null
                 };
                 row["value"] = json!({"cmax":y[hi],"tmax":t[hi],"cmin":y[lo],"tmin":t[lo],"auc":auc,"cavg":finite(auc/(b-a), &format!("{field}.value.cavg"))?,"terminal_half_life":half_life});
-                row["note"] = json!("terminal_half_life is a log-linear fit over the last quarter of the window (at least three points); null when the output is not falling throughout it.");
+                row["units"] = json!({"cmax":ou,"tmax":tu,"cmin":ou,"tmin":tu,"auc":auc_unit,"cavg":ou,"terminal_half_life":tu});
+                row.as_object_mut().unwrap().remove("unit");
+                if let Some(route) = spec.route.as_deref() {
+                    let route = match route {
+                        "iv_bolus" => super::nca::Route::IvBolus,
+                        "extravascular" => super::nca::Route::Extravascular,
+                        _ => {
+                            return Err(format!("{field}.route must be iv_bolus or extravascular"))
+                        }
+                    };
+                    let method = match spec.auc_method.as_deref().unwrap_or("linear_up_log_down") {
+                        "linear_up_log_down" => super::nca::Method::LinearUpLogDown,
+                        "linear" => super::nca::Method::Linear,
+                        _ => {
+                            return Err(format!(
+                                "{field}.auc_method must be linear_up_log_down or linear"
+                            ))
+                        }
+                    };
+                    // Times after the window start; at an event time the post-event value is used.
+                    let mut times = Vec::new();
+                    let mut values = Vec::new();
+                    for i in i0..=i1 {
+                        let rel = t[i] - a;
+                        if times.last().is_some_and(|last: &f64| *last == rel) {
+                            *values.last_mut().unwrap() = y[i];
+                        } else {
+                            times.push(rel);
+                            values.push(y[i]);
+                        }
+                    }
+                    if values[0] != 0.0 {
+                        // Single-dose NCA needs a drug-free start. For an IV bolus that means a
+                        // dose event at the window start (a pre and a post row at that time) with
+                        // nothing before it; the post-dose value is then removed and C0
+                        // back-extrapolated, as for observed IV data.
+                        let scale = a.abs().max(1.0);
+                        let event_at_start = (i0 < i1 && t[i0 + 1] == t[i0])
+                            || result["_bolus_times"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter_map(Value::as_f64)
+                                .any(|b| (b - a).abs() <= 1e-9 * scale);
+                        if route != super::nca::Route::IvBolus || !event_at_start {
+                            return Err(format!("{field}: the output is {} at the window start; single-dose NCA needs the window to start at the dose with no drug present{}", values[0],
+                                if route == super::nca::Route::IvBolus { " (for iv_bolus, a bolus exactly at the window start)" } else { "" }));
+                        }
+                        // With a pre row at the start, the value before the bolus must be zero; a
+                        // bolus at the simulation start has no pre row (the initial state applies).
+                        if i0 < i1 && t[i0 + 1] == t[i0] && y[i0] != 0.0 {
+                            return Err(format!("{field}: the output is {} just before the bolus at the window start; earlier doses make single-dose NCA invalid", y[i0]));
+                        }
+                        times.remove(0);
+                        values.remove(0);
+                    }
+                    let dose_amount = spec.dose.as_ref().and_then(|d| d["value"].as_f64());
+                    let dose_unit = spec
+                        .dose
+                        .as_ref()
+                        .and_then(|d| d["unit"].as_str())
+                        .map(str::to_owned);
+                    let settings = super::nca::Settings {
+                        route,
+                        method,
+                        dose: dose_amount,
+                        units: super::nca::Units {
+                            time: tu,
+                            concentration: &ou,
+                            amount: dose_unit.as_deref(),
+                        },
+                        blq: None,
+                        min_points: 3,
+                        tolerance: 1e-4,
+                        rows: false,
+                    };
+                    let analysis = super::nca::analyze(&times, &values, None, &settings)
+                        .map_err(|e| format!("{field}: {e}"))?;
+                    row["single_dose_nca"] = analysis;
+                    // One AUC and one half-life per row: the grid summaries give way to the NCA.
+                    for key in ["auc", "cavg", "terminal_half_life"] {
+                        row["value"].as_object_mut().unwrap().remove(key);
+                        row["units"].as_object_mut().unwrap().remove(key);
+                    }
+                    row["note"] = json!("AUC and half-life are reported once, under single_dose_nca (AUCLST, AUCIFO, LAMZHL). Times are measured from the window start, taken as the dose time; doses inside the window make single-dose parameters such as AUCIFO invalid.");
+                } else {
+                    row["note"] = json!("terminal_half_life is a log-linear fit over the last quarter of the window (at least three points); null when the output is not falling throughout it.");
+                }
             }
             "time_below" | "time_above" | "first_crossing" => {
                 let c = spec
@@ -459,8 +681,10 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
                     };
                 }
                 row["threshold"] = json!(c);
+                row["threshold_unit"] = json!(ou);
                 if kind == "first_crossing" {
                     row["value"] = first;
+                    row["unit"] = json!(tu);
                 } else {
                     row["value"] = json!(finite(total, &format!("{field}.value"))?);
                     row["unit"] = json!(tu);
@@ -468,6 +692,7 @@ pub fn calculate(result: &Value, specs: &Value, native: &Value) -> Result<Value,
             }
             _ => unreachable!("point kinds handled before the window calculation"),
         }
+        apply_reported(&mut row, spec.reported.as_ref(), &field)?;
         out.push(row);
     }
     Ok(json!({
@@ -536,17 +761,23 @@ mod tests {
                 json!({"time":1.0,"direction":"up","at_dose_event":true}),
             ),
         ];
-        expected[0]["unit"] = json!("(output unit)*d");
+        expected[0]["unit"] = json!("mg/L.d");
         expected[1]["time"] = json!(3.0);
+        expected[1]["unit"] = json!("mg/L");
         expected[2]["time"] = json!(1.0);
+        expected[2]["unit"] = json!("mg/L");
         expected[3]["note"] = json!("terminal_half_life is a log-linear fit over the last quarter of the window (at least three points); null when the output is not falling throughout it.");
+        expected[3]["units"] = json!({"cmax":"mg/L","tmax":"d","cmin":"mg/L","tmin":"d","auc":"mg/L.d","cavg":"mg/L","terminal_half_life":"d"});
         for row in &mut expected[4..6] {
             row["threshold"] = json!(5.0);
+            row["threshold_unit"] = json!("mg/L");
             row["unit"] = json!("d");
         }
         expected[6]["threshold"] = json!(15.0);
-        expected.push(json!({"kind":"trough","output":"c","at":1.0,"value":10.0,"side":"pre","pre":10.0,"post":20.0}));
-        expected.push(json!({"kind":"value","output":"c","at":1.0,"value":20.0,"side":"post","pre":10.0,"post":20.0}));
+        expected[6]["threshold_unit"] = json!("mg/L");
+        expected[6]["unit"] = json!("d");
+        expected.push(json!({"kind":"trough","output":"c","at":1.0,"value":10.0,"side":"pre","pre":10.0,"post":20.0,"unit":"mg/L"}));
+        expected.push(json!({"kind":"value","output":"c","at":1.0,"value":20.0,"side":"post","pre":10.0,"post":20.0,"unit":"mg/L"}));
         assert_eq!(
             actual,
             json!({"results":expected,"method":format!("Computed on the solved trajectory sampled at {READOUT_POINTS} even steps per window plus every dose event (pre and post). AUC is trapezoidal on that grid; crossings are interpolated within one step and never across a dose event.")})
@@ -619,6 +850,26 @@ mod tests {
     }
 
     #[test]
+    fn reported_values_are_compared_in_the_output_unit() {
+        let result = dose_trajectory();
+        let specs = json!([
+            {"kind":"max","output":"c","from":{"value":0.0},"to":{"value":3.0},"reported":{"value":20500.0,"unit":"ug/L","relative_tolerance":0.05}},
+            {"kind":"nca","output":"c","from":{"value":0.0},"to":{"value":3.0},"reported":{"value":40.0,"metric":"auc","relative_tolerance":0.1}},
+        ]);
+        let actual = calculate(&result, &specs, &Value::Null).unwrap();
+        let first = &actual["results"][0]["comparison"];
+        assert_eq!(first["reported_in_output_unit"], 20.5);
+        assert_eq!(first["within_tolerance"], true);
+        let second = &actual["results"][1]["comparison"];
+        assert_eq!(second["within_tolerance"], false);
+        assert_eq!(second["unit"], "mg/L.d");
+        let bad = json!([{"kind":"nca","output":"c","from":{"value":0.0},"to":{"value":3.0},"reported":{"value":1.0}}]);
+        assert!(calculate(&result, &bad, &Value::Null)
+            .unwrap_err()
+            .contains("metric"));
+    }
+
+    #[test]
     fn supplied_profiles_and_both_alias_forms_keep_their_contract() {
         let mut result = dose_trajectory();
         result.as_object_mut().unwrap().remove("sides");
@@ -631,7 +882,7 @@ mod tests {
                 calculate(&result, &specs, &json!({"outputs":{"concentration":alias}})).unwrap();
             assert_eq!(actual["results"][0]["value"], 30.0);
             assert_eq!(actual["results"][0]["output"], "concentration");
-            assert_eq!(actual["results"][0]["unit"], "(output unit)*");
+            assert_eq!(actual["results"][0]["unit"], "mg/L.");
         }
     }
 

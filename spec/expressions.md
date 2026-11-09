@@ -25,7 +25,7 @@ rejected. There is no arbitrary source-code field or host function lookup.
 
 Quantity constants use `{"kind":"quantity","quantity":{"value":1,"unit":"mL"}}`.
 The model compiler converts them before checking dimensions, so `max(volume,
-quantity(1, "mL"))` can clamp a volume declared in litres. Ordinary numeric
+quantity(1, "mL"))` can clamp a volume declared in liters. Ordinary numeric
 literals are dimensionless. The raw unitless expression API rejects physical
 quantity constants; use `Program::compile_with_units` or the model compiler.
 Canonical model text writes these constants as `quantity(1, "mL")`.
@@ -43,7 +43,7 @@ children. Canonical text formatting uses the same nodes. See
 - Conditionals and and/or short-circuit via forward jumps. Inactive branches do
   not evaluate. No common-subexpression optimization crosses a branch guard.
 - Reusable scratch buffers avoid allocating registers on every evaluation.
-- libm implements transcendentals. Non-finite inputs, invalid domains, overflow,
+- libm implements the transcendental functions. Non-finite inputs, invalid domains, overflow,
   and singular derivatives report typed errors with expression paths.
 - User expressions have at most 256 nodes and depth 32. Generated derivative
   expressions have separate bounds of 16,384 nodes and depth 128. The text

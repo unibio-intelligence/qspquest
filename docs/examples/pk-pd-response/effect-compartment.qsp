@@ -1,0 +1,36 @@
+# Synthetic oral one-compartment PK with an effect compartment (ke0).
+model synthetic_oral_effect_compartment
+time_unit = h
+description = "Synthetic oral PK with a sigmoid Emax effect driven by effect-site concentration"
+
+parameters
+  cl = 2.4 [L/h] log
+  v = 60 [L] log
+  ka = 0.9 [1/h] log
+  f_oral = 0.7 [1] fixed
+  ke0 = 0.15 [1/h] log
+  emax = 80 [%] log
+  ec50 = 2.5 [mg/L] log
+  hill = 1.5 [1] log
+
+states
+  depot = 0 [mg]
+  central = 0 [mg]
+  ce = 0 [mg/L]
+
+definitions
+  conc = central / v [mg/L]
+
+dynamics
+  d/dt(depot) = -ka * depot
+  d/dt(central) = ka * depot - cl / v * central
+  d/dt(ce) = ke0 * (conc - ce)
+
+outputs
+  cp = conc [mg/L]
+  ce = ce [mg/L]
+  effect = emax * (ce / ec50)^hill / (1 + (ce / ec50)^hill) [%]
+
+dosing
+  depot [mg] bolus = f_oral
+end

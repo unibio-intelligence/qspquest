@@ -103,6 +103,9 @@ fn fixture() -> (
         })
         .collect();
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![
             FitBound {
@@ -177,8 +180,8 @@ fn correlated_two_effect_focei_matches_exact_gaussian_marginal() {
             0.04 * weighted[0] + 0.018 * weighted[1],
             0.018 * weighted[0] + 0.09 * weighted[1],
         ];
-        for axis in 0..2 {
-            assert!((result.subjects[index].eta[axis] - eta[axis]).abs() < 1e-4);
+        for (axis, value) in eta.iter().enumerate() {
+            assert!((result.subjects[index].eta[axis] - value).abs() < 1e-4);
         }
     }
     assert!(
@@ -302,6 +305,9 @@ fn correlated_two_effect_focei_runs_dosed_pk_and_projects_individual_predictions
         });
     }
     let request = PopulationFitRequest {
+        covariance: None,
+        sweeps: None,
+        proportional_error_fit: None,
         subjects,
         fixed_effects: vec![
             FitBound {

@@ -1,7 +1,7 @@
 name: Release
-# A pushed vMAJOR.MINOR.PATCH tag builds the Python wheels, the source archive
-# and the MCP image, then publishes them to the GitHub release, PyPI, crates.io
-# and GHCR. Registry uploads use Trusted Publishing. A manual dispatch runs
+# A pushed vMAJOR.MINOR.PATCH tag builds the Python wheels, the source archive,
+# the MCP image and the all-in-one image, then publishes them to the GitHub
+# release, PyPI, crates.io and GHCR. Registry uploads use Trusted Publishing. A manual dispatch runs
 # every build and package check, publishing nothing.
 on:
   push:
@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: false
 env:
   IMAGE: ghcr.io/unibio-intelligence/qspquest-mcp
+  FULL_IMAGE: ghcr.io/unibio-intelligence/qspquest
 
 jobs:
   version:
@@ -143,6 +144,18 @@ jobs:
           path: sourcehouse/*.tar.gz
           if-no-files-found: error
 
+  mcp-release-cache:
+    needs: version
+    uses: ./.github/workflows/mcp.yml
+    with:
+      release_platforms: true
+
+  arm-container-checks:
+    needs: version
+    uses: ./.github/workflows/docker.yml
+    with:
+      release_arm64: true
+
   # Native runners per architecture; the multi-architecture tag is assembled
   # from pushed digests in mcp-image-publish.
   mcp-image:
@@ -184,6 +197,14 @@ jobs:
           trap 'docker logs mcp-starter; docker rm -f mcp-starter' EXIT
           python3 bindings/mcp/scripts/quickstart.py --url http://127.0.0.1:18766/mcp
           python3 bindings/mcp/scripts/quickstart.py --stdio-image qspquest-mcp:local
+      - name: Check stateless HTTP tools and fitting on ARM64
+        if: matrix.architecture == 'arm64'
+        run: |
+          docker run -d --name mcp-check -p 127.0.0.1:18765:8080 \
+            -v "$PWD/bindings/mcp/tests/library:/opt/qspquest/library:ro" \
+            -e QSPQUEST_LIBRARY_DIR=/opt/qspquest/library -e QSPQUEST_MCP_PREWARM=0 qspquest-mcp:local
+          trap 'docker rm -f mcp-check' EXIT
+          python3 bindings/mcp/scripts/smoke.py --url http://127.0.0.1:18765 --output mcp-container.json
       - name: Log in to GHCR
         if: github.event_name == 'push'
         env:
@@ -219,9 +240,81 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The all-in-one image: CLI, Python analysis/interchange/notebook, R and the
+  # MCP server. Each architecture is tested before its digest is pushed.
+  full-image:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, architecture: amd64}
+          - {runner: ubuntu-24.04-arm, architecture: arm64}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build the all-in-one image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: full
+          platforms: linux/${{ matrix.architecture }}
+          load: true
+          push: false
+          tags: qspquest:local
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=release-full-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=release-full-${{ matrix.architecture }}
+      - name: Check CLI, Python, notebook, R, MCP stdio and the default command
+        run: python3 scripts/test_container.py --image qspquest:local --full --out full-check.json
+      - name: Check notebook and R with host user ownership on ARM64
+        if: matrix.architecture == 'arm64'
+        run: python3 scripts/test_container.py --image qspquest:local --notebook --r --user "$(id -u):$(id -g)" --out host-user-check.json
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      # Same inputs and builder cache as the tested build, so the layers are reused.
+      - name: Push the tested image by digest
+        id: push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: full
+          platforms: linux/${{ matrix.architecture }}
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          outputs: type=image,name=${{ env.FULL_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=release-full-${{ matrix.architecture }}
+      - name: Record the pushed digest
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir digests
+          touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name == 'push'
+        with:
+          name: full-digest-${{ matrix.architecture }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
   github-release:
     if: github.event_name == 'push'
-    needs: [version, wheel, wheel-test, sdist, mcp-image, rust-crates-check]
+    needs: [version, wheel, wheel-test, sdist, mcp-image, full-image, mcp-release-cache, arm-container-checks, rust-crates-check]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -285,7 +378,7 @@ jobs:
           fi
           gh release create "v${VERSION}" dist/* \
             --verify-tag --title "QSPQuest ${VERSION}" --generate-notes \
-            --notes "Install with \`pip install qspquest==${VERSION}\`. MCP server image: \`${IMAGE}:${VERSION}\`. Verify a download with \`gh attestation verify <file> --repo ${GITHUB_REPOSITORY}\`; the SBOM and attestation bundles are attached."
+            --notes "Install with \`pip install qspquest==${VERSION}\`. MCP server image: \`${IMAGE}:${VERSION}\`. All-in-one image with the CLI, Python, Jupyter, R and the MCP server: \`${FULL_IMAGE}:${VERSION}\`. Verify a download with \`gh attestation verify <file> --repo ${GITHUB_REPOSITORY}\`; the SBOM and attestation bundles are attached."
 
   rust-crates-check:
     needs: version
@@ -408,4 +501,71 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.index.outputs.digest }}
           sbom-path: ${{ runner.temp }}/qspquest-mcp.spdx.json
+          push-to-registry: true
+
+  full-image-publish:
+    if: github.event_name == 'push'
+    needs: [version, full-image, github-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: full-digest-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Tag the multi-architecture image as the version and latest
+        working-directory: digests
+        run: |
+          digests=(*)
+          test "${#digests[@]}" -eq 2
+          sources=()
+          for digest in "${digests[@]}"; do sources+=("${FULL_IMAGE}@sha256:${digest}"); done
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --annotation "index:org.opencontainers.image.version=${VERSION}" \
+            --annotation "index:org.opencontainers.image.licenses=Apache-2.0" \
+            --annotation "index:org.opencontainers.image.description=QSPQuest CLI, Python, Jupyter, R and MCP server" \
+            --tag "${FULL_IMAGE}:${VERSION}" --tag "${FULL_IMAGE}:latest" \
+            "${sources[@]}"
+          docker buildx imagetools inspect "${FULL_IMAGE}:${VERSION}"
+      - name: Record the image index digest
+        id: index
+        run: |
+          digest="$(docker buildx imagetools inspect "${FULL_IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Generate the image SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.FULL_IMAGE }}@${{ steps.index.outputs.digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ github.token }}
+          format: spdx-json
+          output-file: ${{ runner.temp }}/qspquest-full.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Attest image build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.FULL_IMAGE }}
+          subject-digest: ${{ steps.index.outputs.digest }}
+          push-to-registry: true
+      - name: Attest the image SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ env.FULL_IMAGE }}
+          subject-digest: ${{ steps.index.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/qspquest-full.spdx.json
           push-to-registry: true

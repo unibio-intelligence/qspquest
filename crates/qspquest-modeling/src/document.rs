@@ -101,7 +101,7 @@ impl StepModel {
         let bound = self.binding(index);
         let overrides = self.readout_covariate_overrides(time, side)?;
         if overrides.is_empty() {
-            return bound.outputs_selected(time, state, self.selected_outputs.as_deref());
+            return bound.driver_outputs(time, state, self.selected_outputs.as_deref());
         }
         let mut values = bound.covariate_values.clone();
         values.extend(overrides);
@@ -110,7 +110,7 @@ impl StepModel {
         bound
             .compiled
             .bind_continuing(&bound.parameter_overrides, &values, Some(state))?
-            .outputs_selected(time, state, self.selected_outputs.as_deref())
+            .driver_outputs(time, state, self.selected_outputs.as_deref())
     }
     fn readout_covariate_overrides(
         &self,
@@ -155,6 +155,15 @@ impl Model for StepModel {
     }
     fn check_state(&self, time: f64, state: &[f64]) -> Result<(), Error> {
         self.binding(self.active.get()).check_state(time, state)
+    }
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        self.binding(self.active.get())
+            .check_integrated_state(time, state, absolute_tolerances)
     }
     fn validate(&self) -> Result<(), Error> {
         self.base.validate()
@@ -1577,7 +1586,7 @@ impl BoundDocument {
             ));
         }
         for row in &mut rows {
-            row.values = self.outputs(row.time, &row.values)?;
+            row.values = self.driver_outputs(row.time, &row.values, None)?;
         }
         Ok(rows)
     }
@@ -1599,6 +1608,17 @@ impl BoundDocument {
         selected: Option<&[usize]>,
     ) -> Result<Vec<f64>, Error> {
         self.check_state(time, state)?;
+        self.driver_outputs(time, state, selected)
+    }
+    /// Outputs for a state the event driver has already checked. Integrated
+    /// states may lie within the solver's absolute tolerance below zero, so
+    /// the strict check for supplied states is not repeated here.
+    fn driver_outputs(
+        &self,
+        time: f64,
+        state: &[f64],
+        selected: Option<&[usize]>,
+    ) -> Result<Vec<f64>, Error> {
         if state.len() != self.compiled.state_count
             || !time.is_finite()
             || state.iter().any(|v| !v.is_finite())
@@ -1641,6 +1661,43 @@ impl BoundDocument {
             .collect()
     }
 }
+impl BoundDocument {
+    /// Declared nonnegative states must be finite and at least `-tolerance`.
+    /// The tolerance is zero except for states produced by numerical
+    /// integration, where it is the absolute tolerance of that solve.
+    fn check_nonnegative(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: Option<&[f64]>,
+    ) -> Result<(), Error> {
+        if state.len() != self.compiled.state_count {
+            return Err(invalid("state vector size mismatch"));
+        }
+        if let Some(tolerances) = absolute_tolerances {
+            crate::validate_invariant_tolerances(tolerances, state.len())?;
+        }
+        for &index in &self.compiled.nonnegative_states {
+            let tolerance = absolute_tolerances.map_or(0.0, |t| t[index]);
+            if !state[index].is_finite() || state[index] < -tolerance {
+                let name = &self.compiled.state_names[index];
+                let message = if tolerance > 0.0 {
+                    format!(
+                        "nonnegative invariant failed for {name}: {} is below the absolute tolerance {tolerance}",
+                        state[index]
+                    )
+                } else {
+                    format!("nonnegative invariant failed for {name}: {}", state[index])
+                };
+                let mut error = Error::new(ErrorCode::Invariant, message);
+                error.time = Some(time);
+                error.expression = Some(format!("invariants.nonnegative.{name}"));
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+}
 impl Model for BoundDocument {
     fn jacobian_sparsity(&self) -> Option<Vec<(usize, usize)>> {
         self.problem.jacobian_sparsity()
@@ -1671,22 +1728,16 @@ impl Model for BoundDocument {
     }
 
     fn check_state(&self, time: f64, state: &[f64]) -> Result<(), Error> {
-        if state.len() != self.compiled.state_count {
-            return Err(invalid("state vector size mismatch"));
-        }
-        for &index in &self.compiled.nonnegative_states {
-            if !state[index].is_finite() || state[index] < 0.0 {
-                let name = &self.compiled.state_names[index];
-                let mut error = Error::new(
-                    ErrorCode::Invariant,
-                    format!("nonnegative invariant failed for {name}: {}", state[index]),
-                );
-                error.time = Some(time);
-                error.expression = Some(format!("invariants.nonnegative.{name}"));
-                return Err(error);
-            }
-        }
-        Ok(())
+        self.check_nonnegative(time, state, None)
+    }
+
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        self.check_nonnegative(time, state, Some(absolute_tolerances))
     }
 
     fn validate(&self) -> Result<(), Error> {

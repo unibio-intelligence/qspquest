@@ -112,8 +112,8 @@ impl Failure {
             Reason::ObservationCount { maximum } => ("budget", "population observation limit exceeded".to_owned(),
                 format!("The combined subject observation count must be at most {maximum}; use an explicitly supported larger-workload route when all study observations are required.")),
             Reason::RandomEffectCount => ("unsupported",
-                "Native population fitting supports at most two random effects; additional method constraints are checked by the engine".to_owned(),
-                "Use a supported one- or two-effect model only when scientifically appropriate; native preparation checks estimator-specific constraints.".to_owned()),
+                "Native population fitting supports at most eight random effects (SAEM); FOCEI and Laplace support fewer, and the engine checks each method's constraints".to_owned(),
+                "Use no more random effects than the data identify; native preparation checks estimator-specific constraints.".to_owned()),
         };
         json!({"error":{"code":code,"message":message,"expression":self.pointer,"suggestion":suggestion}})
     }
@@ -170,14 +170,14 @@ fn validate(
     saem_evaluation_path: Option<&str>,
 ) -> Result<(), Failure> {
     if let Some(object) = value.as_object() {
-        // The native two-effect SAEM contract supports an explicit 200,000
+        // Native SAEM with two to eight effects supports an explicit 200,000
         // evaluation ceiling. Scope this local allowance to its exact field;
         // individual, one-effect and hosted request limits remain separate.
         let two_effect_saem = value["schema"] == "qspquest.fit/v0.1"
             && value["problem"]["kind"] == "saem"
             && value["problem"]["request"]["random_effects"]
                 .as_array()
-                .is_some_and(|effects| effects.len() == 2);
+                .is_some_and(|effects| (2..=8).contains(&effects.len()));
         let declared_path = two_effect_saem.then(|| {
             child(
                 &child(&child(path, "problem"), "request"),
@@ -266,7 +266,7 @@ fn validate(
             let effects = value
                 .as_array()
                 .ok_or_else(|| Failure::at(at.clone(), Reason::Array("random_effects")))?;
-            if effects.len() > 2 {
+            if effects.len() > 8 {
                 return Err(Failure::at(at, Reason::RandomEffectCount));
             }
         }
@@ -305,6 +305,116 @@ fn fill_defaults(value: &mut Value) {
             fill_defaults(value);
         }
     }
+}
+
+/// Hosted ceiling on the aggregate simulations of one analysis request.
+pub(crate) const HOSTED_ANALYSIS_SIMULATIONS: u64 = 500;
+
+/// Locations of the run requests embedded in an analysis envelope.
+fn analysis_runs(operation: &str, arguments: &Value) -> Vec<String> {
+    let indexed = |field: &str| -> Vec<String> {
+        arguments[field]
+            .as_array()
+            .map(|items| {
+                (0..items.len())
+                    .map(|i| format!("/arguments/{field}/{i}/run"))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    match operation {
+        "fit_data" | "profile_likelihood" | "event_sensitivities" => vec!["/arguments/run".into()],
+        "fit_population" | "visual_predictive_check" | "bootstrap_population" => {
+            indexed("subjects")
+        }
+        "compare_regimens" => indexed("regimens"),
+        _ => Vec::new(),
+    }
+}
+
+/// Admit a `qspquest.analysis/v0.2` envelope. Every embedded run obeys the
+/// per-run limits of the profile. A hosted request must state
+/// `max_simulations`, at most [`HOSTED_ANALYSIS_SIMULATIONS`], runs on one
+/// worker, and its per-run budgets multiplied by `max_simulations` must stay
+/// within the aggregate inline workload. Run budget defaults are filled in so
+/// the plan shows the effective request. Native analysis owns every other
+/// argument; the generic walker is not applied, because analysis fields such
+/// as an integer `subjects` or up to eight `random_effects` have their own
+/// meaning.
+pub(crate) fn admit_analysis(value: &mut Value, profile: Profile) -> Result<(), Value> {
+    let located = |pointer: &str, code: &str, message: String, suggestion: &str| json!({"error":{"code":code,"message":message,"expression":pointer,"suggestion":suggestion}});
+    if value.to_string().len() > crate::policy::INPUT_LIMIT {
+        return Err(Failure::at(String::new(), Reason::InputLimit).into_value());
+    }
+    let operation = value["operation"].as_str().unwrap_or("").to_owned();
+    let arguments = &value["arguments"];
+    let hosted = matches!(profile, Profile::Hosted);
+    if !crate::core::analysis_request::RECORD_OPERATIONS.contains(&operation.as_str()) {
+        let maximum = match profile {
+            Profile::Hosted => HOSTED_ANALYSIS_SIMULATIONS,
+            Profile::Local => 1_000_000,
+        };
+        let declared = arguments.get("max_simulations").filter(|v| !v.is_null());
+        match declared {
+            None if hosted => {
+                return Err(located(
+                    "/arguments/max_simulations",
+                    "budget",
+                    format!("Hosted analyses must state max_simulations, at most {maximum}"),
+                    "Set max_simulations to the simulations the analysis needs (see the plan's required_simulations), or run locally.",
+                ))
+            }
+            Some(v) if v.as_u64().is_none_or(|n| n == 0 || n > maximum) => {
+                return Err(located(
+                    "/arguments/max_simulations",
+                    "budget",
+                    format!("max_simulations must be 1..{maximum}"),
+                    "Reduce the analysis workload, or run it with local stdio where the native ceiling of 1000000 applies.",
+                ))
+            }
+            _ => {}
+        }
+        if hosted
+            && arguments
+                .get("workers")
+                .filter(|v| !v.is_null())
+                .is_some_and(|v| v.as_u64() != Some(1))
+        {
+            return Err(located(
+                "/arguments/workers",
+                "budget",
+                "Hosted analyses run on one worker".into(),
+                "Omit workers or set it to 1; results do not depend on the worker count.",
+            ));
+        }
+        let simulations = declared.and_then(Value::as_u64).unwrap_or(maximum);
+        let mut admitted = value.clone();
+        for pointer in analysis_runs(&operation, arguments) {
+            let Some(run) = admitted.pointer_mut(&pointer) else {
+                continue;
+            };
+            validate(run, profile, &pointer, None).map_err(Failure::into_value)?;
+            fill_defaults(run);
+            if hosted {
+                for (name, limit) in TOTAL.fields() {
+                    let per_run = run["budgets"][name].as_u64().unwrap_or(u64::MAX);
+                    if per_run.saturating_mul(simulations) > limit {
+                        return Err(located(
+                            &format!("{pointer}/budgets/{name}"),
+                            "budget",
+                            format!("budgets.{name} times max_simulations exceeds the hosted aggregate of {limit}"),
+                            "Lower this run budget or max_simulations so their product stays within the hosted aggregate, or run locally.",
+                        ));
+                    }
+                }
+            }
+        }
+        if admitted.to_string().len() > crate::policy::INPUT_LIMIT {
+            return Err(Failure::at(String::new(), Reason::InputLimit).into_value());
+        }
+        *value = admitted;
+    }
+    Ok(())
 }
 
 pub(crate) fn admit(value: &mut Value, profile: Profile) -> Result<(), Failure> {
@@ -424,11 +534,15 @@ mod tests {
         assert_eq!(request, base);
         let mut nested = json!({"fit_request":base.clone()});
         admit(&mut nested, Profile::Local).unwrap();
+        let mut three = base.clone();
+        three["problem"]["request"]["random_effects"] = json!(vec![json!({}); 3]);
+        admit(&mut three, Profile::Local).unwrap();
         for (kind, effects, maximum) in [
             ("individual", 2, 200_000),
             ("focei", 2, 200_000),
             ("saem", 1, 200_000),
             ("saem", 2, 200_001),
+            ("saem", 9, 200_000),
         ] {
             let mut request = base.clone();
             request["problem"]["kind"] = json!(kind);
@@ -475,7 +589,10 @@ mod tests {
             assert_eq!(failure["error"]["code"], "unsupported_solver");
             assert_eq!(failure["error"]["expression"], "/nested/solver");
         }
-        let mut effects = json!({"random_effects":[{},{},{}]});
+        // SAEM fits up to eight random effects; the engine checks each method.
+        let mut admitted = json!({"random_effects":vec![json!({}); 8]});
+        admit(&mut admitted, Profile::Local).unwrap();
+        let mut effects = json!({"random_effects":vec![json!({}); 9]});
         assert_eq!(
             admit(&mut effects, Profile::Local)
                 .unwrap_err()

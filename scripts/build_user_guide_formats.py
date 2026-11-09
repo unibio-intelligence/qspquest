@@ -5,7 +5,7 @@ Requires nbformat. Generation does not execute cells or install dependencies;
 rerun verification before treating regenerated outputs as checked.
 """
 from pathlib import Path
-import json, re, hashlib
+import json, re
 import nbformat
 import argparse
 
@@ -39,8 +39,7 @@ nb.metadata = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
     "language_info": {"name": "python"},
     "qspquest": {
-        "guide_api": "0.1.0",
-        "source_guide_sha256": hashlib.sha256(python_md.encode()).hexdigest(),
+        "guide_api": "0.1.1",
     },
 }
 python_md = replace_once(

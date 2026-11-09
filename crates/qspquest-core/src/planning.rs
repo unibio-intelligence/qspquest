@@ -486,6 +486,9 @@ pub struct PopulationPreparationPlan {
     pub centered_covariates: Vec<Vec<f64>>,
     pub initial_covariate_coefficients: Vec<f64>,
     pub residual: Option<ResidualFitPlan>,
+    /// Common fitted dimensionless proportional SD and its admitted bounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proportional_residual: Option<crate::fit::PopulationProportionalErrorFit>,
 }
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

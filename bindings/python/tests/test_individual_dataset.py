@@ -9,7 +9,7 @@ from pathlib import Path
 import zipfile
 
 import pytest
-import qspquest as qsp
+import qspquest as qq
 from qspquest.interchange import export_omex, import_omex, FIT_PROFILE, InterchangeError
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -21,14 +21,14 @@ spec.loader.exec_module(example)
 
 def dataset(solver='diffsol_bdf'):
     endpoints = {'pk': {'output': 'measured_concentration', 'value_unit': 'mg/L',
-                       'error': {'additive_sd': qsp.quantity(.05, 'mg/L'), 'proportional_sd': 0}},
+                       'error': {'additive_sd': qq.quantity(.05, 'mg/L'), 'proportional_sd': 0}},
                  'pd': {'output': 'measured_cells', 'value_unit': '1/mm3',
-                       'error': {'additive_sd': qsp.quantity(.2, '1/mm3'), 'proportional_sd': 0}}}
+                       'error': {'additive_sd': qq.quantity(.2, '1/mm3'), 'proportional_sd': 0}}}
     records = [{'row': 2, 'endpoint': 'pd', 'value': 180},
                {'row': 0, 'endpoint': 'pk', 'value': 0},
                {'row': 2, 'endpoint': 'pk', 'value': 290},
                {'row': 0, 'endpoint': 'pd', 'value': 200}]
-    return qsp.individual_fit_dataset(records, example.template(solver, example.STARTS[0]), endpoints=endpoints)
+    return qq.individual_fit_dataset(records, example.template(solver, example.STARTS[0]), endpoints=endpoints)
 
 
 def test_unsorted_paired_records_defensive_copies_and_native_admission():
@@ -56,9 +56,9 @@ def test_unsorted_paired_records_defensive_copies_and_native_admission():
 ])
 def test_invalid_source_records_are_not_repaired(invalid):
     error = {'output': 'measured_cells', 'value_unit': '1/mm3',
-             'error': {'additive_sd': qsp.quantity(.2, '1/mm3'), 'proportional_sd': 0}}
-    with pytest.raises(qsp.QSPQuestError):
-        qsp.individual_fit_dataset([invalid], example.template('diffsol_bdf', example.STARTS[0]), endpoints={'pd': error})
+             'error': {'additive_sd': qq.quantity(.2, '1/mm3'), 'proportional_sd': 0}}
+    with pytest.raises(qq.QSPQuestError):
+        qq.individual_fit_dataset([invalid], example.template('diffsol_bdf', example.STARTS[0]), endpoints={'pd': error})
 
 
 @pytest.mark.parametrize('solver', ['diffsol_bdf'])
@@ -136,7 +136,7 @@ outputs
  concentration = y [mg/L]
 end
 '''
-    run = qsp.run_request(end=2, times=[0, 1, 2], solver=solver, rtol=1e-11, atol=1e-13)
+    run = qq.run_request(end=2, times=[0, 1, 2], solver=solver, rtol=1e-11, atol=1e-13)
     observations, expected_nll, expected_gradient = [], 0., 0.
     for row, time in enumerate([0, 1, 2]):
         for name, amplitude, unit, sd in [('mass', 10, 'mg', 2), ('concentration', 4, 'mg/L', .3)]:
@@ -145,14 +145,14 @@ end
             difference = value-predicted
             expected_nll += .5*(difference/sd)**2+math.log(sd)+.5*math.log(2*math.pi)
             expected_gradient += -difference*(-time*predicted)/sd**2
-            observations.append({'row': row, 'output': name, 'value': qsp.quantity(value, unit),
-                'error': {'additive_sd': qsp.quantity(sd, unit), 'proportional_sd': 0}})
+            observations.append({'row': row, 'output': name, 'value': qq.quantity(value, unit),
+                'error': {'additive_sd': qq.quantity(sd, unit), 'proportional_sd': 0}})
     objective = {'simulation': {'schema': 'qspquest.sensitivity/v0.1', 'run': run,
                  'with_respect_to': ['k'], 'derivative_absolute_tolerances': {
-                     'k': {'x': qsp.quantity(1e-12, 'mg.h'),
-                           'y': qsp.quantity(1e-12, 'mg.h/L')}}},
+                     'k': {'x': qq.quantity(1e-12, 'mg.h'),
+                           'y': qq.quantity(1e-12, 'mg.h/L')}}},
                  'observations': observations, 'priors': []}
-    answer = qsp.CompiledSensitivities(source, ['k']).objective(objective)
+    answer = qq.CompiledSensitivities(source, ['k']).objective(objective)
     assert abs(answer['objective']-expected_nll) < 1e-7
     assert abs(answer['gradient'][0]['value']-expected_gradient) < 1e-6
     assert answer['observations'] == 6
@@ -165,10 +165,10 @@ def test_individual_template_requires_current_schemas_without_mutating_input():
     assert current == before
     current['problem']['request']['objective']['observations'] = []
     endpoint = {'pd': {'output': 'measured_cells', 'value_unit': '1/mm3',
-                      'error': {'additive_sd': qsp.quantity(.2, '1/mm3'), 'proportional_sd': 0}}}
+                      'error': {'additive_sd': qq.quantity(.2, '1/mm3'), 'proportional_sd': 0}}}
     records = [{'row': 0, 'endpoint': 'pd', 'value': 200}]
     before = deepcopy(current)
-    prepared = qsp.individual_fit_dataset(records, current, endpoints=endpoint).request
+    prepared = qq.individual_fit_dataset(records, current, endpoints=endpoint).request
     assert current == before
     assert prepared['schema'] == 'qspquest.fit/v0.1'
     for level in range(3):
@@ -178,12 +178,12 @@ def test_individual_template_requires_current_schemas_without_mutating_input():
         for invalid in (tag.replace('qspquest.', 'other.'), tag.replace('v0.1', 'v99'), None, [tag], 1):
             document['schema'] = invalid
             rejected_input = deepcopy(current)
-            with pytest.raises(qsp.QSPQuestError):
-                qsp.individual_fit_dataset(records, current, endpoints=endpoint)
+            with pytest.raises(qq.QSPQuestError):
+                qq.individual_fit_dataset(records, current, endpoints=endpoint)
             assert current == rejected_input
         del document['schema']
-        with pytest.raises(qsp.QSPQuestError):
-            qsp.individual_fit_dataset(records, current, endpoints=endpoint)
+        with pytest.raises(qq.QSPQuestError):
+            qq.individual_fit_dataset(records, current, endpoints=endpoint)
         document['schema'] = tag
 
 
@@ -195,7 +195,7 @@ def test_individual_archive_rejects_unknown_nested_schemas():
         for invalid in (tag.replace('qspquest.', 'other.'), tag.replace('v0.1', 'v99'), None):
             document['schema'] = invalid
             before = deepcopy(current)
-            with pytest.raises((InterchangeError, qsp.QSPQuestError)):
+            with pytest.raises((InterchangeError, qq.QSPQuestError)):
                 export_omex(MODEL, {}, fits={'paired': current})
             assert current == before
         document['schema'] = tag

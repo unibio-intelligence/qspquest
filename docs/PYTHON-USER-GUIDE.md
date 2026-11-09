@@ -5,7 +5,7 @@ synthetic observations using QSPQuest's native Python binding. The examples
 run locally and require no Ubi account or simulation service. All parameter
 values and data in this guide are synthetic.
 
-This guide uses the 0.1.0 API and CPython 3.10+. Follow the
+This guide uses the 0.1.1 API and CPython 3.10+. Follow the
 [installation guide](installation.md), then run the Python blocks in order.
 The [example script](examples/python_quickstart.py) runs the same workflow
 without plotting dependencies. Check fit status and model assumptions before
@@ -39,14 +39,14 @@ Follow [installation](installation.md#python), then check the active binding:
 python -c "import qspquest; print(qspquest.__version__)"
 ```
 
-Expected version: `0.1.0`. For Jupyter, select the same environment's kernel.
+Expected version: `0.1.1`. For Jupyter, select the same environment's kernel.
 
 ## Quickstart
 
-Our model has a central drug amount `central` in mg, clearance `cl` in L/h,
+The model has a central drug amount `central` in mg, clearance `cl` in L/h,
 and volume `v` in L. Its equations are
 `dA/dt = input - (cl/v) A` and `cp = A/v`. A bolus of 6 mg in a 3 L volume
-gives 2 mg/L immediately after dosing. The elimination rate is 0.1 per hour.
+gives 2 mg/L immediately after dosing. The elimination rate constant `cl/v` is 0.1 per hour.
 
 ### Compile the model
 
@@ -95,7 +95,7 @@ model text: load a file with `Path("model.qsp").read_text(encoding="utf-8")`.
 ### Define the experiment and run it
 
 Use explicit observations to select exactly the requested times and event
-sides. This also makes fitting row numbers straightforward later.
+sides. This also fixes the row numbers that the fits in later sections use.
 
 ```python
 times = [0, 1, 2, 4, 8, 12]
@@ -127,19 +127,19 @@ print(list(zip(result["times"], cp["values"])))
 ```
 
 Expected concentrations include 2.000000 mg/L at 0 h, 1.340640 mg/L at 4 h,
-and 0.602388 mg/L at 12 h. The asserts check them against the analytic
+and 0.602388 mg/L at 12 h. The `assert` statements compare them with the analytic
 solution.
 
-Compile once and reuse `model`. Each call starts fresh; it does not continue
+Compile once and reuse `model`. Each call is independent; it does not continue
 from the previous call. A supplied `initial_states`
 map overrides initial conditions explicitly.
 
 ## Read and plot results
 
 Results contain `times`, `sides`, `time_unit`, named `outputs` with `unit` and
-`values`, and `identity`. States appear only when exposed as outputs. Never
-assume the first output is the one you need, and retain side labels at event
-times. Build a long table without adding a dependency:
+`values`, and `identity`. States appear only when exposed as outputs. Select
+outputs by name rather than by position, and retain side labels at event
+times. The following code builds a long-format table without additional dependencies:
 
 ```python
 def result_rows(answer):
@@ -225,8 +225,8 @@ linear interpolation are not.
 
 For first-order absorption and central/peripheral distribution, add a depot,
 an intercompartmental clearance, and a peripheral volume. This synthetic model
-exposes amounts as well as concentration so you can
-inspect where the drug resides.
+exposes amounts as well as concentration so that the amount of drug in each
+compartment can be inspected.
 
 ```python
 oral_source = """model quickstart_oral_two_compartment
@@ -272,14 +272,15 @@ The depot receives the available 80 mg and transfers it to central by first-orde
 absorption. The model permits bolus input only to the depot; it does not have
 an infusion term there. Summing the three amount derivatives cancels internal
 transfer and leaves central elimination. This is an assumption about a simple
-mechanism, not a drug-specific oral PK model or a model of saturable absorption.
-For larger PBPK/QSP systems, expose relevant state amounts, check conservation
+mechanism, not a drug-specific oral pharmacokinetic (PK) model or a model of saturable absorption.
+For larger physiologically based pharmacokinetic (PBPK) and quantitative
+systems pharmacology (QSP) systems, expose relevant state amounts, check conservation
 and domains, and choose state-specific absolute tolerances.
 
 ## Choose sampling and solver settings
 
 At a bolus time, `pre` means before the jump and `post` means after it. The
-same-time record order in a dataset does not choose a side for you.
+order of records with the same time in a dataset does not determine the side.
 
 ```python
 at_dose = copy.deepcopy(request)
@@ -297,19 +298,19 @@ can add rows. Inspect the returned times and sides rather than deriving row
 numbers from the samples list. Do not combine nonempty `samples` with
 `observations`, or send an explicitly empty observation plan.
 
-The quickstart uses BDF. Simulation also supports `diffsol_tsit45`,
-`diffsol_esdirk34`, and `diffsol_tr_bdf2`. Pick a method suited to the model and check that results
-hold as you tighten tolerances. An unknown solver name is an error; there is no
+The quickstart uses a backward differentiation formula (BDF) method. Simulation also supports `diffsol_tsit45`,
+`diffsol_esdirk34`, and `diffsol_tr_bdf2`. Choose a method suited to the model and check that the results
+do not change materially when the tolerances are tightened. An unknown solver name is an error; there is no
 fallback. Sensitivities and sensitivity-based fitting currently require BDF.
 `analytic_linear_pk` requires a model with a `linear_pk` declaration; it does
-not automatically recognize arbitrary ODE text as linear PK.
+not automatically recognize arbitrary ordinary differential equation (ODE) text as linear PK.
 
 `rtol` is dimensionless. Scalar `atol` uses each state's numeric unit. For
 states with different scales, replace `atol` with `absolute_tolerances`, a
 quantity map covering every state, for example `{"central": q(1e-12, "mg")}`.
 Use exactly one absolute-tolerance mode. Budgets bound callbacks, events and
 stored outputs; they are work limits, not wall-clock timeouts. Increasing
-budgets does not fix an invalid equation or poor identifiability.
+budgets does not correct an invalid equation or poor identifiability.
 
 ## Scan parameters
 
@@ -338,7 +339,7 @@ interval or population distribution.
 
 Forward sensitivities calculate output derivatives for an ordered parameter
 selection. Compile that selection once; subsequent requests must use the same
-order. Derivative tolerances carry state-unit divided by parameter-unit.
+order. Derivative tolerances have units of state unit divided by parameter unit.
 
 ```python
 sensitivity_request = {
@@ -356,7 +357,7 @@ for column in sensitivities["derivatives"]:
 ```
 
 These are local derivatives. For screening over
-chosen ranges, Morris calculates elementary effects at a selected output row.
+chosen ranges, the Morris method calculates elementary effects at a selected output row.
 With two parameters and two trajectories, this example uses six runs.
 
 ```python
@@ -387,8 +388,8 @@ readout. The 25-run scan limit also bounds Morris designs.
 
 An individual fit estimates selected shared model parameters against measured
 outputs. This demonstration generates exact synthetic observations with
-`cl = 0.6 L/h` and `v = 4.5 L`, and uses a fixed additive normal SD of
-0.1 mg/L. Real data require a justified error model and sampling design.
+`cl = 0.6 L/h` and `v = 4.5 L`, and uses a fixed additive normal standard
+deviation (SD) of 0.1 mg/L. Real data require a justified error model and sampling design.
 
 ```python
 observations = [
@@ -426,11 +427,11 @@ fit_predictions = model.run(replay)
 one-based indexing. The explicit observation plan here ensures that `row = 0`
 is the post-dose measurement at 0 h. Duplicate observations remain separate
 likelihood contributions. Parameter bounds and error SDs must carry compatible
-units. `priors = []` requests likelihood fitting; supported priors produce MAP
-fits. Consult the [Gaussian objective specification](GAUSSIAN-OBJECTIVE.md)
+units. `priors = []` requests likelihood fitting; supported priors produce
+maximum a posteriori (MAP) fits. Consult the [Gaussian objective specification](GAUSSIAN-OBJECTIVE.md)
 before changing the observation model or adding priors.
 
-Returning a fit does not imply convergence. Inspect status, objective,
+A returned fit is not necessarily converged. Inspect status, objective,
 evaluation count, parameter bounds, and a replay at final estimates. A result
 with `evaluation_limit` is incomplete. Small residuals alone do not establish
 identifiability. Pooled fits share parameter estimates across subjects without
@@ -440,7 +441,7 @@ random effects; see the versioned fit schema for the `pooled` envelope.
 
 `fit_scalar` searches one bounded parameter by native simulation when compiling
 sensitivities is impractical. Fix all other parameters explicitly. This example
-fixes `v` at the synthetic truth so only clearance needs estimation.
+fixes `v` at the synthetic true value so that only clearance is estimated.
 
 ```python
 scalar_run = copy.deepcopy(request)
@@ -469,7 +470,7 @@ The dataset adapter accepts a list of row dictionaries or a pandas data frame.
 It converts an explicit subset of NONMEM-style records into one population
 request. A dose compartment and an observation endpoint are separate mappings.
 The following four-subject example estimates typical clearance with a lognormal
-subject effect. Volume and the eta variance are fixed for this demonstration;
+between-subject random effect (eta). Volume and the eta variance are fixed for this demonstration;
 it does not estimate a full population PK model.
 
 ```python
@@ -522,7 +523,7 @@ assert population["status"] == "converged"
 assert abs(population["fixed_effects"]["cl"]["value"] - 0.6) < 0.06
 ```
 
-For an actual CSV workflow, load the file before preparation, preserving string
+To use data from a CSV file, load the file before preparation, preserving string
 subject IDs and explicit missing-value flags:
 
 ```python
@@ -534,7 +535,8 @@ subject IDs and explicit missing-value flags:
 Review `dataset.request` before execution. `dataset.mapping` and
 `population_fit["mapping"]` preserve zero-based `source_row`, `result_row`,
 and subject indices. `subject_ids` follow first appearance in the input.
-FOCEI fitted observations include PRED/IPRED and the mapped source rows; retain
+First-order conditional estimation with interaction (FOCEI) fitted observations
+include the population (PRED) and individual (IPRED) predictions and the mapped source rows; retain
 these mappings when joining predictions back to data.
 
 Supported columns are `ID`, `TIME`, `EVID`, `DV`, `MDV`, `AMT`, `CMT`, `RATE`,
@@ -547,7 +549,8 @@ are rejected. The template horizon is not extended to fit the rows.
 
 ### Use SAEM and interpret its status
 
-SAEM uses the same prepared-data interface with `problem.kind = "saem"`.
+Stochastic approximation expectation-maximization (SAEM) uses the same
+prepared-data interface with `problem.kind = "saem"`.
 This deliberately short example demonstrates an iteration-limited result;
 eight iterations are not a recommended estimation budget.
 
@@ -570,8 +573,8 @@ values are not interchangeable. Fitted observation rows can be absent in an
 incomplete SAEM result; inspect the field instead of assuming a diagnostics
 table exists. The [SAEM guide](SAEM.md) describes one- and two-effect scope,
 estimated additive error, normal/lognormal and left-censored observations,
-bounded fitted covariates, and local uncertainty. Set those fields in the
-request yourself; the row adapter does not infer them.
+bounded fitted covariates, and local uncertainty. Set those fields explicitly
+in the request; the row adapter does not infer them.
 Record the seed, repeat seeds when assessing stability, and verify recovery
 for your own equation class and cohort design.
 
@@ -600,13 +603,14 @@ print(result["identity"])
 ```
 
 `identity` records the model, resolved inputs, request and software build. It
-tells you exactly what ran, not whether the model is scientifically suitable.
+identifies what was run; it does not indicate whether the model is scientifically suitable.
 
-Compiled objects belong to a live process. Recompile from saved source in a
+Compiled objects exist only in the process that created them. Recompile from saved source in a
 new process rather than treating a serialized object as a portable model.
-Compiled models can be shared across threads; runs release the GIL. Results
+Compiled models can be shared across threads; runs release the global
+interpreter lock (GIL). Results
 are plain Python lists and dictionaries, not NumPy arrays. Limit concurrency
-yourself. Cancelling a Python future does not stop a solve already running; use
+in the calling code. Cancelling a Python future does not stop a solve already running; use
 a separate process for hard deadlines.
 
 ## Handle errors and troubleshoot
@@ -671,5 +675,5 @@ not achieved by adding SS records to the dataset adapter. Read
 [model language](../spec/language.md), [regimens](../spec/regimens.md),
 [run and result identity](../spec/run-results.md),
 [parameter scans](PARAMETER-SCANS.md), and [JSON schemas](../spec/schema/README.md).
-For platform-specific installation, see [installation](installation.md). For R
-colleagues, use [the R user guide](R-USER-GUIDE.md).
+For platform-specific installation, see [installation](installation.md). For R,
+see [the R user guide](R-USER-GUIDE.md).

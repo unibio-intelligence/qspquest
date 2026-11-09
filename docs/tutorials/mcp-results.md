@@ -1,6 +1,6 @@
 # Work with MCP results
 
-These workflows run synthetic models through a local QSPQuest MCP server: read
+These workflows run synthetic models through a local QSPQuest Model Context Protocol (MCP) server: read
 complete results, inspect model cards and offline documentation, and prepare and
 fit population records. The models are synthetic, so the checks show that numbers
 are computed correctly, not that any model is clinically valid.
@@ -46,9 +46,10 @@ no full trajectory. `payload_sha256` is a checksum of the returned data. When
 `trajectory_kind` is `compact_preview`, `full_requested_grid` or
 `summary_only`. When `full_result_resource` is present, read it with
 `resources/read` in the same session before computing anything from the
-trajectory; a preview can miss peaks and troughs. For a `utf8_chunk_manifest`,
+trajectory; a preview may omit peaks and troughs. For a `utf8_chunk_manifest`,
 join the chunks in order and check the manifest SHA-256 before parsing. Summary
-AUCs and extrema are trapezoidal values on the returned grid, not a formal NCA.
+areas under the curve (AUCs) and extrema are trapezoidal values on the returned
+grid, not the results of a formal noncompartmental analysis (NCA).
 Keep the session open until all reads finish.
 
 To replay a result, call `simulate` with the same model and outputs and
@@ -61,17 +62,20 @@ zero end, an empty observation plan and an incompatible threshold unit all
 return `request_failure` with no result. To observe initial values, use a
 positive end and include time zero.
 
-It also starts at 30 mg (10 mg/L) and requests time above
+The default run also starts from 30 mg (10 mg/L) and requests the time above
 `{"value":5000,"unit":"ug/L"}` through 10 hours. The threshold converts to
 5 mg/L and the duration is `log(2) / 0.1 = 6.93147 h`, checked within
 `0.0001 h`. Readouts use the returned grid and the output's own unit; an output
-in unit `1` stays unitless whatever it is called. Native requests cannot combine
+in unit `1` remains unitless regardless of its name. Native requests cannot combine
 samples and sided observations.
 
 Readouts need a known kind and output, and a positive window or exact time.
 Each output must have one finite value per time. AUC includes the post-event
 start and pre-event end of a window. `value` defaults to post-event; `trough`
-uses pre-event. The same rules apply to `summarize_profile`. Timed parameter
+uses pre-event. The same rules apply to `summarize_profile`. Hosted profile
+summaries accept up to 2,000 rows. Run locally to summarize a larger profile.
+Hosted steady-state, sensitivity, dose search and scan requests share one
+45-second deadline across all their evaluations. Timed parameter
 changes accept only `name` (or `parameter`), `at` and `value`.
 
 ### Inspect a plan before execution
@@ -86,7 +90,7 @@ engine identity must match.
 
 Leave `expected_plan_hash` unset while planning. A changed source, library
 version, request, outputs or deployment is refused with `plan_mismatch` before
-any numerical work; plan again. A plan does not reserve capacity.
+any numerical work, and a new plan is required. A plan does not reserve capacity.
 
 Large local plans return `full_plan_resource` instead of `plan`; read it with
 the chunk procedure above. Plans share the local cache (eight entries, 4 MB
@@ -108,8 +112,8 @@ specific columns. A requirement names `output` and may name an exact declared
 
 Required columns must already be selected, and labels are never inferred from
 names. Plans carry `required_output_receipts` with `selected_for_computation`;
-results add `computed`, the native column, unit and sample count; CSV manifests
-keep them. A missing column or incomplete grid fails and is never filled with
+results add `computed`, the native column, unit and sample count; the manifests of
+comma-separated values (CSV) files keep them. A missing column or incomplete grid fails and is never filled with
 zeros. A refusal appears in `contract.failure.output_requirement` with
 `fulfilled:false`.
 
@@ -135,7 +139,7 @@ values, the constraint and a small example. JSON `NaN`, `Infinity`, null or
 python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --time-validation
 ```
 
-This runs from 2 to 4 h with 121 samples in minutes, checks
+This example runs from 2 to 4 h with 121 sample times given in minutes, and checks
 `2 * exp(-0.1 * (time - 2))` mg/L and seven refusals. Expected output is
 `Verified an unchanged shifted
 protocol, 121 analytical samples and seven field-level input refusals before
@@ -160,7 +164,7 @@ The response has `patient_quantities`, `patient_units`, `time`, `time_unit`,
 `effective_initial_values`, the effective request, identity and qualification
 limits. `covariates` takes scalar inputs with units; omitting `outputs`
 evaluates every output. Unit `1` means no physical unit is attached. An output
-may simply repeat a stored value; check its expression before calling it
+may only repeat a stored value; check its expression before describing it as
 patient-specific. Large results fail with `patient_output_budget` unless the
 server has `--artifact-dir PATH`.
 
@@ -196,7 +200,7 @@ Every member has an `input_receipt` with `requested_inputs`,
 different inputs, not necessarily different results.
 
 Comparisons take 1 to 25 members with unique names of at most 120 UTF-8 bytes.
-All members are prepared before any integrates, and all runs succeed before CSV
+All members are prepared before any member is integrated, and all runs succeed before CSV
 export starts. Export is not transactional: a later file error can leave
 earlier bundles. Hosted comparisons share one 45-second deadline. Without
 `--artifact-dir PATH`, an evicted member has no `full_result_resource`.
@@ -239,7 +243,7 @@ The engine's `run_request_hash` identifies its native request.
 The reader checks CSV bytes, headers, row counts, finite cells and
 nondecreasing time; two rows at one time must be `pre` then `post`. Limits are
 256 MiB of CSV, 16 MiB of manifest and 2,000,000 rows. Keep both files together
-under their original name, and do not re-save the CSV from a spreadsheet: its
+under their original name, and do not save the CSV again from a spreadsheet program: its
 digest will no longer match. Digests detect corruption, not tampering with both
 files.
 
@@ -287,12 +291,12 @@ budgets but computes no fixed point. See the
 
 Malformed analysis fields return an `error.expression` JSON pointer, such as
 `/request/problem/request/ranges/1/upper/unit` or
-`/request/relative_tolerance`, with a suggested fix.
+`/request/relative_tolerance`, with a suggested correction.
 
 ### Retain complete results across local server restarts
 
-Use a private directory when a result may exceed 4 MB or must survive the
-server:
+Use a private directory when a result may exceed 4 MB or must remain available
+after the server stops:
 
 ```sh
 artifact_dir=$(mktemp -d)
@@ -302,7 +306,7 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --arti
 On Windows, create an empty private directory and use
 `target/release/qspquest-mcp.exe`. The script starts the server with
 `--artifact-dir PATH`, requests 6,002 rows for 48 outputs, and checks that the
-result exceeds 4 MB, survives nine more calculations and a restart, and keeps
+result exceeds 4 MB, remains available after nine further calculations and a restart, and keeps
 its expiry. Expected output starts with `Verified`.
 
 With this option, numerical results are written as immutable JSON artifacts.
@@ -328,8 +332,8 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --dose
 ```
 
 The example submits 150 mg, 150000 ug and 0.15 g; each gives two 150 mg boluses
-at 0 and 12 h and the same concentrations (3 L, 0.1/h, 50 mg/L after the first
-dose). Pre-side samples at a dose time exclude that dose.
+at 0 and 12 h and the same concentrations (volume 3 L, elimination rate constant 0.1/h, 50 mg/L after the
+first dose). Pre-side samples at a dose time exclude that dose.
 
 `plan_run` returns `dose_event_receipts` with stage `prepared_schedule`: target,
 event index, time, delivery type, `amount_before_model_scaling`, state unit and
@@ -347,11 +351,11 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --line
 ```
 
 This runs four workflows (depot, central with depot, central without depot and
-two 2 h infusions) with 3 L, 0.3 L/h and absorption 1.2/h. Two 6000 ug doses
-with availability 0.5, a 1 h lag and a 6 h interval give receipts of 3 mg at 1
+two 2 h infusions) with volume 3 L, clearance 0.3 L/h and absorption rate constant 1.2/h. Two
+6000 ug doses with bioavailability 0.5, a 1 h lag and a 6 h interval give receipts of 3 mg at 1
 and 7 h. The infusion model uses `central [mg] = dose_scale` with
-`dose_scale` 2, so each infusion delivers 6 mg. Default linear PK dosing uses
-scale 1 and the declared `amount_unit`.
+`dose_scale` 2, so each infusion delivers 6 mg. By default, dosing in linear
+pharmacokinetic models uses scale 1 and the declared `amount_unit`.
 
 ### Inspect large models in bounded pages
 
@@ -377,7 +381,7 @@ Request a page:
 {"model_id":"synthetic_resource_example","page":{"section":"outputs","offset":0,"limit":32,"expected_inspection_hash":"COPY_THE_INDEX_INSPECTION_HASH"}}
 ```
 
-Limits run from 1 to 128 (default 32). Follow `next_offset` or
+The page `limit` ranges from 1 to 128 (default 32). Follow `next_offset` or
 `next_page_resource` until null; a page can return fewer records than asked.
 `offset == record_count` returns an empty terminal page.
 Each entry has `native_path`, its canonical name, aliases, the native record and
@@ -419,7 +423,7 @@ hashes, the current `inspection_index_resource` and
 `migration: "inspect_submitted_model"`). A complete `qspquest.run/v0.1` request
 needs canonical native names; an alias there returns
 `input_name_requires_native` with the canonical name and
-`numerical_execution_started: false`. No name is guessed. A missing version
+`numerical_execution_started: false`. Names are not inferred. A missing version
 returns a lookup error.
 
 ### Inspect pre-dose initialization and percentage denominators
@@ -428,8 +432,8 @@ returns a lookup error.
 python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --initialization
 ```
 
-A target starts at zero at −20 h, is made at 2 mg/h and cleared at 1/h; a
-marker dose at 0 h sets the clock. The example compares the baseline, clearance
+A target starts at zero at −20 h, is synthesized at 2 mg/h and is cleared with
+a rate constant of 1/h; a marker dose at 0 h defines the clock origin. The example compares the baseline, clearance
 2/h throughout, 2/h from −10 h and 2/h from 0 h against
 `2/k * (1 - exp(-k * (time + 20)))` mg (48 values). Expected output begins
 `Verified four protocol conditions, 48 analytical
@@ -497,7 +501,7 @@ used over the preceding interval.
 python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --scheduled-boundaries
 ```
 
-Expect:
+The expected output is:
 
 ```text
 Verified four predicate conventions, 144 analytical values, native schedule receipts, CSV sides and 24 changed-receipt refusals
@@ -537,10 +541,11 @@ parity, clinical validation and physical dimensions.
 python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --scientific-assessments
 ```
 
-Two states start at 1 mg and 0 mg; central loses at twice the transfer rate
-while peripheral gains at the rate, so `central = exp(-2t)` mg and
-`peripheral = (1 - exp(-2t))/2` mg. The numbers are right, but the total
-falls: numerical agreement coexists with a conservation finding. Expected
+Two states start at 1 mg and 0 mg. The central amount decreases at twice the
+transfer rate, and the peripheral amount increases at the transfer rate, so
+`central = exp(-2t)` mg and `peripheral = (1 - exp(-2t))/2` mg. The computed
+values are correct, but the total amount decreases; numerical agreement is
+therefore reported together with a conservation finding. Expected
 output begins:
 
 ```text
@@ -560,8 +565,9 @@ own evidence. Libraries declare assessments with
 
 `format_response` maps actual returned columns from several computed
 conditions into requested JSON keys, with units, times and a required
-`event_side` (`pre`, `post` or `both`). It never interpolates, converts units,
-solves or guesses; a missing side or time needs a new simulation.
+`event_side` (`pre`, `post` or `both`). It does not interpolate, convert units,
+solve equations or infer values; a missing side or time requires a new
+simulation.
 
 ```sh
 python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --response-guard
@@ -569,7 +575,7 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --resp
 
 The example computes one 6 mg bolus, two 6 mg boluses and two 12 mg boluses
 (0 h and 2 h; 3 L; 0.3 L/h), with artifact and cache storage. It maps
-`library_state_0` into nine arrays and refuses nineteen bad inputs. Expected
+`library_state_0` into nine arrays and refuses nineteen invalid inputs. Expected
 output begins:
 
 ```text
@@ -589,7 +595,7 @@ Arguments for one post-dose array:
 
 Replace `RESULT_ID` with the run identifier, or use the artifact URI from
 `full_result_resource`. Add `expected_plan_hash` and
-`expected_effective_request_hash` when available so a swapped source fails.
+`expected_effective_request_hash` when available so that a substituted source fails.
 
 The result has `formatted_response` and `response_guard`. Check the guard's
 identities, mappings and sides before copying `formatted_response`. To check an
@@ -650,7 +656,7 @@ No downloads or accounts are needed. Expected output is:
 Verified compact model card, complete metadata and stored scenario.
 ```
 
-The example checks the card, fetches the full metadata and checks it matches
+The example checks the card, fetches the full metadata and checks that it matches
 the card, and compares the stored scenario with the original request.
 
 In an MCP client, call `get_model` with `{"model_id":"your_model_id"}`. The
@@ -664,7 +670,7 @@ full list. Check any listed blockers and unit limitations before using units.
 accepted alternative names. The unit used in the original paper is kept separate
 from the unit QSPQuest returns: an output labeled `pg/mL` in the source can still
 return unit `1`, and no conversion is applied. Analyte and compartment are null
-unless the model states them; do not guess them from names.
+unless the model states them; do not infer them from names.
 
 Compact cards include at most 32 output descriptors. Check `output_count` and
 `descriptors_complete`. To inspect particular outputs, pass `outputs` with 1 to
@@ -762,7 +768,7 @@ apply to it. For a large stored request, read
 `qspquest://models/{model_id}/scenarios/{scenario_id}` and follow a chunk manifest
 if returned.
 
-A missing executable means the build failed or the path is wrong. Invalid
+A missing executable means the build failed or the path is incorrect. Invalid
 `detail` values are rejected; use only `compact` or `full`. A missing model or
 version means it is not in the loaded library: check the current card or load a
 matching library version. A checksum mismatch means a read was incomplete or the
@@ -811,8 +817,8 @@ count and `members_complete`. Read `full_family_resource` for the complete list,
 which has at most 32 model versions. The final URI component is the SHA-256 of
 the complete UTF-8 JSON body. Follow a chunk manifest if returned, then verify
 that digest. `qspquest://schema/model-discovery` and
-`qspquest://schema/source-family` describe these records. A family URI stops
-working if the family's membership changes. Use `get_capability` to check what a
+`qspquest://schema/source-family` describe these records. A family URI becomes
+invalid if the family's membership changes. Use `get_capability` to check what a
 specific model and scenario support.
 Authorized platform results in `platform_models` carry the same closed
 `discovery` fields. Their `representation` is `governed_catalog`. A boolean
@@ -847,14 +853,14 @@ cargo test --locked -p qspquest-mcp --features managed --test managed governed_p
 The fixture supplies a ready-status record without execution evidence, an
 explicitly available version `1` with three declared scenarios, an unavailable
 record and a tier-locked record, with a synthetic 42-credit price preview.
-Expect the synthetic price line and one passing test. Everything runs locally;
-no account or real credits are needed. Malformed platform records produce a
+The expected output is the synthetic price line and one passing test. All
+steps run locally; no account or real credits are needed. Malformed platform records produce a
 platform-response error.
 
 ### Navigate offline documentation
 
 Use the same prerequisites as above. The documentation is built into the
-server, so reading it needs no network. Run:
+server, so reading it requires no network access. Run:
 
 ```sh
 cargo build --release -p qspquest-mcp --locked
@@ -863,8 +869,9 @@ python3 docs/examples/mcp_result_resources.py target/release/qspquest-mcp --docu
 
 The example starts a local server with a temporary synthetic library. It reads
 `qspquest://documentation`, checks the package version, fetches every indexed
-resource, verifies each content SHA-256, and follows its embedded resource
-links. The index's topics lead to model, request, unit and error guidance.
+resource and follows its embedded resource links. The server embeds each
+resource from its source file when it is built, so the index carries no content
+digests. The index's topics lead to model, request, unit and error guidance.
 `qspquest://schema/documentation` supplies the index's structural schema.
 The index also links to `qspquest://capability-catalog` and its schema at
 `qspquest://schema/capability-catalog`. The catalog lists what each interface
@@ -908,7 +915,9 @@ It then reads the complete synthetic model and request from resource URIs and
 calls `simulate` with `model.source` and `request`. The 6 mg bolus, 3 L volume
 and 0.3 L/h clearance imply `cp(t) = 2 * exp(-0.1*t)` mg/L. The example checks
 six post-dose samples over 12 h and reports the number of resources and links
-verified.
+verified. It also checks that the result's `identity.compiler_source_sha256`
+equals the registry's `compiler_source_sha256`. Both report the digest of the
+engine source compiled into this server.
 
 A heading not present in the installed version returns an invalid-resource
 error. Read a fresh index before following links from another version. A digest
@@ -945,7 +954,7 @@ keeps the CSV and deletes its temporary library when finished.
 
 CSV export is disabled unless a local server has `--output-dir PATH` or
 `QSPQUEST_MCP_OUTPUT_DIR`. Unix output directories must be owned by that server
-user with mode `0700`; Windows uses owner and ACL checks. File and directory
+user with mode `0700`; Windows uses owner and access control list (ACL) checks. File and directory
 links, traversal and existing output files are refused. Choose another filename
 or a new directory to rerun this example. Hosted servers refuse CSV export.
 Regimen comparisons apply the same rules and append each sanitized regimen name
@@ -954,9 +963,10 @@ holds only the trajectory, so keep the model card and request alongside it.
 
 ## Prepare and fit explicit population records
 
-This tutorial shows how dataset records (NONMEM-style rows) become a population
-fitting request, what an input error looks like, and how to run one small
-synthetic FOCEI fit. You need Python 3.10 or later, a Rust toolchain and the
+This tutorial shows how dataset records (NONMEM-style rows) are converted into a
+population fitting request, what an input error looks like, and how to run one small
+synthetic fit by first-order conditional estimation with interaction
+(FOCEI). You need Python 3.10 or later, a Rust toolchain and the
 QSPQuest source distribution. Run these commands from the distribution root:
 
 ```sh
@@ -968,7 +978,7 @@ python3 docs/examples/mcp_population_records.py target/release/qspquest-mcp \
 The [complete client](../examples/mcp_population_records.py) uses the shipped
 [synthetic input](../../bindings/mcp/assets/fits/population.json) and the
 [standard-library transport](../examples/stdio_rpc.py). Choose a new output
-directory with an existing parent. The client first sends a deliberately broken
+directory with an existing parent. The client first sends a deliberately invalid
 endpoint table to `plan_run` to show the error, then previews the real records
 and calls `fit_population` with that plan's hash. It saves the inputs, the error,
 the plan, the full result and checks. Keep its `artifacts/` directory private.
@@ -984,7 +994,7 @@ observable `cp` in mg/L. The explicit mapping binds CMT `1` to native dosing
 state `central` and CMT `2` to `cp`. Each observation declares its additive and
 proportional Gaussian error. The population template supplies sensitivities,
 bounds, fixed Omega, method limits and seed. Units and model structure are never
-guessed from column names.
+inferred from column names.
 
 Record admission supports EVID 0/1, MDV 0/1 and SS 0. A dose needs positive AMT;
 positive RATE needs an explicit `mapping.rate_unit`. ADDL is an integer from 0
@@ -994,26 +1004,27 @@ excluded observation is ignored. Text and integer subject IDs are treated as
 different. Row order is kept and recorded in `row_mapping`; rows are never
 sorted. Hosted use allows at most 16 subjects and 256 included observations;
 local use allows 128 subjects and 10000. Exceeding a limit gives a `budget`
-error; subjects and rows are never dropped to fit.
+error; subjects and rows are never dropped to meet a limit.
 
 The mapping object accepts only `time_unit`, `amount_unit`, `rate_unit`,
 `observation_side`, `compartments` and `endpoints`. Each endpoint accepts only
 `output`, `value_unit` and the native `error` object. Observation side defaults
 to `post`; an explicit value must be `pre` or `post`. The method defaults to
 `focei`; `laplace` and `saem` can be chosen explicitly. A missing or null optional
-value uses its default. Misspelled fields, wrong shapes and unsupported values
+value uses its default. Misspelled fields, incorrectly structured values and unsupported values
 are rejected with an error. Extra record columns are allowed and ignored.
 
 Read `structuredContent.error.input_diagnostic.field`, `supplied_value` and
-`expected` to find the problem. Long values are shortened. Correct the named
+`expected` to find the problem. Long values are truncated. Correct the named
 field, call `plan_run` again, and submit with the new `expected_plan_hash`.
 
 The engine still checks units, output names, random effects and limits when
-it fits, and FOCEI, Laplace and SAEM each have their own restrictions. Check the
+it fits, and FOCEI, Laplace and stochastic approximation expectation–maximization (SAEM)
+each have their own restrictions. Check the
 objective kind, bounds, estimates, subject diagnostics and any uncertainty. Do
 not compare a complete-data surrogate with a marginal likelihood, or report
-non-converged estimates as final. You can also skip record mapping and pass a
-complete `fit_request` directly.
+nonconverged estimates as final. Record mapping is optional; a complete
+`fit_request` can be passed directly.
 
 The mapping compatibility fixtures can be checked separately:
 

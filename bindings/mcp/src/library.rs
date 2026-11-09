@@ -1,10 +1,179 @@
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     io::{Cursor, Read},
     path::Path,
+    sync::OnceLock,
 };
+
+/// How the server treats a catalog archive that fails one of its own checks.
+/// Library-wide checks (catalog, availability registry, duplicates) always
+/// refuse the library. The server binary chooses with [`ArchiveChecks::for_profile`]:
+/// holding is for the local profile only; public and managed deployments refuse a
+/// library with a failing archive. `Hold` remains the default for embedded use.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ArchiveChecks {
+    /// Withhold the failing archive, or only its fitting capability, report a
+    /// structured hold and serve every other model.
+    #[default]
+    Hold,
+    /// Refuse the whole library when any archive fails a check.
+    Strict,
+}
+
+static CONFIGURED_CHECKS: OnceLock<ArchiveChecks> = OnceLock::new();
+
+impl ArchiveChecks {
+    /// Set the process-wide policy once, before the library is first loaded.
+    /// Library refreshes use the same policy.
+    pub fn configure(self) -> Result<(), String> {
+        CONFIGURED_CHECKS
+            .set(self)
+            .map_err(|_| "Archive check policy is already configured".to_owned())
+    }
+    pub fn configured() -> Self {
+        CONFIGURED_CHECKS.get().copied().unwrap_or_default()
+    }
+    /// The policy for a deployment profile: strict outside the local profile, so a checksum
+    /// or unsafe-path failure stops a public or managed server at startup; holds locally
+    /// unless strict checks are requested.
+    pub fn for_profile(profile: crate::deployment::Profile, strict_requested: bool) -> Self {
+        if strict_requested || profile != crate::deployment::Profile::Local {
+            Self::Strict
+        } else {
+            Self::Hold
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HoldScope {
+    /// The record serves catalog metadata only; it cannot be inspected as a
+    /// native model, simulated or fitted.
+    Archive,
+    /// Fitting is withheld; inspection and simulation remain available.
+    Fitting,
+}
+
+/// A model archive, or one of its capabilities, that this server withholds
+/// because the archive failed a check at library load.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveHold {
+    pub model_id: String,
+    pub version: String,
+    pub scope: HoldScope,
+    /// Load stage that failed, for example `archive_integrity` or `fitting_evidence`.
+    pub check: String,
+    /// The failed condition, naming the differing fields where the check records them.
+    pub message: String,
+}
+
+impl ArchiveHold {
+    fn new(metadata: &Value, scope: HoldScope, check: &str, message: String) -> Self {
+        Self {
+            model_id: metadata["id"].as_str().unwrap_or("").to_owned(),
+            version: metadata["version"].as_str().unwrap_or("").to_owned(),
+            scope,
+            check: check.to_owned(),
+            message,
+        }
+    }
+    fn effect(&self) -> String {
+        let message = self.message.trim_end_matches('.');
+        match self.scope {
+            HoldScope::Archive => format!("This archive is withheld because it failed the {} check: {message}. Search lists its catalog metadata only; select another model to inspect or simulate.", self.check),
+            HoldScope::Fitting => format!("Fitting is withheld because the archive failed the {} check: {message}. Inspection and stored or exploratory simulation remain available.", self.check),
+        }
+    }
+    fn refusal(&self) -> String {
+        format!(
+            "Model {} {} failed the {} check: {}",
+            self.model_id, self.version, self.check, self.message
+        )
+    }
+    fn report(&self) {
+        eprintln!("Library hold ({:?}): {}", self.scope, self.refusal());
+    }
+}
+
+/// Withdraw the fitting claim from the record and its availability description.
+fn withhold_fitting(metadata: &mut Value, hold: &ArchiveHold) {
+    metadata["fit_ready"] = json!(false);
+    metadata["fitting_supported"] = json!(false);
+    metadata["archive_hold"] = json!(hold);
+    if let Some(availability) = metadata
+        .get_mut("availability")
+        .and_then(Value::as_object_mut)
+    {
+        availability.insert("fit_ready".into(), json!(false));
+        availability.insert("fitting_supported".into(), json!(false));
+        if let Some(operations) = availability
+            .get_mut("supported_operations")
+            .and_then(Value::as_array_mut)
+        {
+            operations.retain(|operation| operation != "fit");
+        }
+        if let Some(blockers) = availability
+            .get_mut("blockers")
+            .and_then(Value::as_array_mut)
+        {
+            blockers.push(json!(format!("archive_hold_{}", hold.check)));
+        }
+    }
+}
+
+/// The catalog record that replaces an archive which failed a check.
+fn held(
+    mut metadata: Value,
+    check: &str,
+    message: String,
+    checks: ArchiveChecks,
+) -> Result<Record, String> {
+    let hold = ArchiveHold::new(&metadata, HoldScope::Archive, check, message);
+    if checks == ArchiveChecks::Strict {
+        return Err(hold.refusal());
+    }
+    hold.report();
+    let object = metadata
+        .as_object_mut()
+        .ok_or("Catalog metadata must be an object")?;
+    // Executable declarations of a withheld archive are not served.
+    for key in [
+        "precision_profiles",
+        "scientific_assessments",
+        "protocol_initialization",
+        "source_interpretations",
+    ] {
+        object.remove(key);
+    }
+    let declared = object.insert("scenario_ids".into(), json!([]));
+    object.insert(
+        "unavailable_scenario_ids".into(),
+        declared.unwrap_or(json!([])),
+    );
+    object.insert("execution_available".into(), json!(false));
+    object.insert("execution_blocker".into(), json!(hold.effect()));
+    object.insert("fit_ready".into(), json!(false));
+    object.insert("fitting_supported".into(), json!(false));
+    object.insert("availability_record_status".into(), json!("held"));
+    object.insert("archive_hold".into(), json!(hold));
+    Ok(Record {
+        metadata,
+        model: Value::Null,
+        index: json!({}),
+        scenarios: BTreeMap::new(),
+        archive_hash: String::new(),
+        fitting: json!({"supported":false,"reason":hold.effect()}),
+        source: None,
+        precision_profiles: None,
+    })
+}
+
 #[derive(Clone)]
 pub struct Record {
     pub metadata: Value,
@@ -23,6 +192,14 @@ mod catalog_contract_tests {
     use std::io::Write;
 
     fn fixture(native: bool, fit_ready: bool, scenarios: Value) -> Result<Library, String> {
+        fixture_with(ArchiveChecks::Strict, native, fit_ready, scenarios)
+    }
+    fn fixture_with(
+        checks: ArchiveChecks,
+        native: bool,
+        fit_ready: bool,
+        scenarios: Value,
+    ) -> Result<Library, String> {
         let mut files = BTreeMap::new();
         if native {
             let model = crate::core::compute::execute(
@@ -52,7 +229,7 @@ mod catalog_contract_tests {
             "archive":"fixture.omex", "omex_sha256":hash(&archive),
             "fit_ready":fit_ready, "fitting_supported":fit_ready, "scenario_ids":scenarios}]}))
             .unwrap();
-        Library::load(|path| match path {
+        Library::load_with(checks, |path| match path {
             "catalog.json" => Ok(catalog.clone()),
             "fixture.omex" => Ok(archive.clone()),
             _ => Err("Unexpected fixture path".into()),
@@ -108,20 +285,44 @@ mod catalog_contract_tests {
         assert!(library.records[0].scenarios.is_empty());
     }
 
+    /// Strict loading refuses the library and names the model and check; the
+    /// default withholds only the failing archive with the same reason.
+    fn refused_and_held(native: bool, fit_ready: bool, scenarios: Value, reason: &str) {
+        let error = fixture(native, fit_ready, scenarios.clone()).err().unwrap();
+        assert!(error.starts_with("Model synthetic_fixture 1 failed the archive_integrity check:"));
+        assert!(error.contains(reason), "{error}");
+        let library =
+            fixture_with(ArchiveChecks::Hold, native, fit_ready, scenarios.clone()).unwrap();
+        let record = &library.records[0];
+        let hold = &record.metadata["archive_hold"];
+        assert_eq!(hold["model_id"], "synthetic_fixture");
+        assert_eq!(hold["version"], "1");
+        assert_eq!(hold["scope"], "archive");
+        assert_eq!(hold["check"], "archive_integrity");
+        assert!(hold["message"].as_str().unwrap().contains(reason));
+        assert!(record.model.is_null() && record.scenarios.is_empty());
+        assert_eq!(record.metadata["execution_available"], false);
+        assert_eq!(record.metadata["fit_ready"], false);
+        assert_eq!(record.metadata["scenario_ids"], json!([]));
+        assert_eq!(record.metadata["unavailable_scenario_ids"], scenarios);
+        assert!(record.metadata["execution_blocker"]
+            .as_str()
+            .unwrap()
+            .contains(reason));
+        assert_eq!(library.holds().len(), 1);
+        let search = library.search("", &json!({}));
+        assert_eq!(search["archive_holds"][0]["check"], "archive_integrity");
+        assert_eq!(search["models"][0]["archive_hold"]["scope"], "archive");
+    }
+
     #[test]
     fn fitting_claim_requires_its_hash_indexed_contract() {
-        assert!(fixture(true, true, json!([]))
-            .err()
-            .unwrap()
-            .contains("fitting.json"));
+        refused_and_held(true, true, json!([]), "fitting.json");
     }
 
     #[test]
     fn runnable_scenario_cannot_be_declared_without_a_native_model() {
-        assert!(fixture(false, false, json!(["unqualified"]))
-            .err()
-            .unwrap()
-            .contains("native model"));
+        refused_and_held(false, false, json!(["unqualified"]), "native model");
     }
 }
 #[derive(Clone)]
@@ -229,7 +430,7 @@ impl SearchIndex {
         }
         let mut rows = Vec::new();
         for record in &library.records {
-            let text = format!("{} {}", record.metadata, record.index).to_lowercase();
+            let text = search_text(record);
             input_bytes = input_bytes
                 .saturating_add(text.len())
                 .saturating_add(record.model["outputs"].to_string().len())
@@ -350,6 +551,32 @@ impl SearchIndex {
     pub(crate) fn search(&self, library: &Library, query: &str, filters: &Value) -> Option<Value> {
         self.current_for_search(library, query, filters)
             .then(|| library.search_with_index(query, filters, self.prepared.then_some(self)))
+    }
+}
+
+#[cfg(test)]
+mod archive_check_policy_tests {
+    use super::ArchiveChecks;
+    use crate::deployment::Profile;
+
+    #[test]
+    fn only_the_local_profile_holds_failing_archives() {
+        assert_eq!(
+            ArchiveChecks::for_profile(Profile::Local, false),
+            ArchiveChecks::Hold
+        );
+        assert_eq!(
+            ArchiveChecks::for_profile(Profile::Local, true),
+            ArchiveChecks::Strict
+        );
+        assert_eq!(
+            ArchiveChecks::for_profile(Profile::Public, false),
+            ArchiveChecks::Strict
+        );
+        assert_eq!(
+            ArchiveChecks::for_profile(Profile::Managed, false),
+            ArchiveChecks::Strict
+        );
     }
 }
 
@@ -543,7 +770,9 @@ mod search_index_tests {
         let mut library = library();
         let small = SearchIndex::new(&library);
         assert!(small.prepared);
-        library.records[0].metadata["padding"] = json!("x".repeat(8_000_001));
+        // Search text is curated (names, descriptions, scenarios, outputs), so pad a searched field.
+        let original = library.records[0].metadata["description"].clone();
+        library.records[0].metadata["description"] = json!("x".repeat(8_000_001));
         let large = SearchIndex::new(&library);
         assert!(!large.prepared);
         assert!(large.rows.is_empty());
@@ -554,11 +783,7 @@ mod search_index_tests {
                 .unwrap(),
             library.search("", &json!({"model_id":"alpha"}))
         );
-        library.records[0]
-            .metadata
-            .as_object_mut()
-            .unwrap()
-            .remove("padding");
+        library.records[0].metadata["description"] = original;
         library.records[1].metadata["description"] = json!("newterm");
         assert_eq!(
             large.search(&library, "newterm", &json!({})).unwrap()["total"],
@@ -580,14 +805,29 @@ mod search_index_tests {
         let index = SearchIndex::new(&library);
         let server =
             crate::server::Server::new(library.clone(), false, crate::policy::Tier::Free, 4);
-        assert_eq!(server.library_search("-0.0", &json!({}))["total"], 0);
         library.records[0].metadata["numeric_annotation"] = json!(-0.0);
         assert!(!index.current(&library));
         server.library.write().unwrap().records[0].metadata["numeric_annotation"] = json!(-0.0);
-        assert_eq!(ids(&server.library_search("-0.0", &json!({}))), ["beta"]);
         assert_eq!(
-            server.library_search("-0.0", &json!({})),
-            library.search("-0.0", &json!({}))
+            server.library_search("", &json!({})),
+            library.search("", &json!({}))
+        );
+        // A change to searched text after the index was built reaches the results: the stale
+        // index is not used, and cached and uncached searches agree.
+        assert_eq!(
+            server.library_search("recalibrated", &json!({}))["total"],
+            0
+        );
+        server.library.write().unwrap().records[0].metadata["description"] =
+            json!("recalibrated assay");
+        library.records[0].metadata["description"] = json!("recalibrated assay");
+        assert_eq!(
+            ids(&server.library_search("recalibrated", &json!({}))),
+            ["beta"]
+        );
+        assert_eq!(
+            server.library_search("recalibrated", &json!({})),
+            library.search("recalibrated", &json!({}))
         );
     }
     #[test]
@@ -693,11 +933,15 @@ impl Library {
             "/tests/library"
         )))
     }
+    /// Load a library directory under the configured archive check policy.
     pub fn directory(dir: &Path) -> Result<Self, String> {
+        Self::directory_with(dir, ArchiveChecks::configured())
+    }
+    pub fn directory_with(dir: &Path, checks: ArchiveChecks) -> Result<Self, String> {
         if !dir.join("catalog.json").is_file() {
             return Self::source_directory(dir);
         }
-        Self::load(|path| {
+        Self::load_with(checks, |path| {
             let rel = Path::new(path);
             if rel.is_absolute()
                 || rel
@@ -725,6 +969,12 @@ impl Library {
         })
     }
     fn load(read: impl Fn(&str) -> Result<Vec<u8>, String>) -> Result<Self, String> {
+        Self::load_with(ArchiveChecks::configured(), read)
+    }
+    fn load_with(
+        checks: ArchiveChecks,
+        read: impl Fn(&str) -> Result<Vec<u8>, String>,
+    ) -> Result<Self, String> {
         let bytes = read("catalog.json")?;
         if bytes.len() > 1_000_000 {
             return Err("Catalog exceeds 1 MB".into());
@@ -796,294 +1046,41 @@ impl Library {
                 });
                 continue;
             }
-            let archive = read(metadata["archive"].as_str().ok_or("archive path missing")?)?;
-            if archive.len() > 16_000_000 {
-                return Err("Archive exceeds 16 MB".into());
+            let mut check = "archive_integrity";
+            match archive_record(
+                metadata.clone(),
+                &read,
+                availability.as_ref(),
+                checks,
+                &mut check,
+            ) {
+                Ok(record) => records.push(record),
+                Err(message) => records.push(held(metadata, check, message, checks)?),
             }
-            let archive_hash = hash(&archive);
-            if metadata["omex_sha256"].as_str() != Some(archive_hash.as_str()) {
-                return Err(format!("Archive checksum failed for {}", metadata["id"]));
-            }
-            let mut z = zip::ZipArchive::new(Cursor::new(archive)).map_err(|e| e.to_string())?;
-            let mut names = std::collections::BTreeSet::new();
-            let mut expanded = 0u64;
-            if z.len() > 256 {
-                return Err("Too many archive members".into());
-            }
-            for i in 0..z.len() {
-                let f = z.by_index(i).map_err(|e| e.to_string())?;
-                let path = Path::new(f.name());
-                if !names.insert(f.name().to_owned())
-                    || path.is_absolute()
-                    || path
-                        .components()
-                        .any(|c| !matches!(c, std::path::Component::Normal(_)))
-                    || f.name().contains('\\')
-                {
-                    return Err("Duplicate or unsafe archive member path".into());
-                }
-                expanded = expanded
-                    .checked_add(f.size())
-                    .ok_or("Archive size overflow")?;
-                if expanded > 64_000_000 {
-                    return Err("Expanded archive exceeds 64 MB".into());
-                }
-            }
-            let index = zip_json(&mut z, "index.json")?;
-            let inspection_only = index["native_execution"].get("model") == Some(&Value::Null);
-            if inspection_only
-                && (metadata["scenario_ids"]
-                    .as_array()
-                    .is_none_or(|a| !a.is_empty())
-                    || metadata["fit_ready"] == true
-                    || metadata["fitting_supported"] == true
-                    || index["native_execution"]["scenarios"]
-                        .as_object()
-                        .is_some_and(|a| !a.is_empty()))
-            {
-                return Err("Inspection-only archive without a native model must not declare executable scenarios or fitting support".into());
-            }
-            let native_model = index["native_execution"]["model"].as_str().or_else(|| {
-                // Earlier native archives omit the path but hash-index this member.
-                (index["native_execution"].get("model").is_none()
-                    && index["members"].get("native/model.json").is_some())
-                .then_some("native/model.json")
-            });
-            let scenarios = metadata["scenario_ids"]
-                .as_array()
-                .ok_or("scenario_ids missing")?;
-            if native_model.is_none() && !scenarios.is_empty() {
-                return Err("Runnable scenarios require a native model".into());
-            }
-            let has_fitting = index["members"]
-                .as_object()
-                .is_some_and(|m| m.contains_key("fitting.json"));
-            if (metadata["fit_ready"] == true || metadata["fitting_supported"] == true)
-                && !has_fitting
-            {
-                return Err("Fitting-enabled archive must hash-index fitting.json".into());
-            }
-            for path in native_model
-                .into_iter()
-                .chain(has_fitting.then_some("fitting.json"))
-                .map(str::to_owned)
-                .chain(
-                    metadata["scenario_ids"]
-                        .as_array()
-                        .ok_or("scenario_ids missing")?
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(|id| format!("native/scenarios/{id}.json")),
-                )
-            {
-                if !index["members"]
-                    .as_object()
-                    .is_some_and(|m| m.contains_key(&path))
-                {
-                    return Err(format!(
-                        "Required native member is not hash-indexed: {path}"
-                    ));
-                }
-            }
-            for (path, digest) in index["members"]
-                .as_object()
-                .ok_or("index members missing")?
-            {
-                let f = z.by_name(path).map_err(|e| e.to_string())?;
-                if f.size() > 4_000_000 {
-                    return Err("Archive member too large".into());
-                }
-                let mut b = Vec::new();
-                f.take(4_000_001)
-                    .read_to_end(&mut b)
-                    .map_err(|e| e.to_string())?;
-                if digest.as_str() != Some(hash(&b).as_str()) {
-                    return Err(format!("Member checksum failed: {path}"));
-                }
-            }
-            if let Some(registry) = &availability {
-                let record = registry.for_model(&metadata)?;
-                let fitting = if has_fitting {
-                    zip_json(&mut z, "fitting.json")?
-                } else {
-                    json!({})
-                };
-                record.verify_archive(&index, &archive_hash, &fitting)?;
-                let evidence_path =
-                    Path::new(metadata["archive"].as_str().ok_or("Archive path missing")?)
-                        .with_file_name("evidence.json")
-                        .to_string_lossy()
-                        .into_owned();
-                if !record.evidence_matches(&read(&evidence_path)?) {
-                    return Err("Availability evidence digest mismatch".into());
-                }
-                metadata["availability"] = record.describe();
-                metadata["availability_record_status"] = json!("verified");
-            } else {
-                metadata["availability_record_status"] = json!("unavailable");
-            }
-            metadata["execution_available"] = json!(native_model.is_some());
-            if inspection_only {
-                if metadata.get("source_interpretations").is_some() {
-                    return Err(
-                        "Inspection-only archives cannot declare native structural interpretations"
-                            .into(),
-                    );
-                }
-                if metadata.get("scientific_assessments").is_some() {
-                    return Err(
-                        "Inspection-only archives cannot declare native scientific assessments"
-                            .into(),
-                    );
-                }
-                if metadata.get("protocol_initialization").is_some() {
-                    return Err("Inspection-only archives must not declare executable protocol initialization".into());
-                }
-                if metadata.get("precision_profiles").is_some() {
-                    return Err(
-                        "Inspection-only archives must not declare executable precision profiles"
-                            .into(),
-                    );
-                }
-                let mut held = metadata.clone();
-                held["execution_available"] = json!(false);
-                held["execution_blocker"] = json!("This archive retains source material without a qualified native projection. Select another runnable model; source-only scenarios cannot be simulated.");
-                records.push(Record {
-                    metadata: held,
-                    model: Value::Null,
-                    index,
-                    scenarios: BTreeMap::new(),
-                    archive_hash,
-                    fitting: json!({"supported":false}),
-                    source: None,
-                    precision_profiles: None,
-                });
-                continue;
-            }
-            let model = if let Some(path) = native_model {
-                zip_json(&mut z, path)?
-            } else {
-                Value::Null
-            };
-            crate::interpretations::validate(&metadata, &model, &index, &archive_hash)?;
-            let fitting = if has_fitting {
-                zip_json(&mut z, "fitting.json")?
-            } else {
-                json!({"supported":false,"reason":"This archive supplies simulation scenarios, without fitting scenarios."})
-            };
-            crate::fitting::validate_archive(&fitting, &metadata, &model, &index, |path| {
-                let mut file = z.by_name(path).map_err(|e| e.to_string())?;
-                if file.size() > 1_000_000 {
-                    return Err("Fitting data/evidence exceeds 1 MB".into());
-                }
-                let mut bytes = Vec::new();
-                file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
-                Ok(bytes)
-            })?;
-            let mut scenarios = BTreeMap::new();
-            for id in metadata["scenario_ids"]
-                .as_array()
-                .ok_or("scenario_ids missing")?
-            {
-                let id = id.as_str().ok_or("scenario id must be text")?;
-                scenarios.insert(
-                    id.into(),
-                    zip_json(&mut z, &format!("native/scenarios/{id}.json"))?,
-                );
-            }
-            let precision_profiles = if let Some(descriptor) = metadata.get("precision_profiles") {
-                let descriptor: crate::precision::Descriptor =
-                    serde_json::from_value(descriptor.clone())
-                        .map_err(|e| format!("Precision profile descriptor: {e}"))?;
-                if descriptor.path.contains(['\\', ':'])
-                    || descriptor
-                        .path
-                        .split('/')
-                        .any(|p| matches!(p, "" | "." | ".."))
-                {
-                    return Err("Unsafe precision profile path".into());
-                }
-                let native_hash = native_model
-                    .and_then(|p| index["members"][p].as_str())
-                    .ok_or("Precision profiles require a hash-indexed native model")?;
-                Some(std::sync::Arc::new(crate::precision::Profiles::load(
-                    &read(&descriptor.path)?,
-                    &descriptor,
-                    &metadata,
-                    &model,
-                    native_hash,
-                    &scenarios,
-                )?))
-            } else {
-                None
-            };
-            if let Some(descriptor) = metadata.get("scientific_assessments") {
-                let descriptor: crate::scientific::Descriptor =
-                    serde_json::from_value(descriptor.clone())
-                        .map_err(|e| format!("Scientific assessment descriptor: {e}"))?;
-                if descriptor.path.contains(['\\', ':'])
-                    || descriptor
-                        .path
-                        .split('/')
-                        .any(|p| matches!(p, "" | "." | ".."))
-                {
-                    return Err("Unsafe scientific assessment path".into());
-                }
-                let native_hash = native_model
-                    .and_then(|p| index["members"][p].as_str())
-                    .ok_or("Scientific assessments require a hash-indexed native model")?;
-                let declaration = crate::scientific::Declaration::load(
-                    &read(&descriptor.path)?,
-                    &descriptor,
-                    &metadata,
-                    &model,
-                    native_hash,
-                )?;
-                metadata["scientific_assessment_contract"] = json!(declaration);
-            }
-            if let Some(descriptor) = metadata.get("protocol_initialization") {
-                let descriptor: crate::initialization::Descriptor =
-                    serde_json::from_value(descriptor.clone())
-                        .map_err(|e| format!("Protocol initialization descriptor: {e}"))?;
-                if descriptor.path.contains(['\\', ':'])
-                    || descriptor
-                        .path
-                        .split('/')
-                        .any(|p| matches!(p, "" | "." | ".."))
-                {
-                    return Err("Unsafe protocol initialization path".into());
-                }
-                let native_hash = native_model
-                    .and_then(|p| index["members"][p].as_str())
-                    .ok_or("Protocol initialization requires a hash-indexed native model")?;
-                let declaration = crate::initialization::Declaration::load(
-                    &read(&descriptor.path)?,
-                    &descriptor,
-                    &metadata,
-                    &model,
-                    &index,
-                    &scenarios,
-                    native_hash,
-                )?;
-                metadata["protocol_initialization_contract"] = json!(declaration);
-            }
-            records.push(Record {
-                metadata: metadata.clone(),
-                model,
-                index,
-                scenarios,
-                archive_hash,
-                fitting,
-                source: None,
-                precision_profiles,
-            });
         }
         crate::discovery::validate(&records)?;
+        // Registry counts describe the archives as published; holds applied at load can withdraw
+        // fitting, so count what this server will actually serve.
+        let mut availability_counts = availability_counts;
+        if availability_counts.is_object() {
+            availability_counts["selected_fit_ready"] = json!(records
+                .iter()
+                .filter(|r| r.metadata["fit_ready"] == true)
+                .count());
+        }
         Ok(Self {
             version: hash(&bytes),
             records,
             availability_counts,
         })
+    }
+    /// Archives, or archive capabilities, withheld at load.
+    pub fn holds(&self) -> Vec<ArchiveHold> {
+        self.records
+            .iter()
+            .filter_map(|r| r.metadata.get("archive_hold"))
+            .filter_map(|hold| serde_json::from_value(hold.clone()).ok())
+            .collect()
     }
     pub fn search(&self, query: &str, filters: &Value) -> Value {
         self.search_with_index(query, filters, None)
@@ -1104,11 +1101,7 @@ impl Library {
                 Err(message) => return crate::policy::error("discovery_metadata", message),
             },
         };
-        let tokens: Vec<_> = query
-            .to_lowercase()
-            .split_whitespace()
-            .map(str::to_owned)
-            .collect();
+        let tokens: Vec<String> = query_words(query);
         let tag = filters["tag"].as_str().map(str::to_lowercase);
         let candidates = index.map_or_else(
             || (0..self.records.len()).collect(),
@@ -1142,33 +1135,29 @@ impl Library {
                         return None;
                     }
                 }
-                let score = if tokens.is_empty() && tag.is_none() {
-                    0
+                let (score, matched_terms) = if tokens.is_empty() && tag.is_none() {
+                    (0, Vec::new())
                 } else {
                     let text = index.map_or_else(
-                        || {
-                            std::borrow::Cow::Owned(
-                                format!("{} {}", r.metadata, r.index).to_lowercase(),
-                            )
-                        },
+                        || std::borrow::Cow::Owned(search_text(r)),
                         |index| std::borrow::Cow::Borrowed(index.rows[i].text.as_str()),
                     );
                     if tag.as_ref().is_some_and(|tag| !text.contains(tag)) {
                         return None;
                     }
-                    let score = tokens
-                        .iter()
-                        .filter(|token| text.contains(token.as_str()))
-                        .count();
-                    if !tokens.is_empty() && score == 0 {
+                    let (score, matched) = search_score(&tokens, r);
+                    if !tokens.is_empty() && matched.is_empty() {
                         return None;
                     }
-                    score
+                    (score, matched)
                 };
-                Some((score, i))
+                if !search_filters_match(r, &discovery[i], filters) {
+                    return None;
+                }
+                Some((score, i, matched_terms))
             })
             .collect();
-        hits.sort_by(|a, b| b.0.cmp(&a.0));
+        hits.sort_by(|a, b| (b.2.len(), b.0).cmp(&(a.2.len(), a.0)));
         let total = hits.len();
         let offset = filters["offset"].as_u64().unwrap_or(0) as usize;
         let limit = filters["limit"].as_u64().unwrap_or(20).clamp(1, 100) as usize;
@@ -1176,10 +1165,13 @@ impl Library {
             .into_iter()
             .skip(offset)
             .take(limit)
-            .map(|(_, i)| {
+            .map(|(_, i, matched)| {
                 let r = &self.records[i];
                 let discovery = &discovery[i];
                 let mut m = r.metadata.clone();
+                if !matched.is_empty() {
+                    m["matched_terms"] = json!(matched);
+                }
                 m["execution_available"] = json!(discovery.execution_available);
                 m["discovery"] = json!(discovery);
                 m["outputs"] = json!(r.model["outputs"].as_array().map(|a| {
@@ -1195,11 +1187,607 @@ impl Library {
             })
             .collect::<Vec<_>>();
         let next = offset.checked_add(models.len()).filter(|n| *n < total);
-        json!({"library_version":self.version,"availability_counts":self.availability_counts,"models":models,"total":total,"offset":offset,"next_offset":next})
+        let mut result = json!({"library_version":self.version,"availability_counts":self.availability_counts,"models":models,"total":total,"offset":offset,"next_offset":next});
+        let holds = self.holds();
+        if !holds.is_empty() {
+            result["archive_holds"] = json!(holds);
+        }
+        result
     }
 }
 
+/// Lowercase words of a text after joining domain phrases into single concept words, so that
+/// "target-mediated drug disposition" and "TMDD" (or "antibody-drug conjugate" and "ADC")
+/// match each other. Hashes, paths and archive bookkeeping are never part of searched text.
+/// Query words: phrases joined as in model text, and plain synonyms mapped to their concept,
+/// without the derived concepts (a drug name ending in -mab must still match only that drug).
+fn query_words(query: &str) -> Vec<String> {
+    // Generic words carry no meaning for ranking ("anti-CD20 model for B cells").
+    const IGNORED: [&str; 16] = [
+        "anti", "model", "models", "for", "of", "the", "a", "an", "in", "and", "or", "with", "to",
+        "on", "by", "any",
+    ];
+    let words = search_words(query);
+    let base = words.len() - derived_concepts(&words_only(query)).len();
+    words
+        .into_iter()
+        .take(base)
+        .filter(|w| !IGNORED.contains(&w.as_str()))
+        .map(|w| synonym(&w).unwrap_or(&w).to_owned())
+        .collect()
+}
+fn words_only(text: &str) -> Vec<String> {
+    let mut words = search_words(text);
+    let derived = derived_concepts(&words).len();
+    words.truncate(words.len() - derived);
+    words
+}
+fn synonym(word: &str) -> Option<&'static str> {
+    Some(match word {
+        "mice" | "murine" | "mouse" => "mouse",
+        "rats" | "rat" => "rat",
+        "monkey" | "monkeys" | "cynomolgus" | "nhp" => "monkey",
+        "pharmacokinetic" | "pharmacokinetics" => "pk",
+        "pharmacodynamic" | "pharmacodynamics" => "pd",
+        "bite" | "bispecific" | "bispecifics" | "bsab" => "bispecific",
+        "antibodies" | "mab" | "mabs" | "immunoglobulin" | "igg" => "antibody",
+        _ => return None,
+    })
+}
+fn derived_concepts(words: &[String]) -> Vec<String> {
+    words
+        .iter()
+        .filter_map(|w| {
+            synonym(w).or(if w.len() > 4 && w.ends_with("mab") {
+                Some("antibody")
+            } else {
+                None
+            })
+        })
+        .map(str::to_owned)
+        .collect()
+}
+
+pub(crate) fn search_words(text: &str) -> Vec<String> {
+    let mut text = format!(
+        " {} ",
+        text.to_lowercase()
+            .replace(['-', '_', '/', '(', ')', ',', '.', ';', ':'], " ")
+    );
+    for (phrase, concept) in [
+        (" target mediated drug disposition ", " tmdd "),
+        (" target mediated ", " tmdd "),
+        (" antibody drug conjugates ", " adc "),
+        (" antibody drug conjugate ", " adc "),
+        (" cytokine release syndrome ", " crs "),
+        (" cytokine release ", " crs "),
+        (" b cells ", " bcell "),
+        (" b cell ", " bcell "),
+        (" t cells ", " tcell "),
+        (" t cell ", " tcell "),
+        (" population pharmacokinetic ", " poppk "),
+        (" population pk ", " poppk "),
+        (" two compartment ", " two_compartment "),
+        (" one compartment ", " one_compartment "),
+    ] {
+        while text.contains(phrase) {
+            text = text.replace(phrase, concept);
+        }
+    }
+    let mut words: Vec<String> = text
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|w| !w.is_empty())
+        .map(str::to_owned)
+        .collect();
+    let extra = derived_concepts(&words);
+    words.extend(extra);
+    words
+}
+
+/// Fields searched for a record, from most to least specific: identity, description, then
+/// scenario, output and tag vocabulary. Archive indexes, digests and paths are excluded.
+fn search_fields(r: &Record) -> [(String, &'static str, usize); 3] {
+    let m = &r.metadata;
+    let head = format!(
+        "{} {}",
+        m["id"].as_str().unwrap_or(""),
+        m["name"].as_str().unwrap_or("")
+    );
+    let mut description = m["description"].as_str().unwrap_or("").to_owned();
+    for key in [
+        "descriptive_tags",
+        "tags",
+        "drugs",
+        "targets",
+        "species",
+        "routes",
+        "modality",
+        "indication",
+    ] {
+        match &m[key] {
+            Value::String(s) => description.push_str(&format!(" {s}")),
+            Value::Array(items) => items
+                .iter()
+                .filter_map(Value::as_str)
+                .for_each(|s| description.push_str(&format!(" {s}"))),
+            _ => {}
+        }
+    }
+    if let Some(title) = m["source_citation"]["title"].as_str() {
+        description.push_str(&format!(" {title}"));
+    }
+    let mut other = String::new();
+    for scenario in m["scenario_ids"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        other.push_str(&format!(" {scenario}"));
+    }
+    for output in r.model["outputs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|o| o["name"].as_str())
+    {
+        other.push_str(&format!(" {output}"));
+    }
+    for alias in r.index["native_execution"]["outputs"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(k, _)| k)
+    {
+        other.push_str(&format!(" {alias}"));
+    }
+    [
+        (head, "name", 4),
+        (description, "description", 2),
+        (other, "scenarios_or_outputs", 1),
+    ]
+}
+
+fn search_text(r: &Record) -> String {
+    search_fields(r)
+        .iter()
+        .map(|(text, _, _)| text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Score whole-word matches (prefix matches for tokens of five or more characters, and simple
+/// plurals). Returns the score and the matched terms with the field where each matched.
+fn search_score(tokens: &[String], r: &Record) -> (usize, Vec<Value>) {
+    let fields: Vec<(Vec<String>, &str, usize)> = search_fields(r)
+        .into_iter()
+        .map(|(text, name, weight)| (search_words(&text), name, weight))
+        .collect();
+    let mut score = 0;
+    let mut matched = Vec::new();
+    for token in tokens {
+        let hit = |w: &String| {
+            w == token
+                || (token.len() >= 5 && w.starts_with(token.as_str()))
+                || w.strip_suffix('s') == Some(token.as_str())
+                || token.strip_suffix('s') == Some(w.as_str())
+        };
+        if let Some((_, field, weight)) = fields.iter().find(|(words, _, _)| words.iter().any(hit))
+        {
+            score += weight;
+            matched.push(json!({"term":token,"field":field}));
+        }
+    }
+    (score, matched)
+}
+
+/// Typed search filters beyond exact identity: availability, readiness and unit status.
+fn search_filters_match(
+    r: &Record,
+    discovery: &crate::discovery::ModelDiscovery,
+    filters: &Value,
+) -> bool {
+    let availability = &r.metadata["availability"];
+    if let Some(wanted) = filters["availability"].as_str() {
+        if availability["availability"].as_str() != Some(wanted) {
+            return false;
+        }
+    }
+    if let Some(wanted) = filters["unit_status"].as_str() {
+        if availability["unit_status"].as_str() != Some(wanted) {
+            return false;
+        }
+    }
+    for key in ["fit_ready", "fitting_supported"] {
+        if let Some(wanted) = filters[key].as_bool() {
+            if r.metadata[key].as_bool().unwrap_or(false) != wanted {
+                return false;
+            }
+        }
+    }
+    if let Some(wanted) = filters["execution_available"].as_bool() {
+        if discovery.execution_available != crate::discovery::ExecutionAvailability::Known(wanted) {
+            return false;
+        }
+    }
+    if let Some(wanted) = filters["supports"].as_str() {
+        if !availability["supported_operations"]
+            .as_array()
+            .is_some_and(|ops| ops.iter().any(|o| o == wanted))
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn archive_record(
+    mut metadata: Value,
+    read: &impl Fn(&str) -> Result<Vec<u8>, String>,
+    availability: Option<&crate::availability::Registry>,
+    checks: ArchiveChecks,
+    check: &mut &'static str,
+) -> Result<Record, String> {
+    let archive = read(metadata["archive"].as_str().ok_or("archive path missing")?)?;
+    if archive.len() > 16_000_000 {
+        return Err("Archive exceeds 16 MB".into());
+    }
+    let archive_hash = hash(&archive);
+    if metadata["omex_sha256"].as_str() != Some(archive_hash.as_str()) {
+        return Err(format!("Archive checksum failed for {}", metadata["id"]));
+    }
+    let mut z = zip::ZipArchive::new(Cursor::new(archive)).map_err(|e| e.to_string())?;
+    let mut names = std::collections::BTreeSet::new();
+    let mut expanded = 0u64;
+    if z.len() > 256 {
+        return Err("Too many archive members".into());
+    }
+    for i in 0..z.len() {
+        let f = z.by_index(i).map_err(|e| e.to_string())?;
+        let path = Path::new(f.name());
+        if !names.insert(f.name().to_owned())
+            || path.is_absolute()
+            || path
+                .components()
+                .any(|c| !matches!(c, std::path::Component::Normal(_)))
+            || f.name().contains('\\')
+        {
+            return Err("Duplicate or unsafe archive member path".into());
+        }
+        expanded = expanded
+            .checked_add(f.size())
+            .ok_or("Archive size overflow")?;
+        if expanded > 64_000_000 {
+            return Err("Expanded archive exceeds 64 MB".into());
+        }
+    }
+    let index = zip_json(&mut z, "index.json")?;
+    let inspection_only = index["native_execution"].get("model") == Some(&Value::Null);
+    if inspection_only
+        && (metadata["scenario_ids"]
+            .as_array()
+            .is_none_or(|a| !a.is_empty())
+            || metadata["fit_ready"] == true
+            || metadata["fitting_supported"] == true
+            || index["native_execution"]["scenarios"]
+                .as_object()
+                .is_some_and(|a| !a.is_empty()))
+    {
+        return Err("Inspection-only archive without a native model must not declare executable scenarios or fitting support".into());
+    }
+    let native_model = index["native_execution"]["model"].as_str().or_else(|| {
+        // Earlier native archives omit the path but hash-index this member.
+        (index["native_execution"].get("model").is_none()
+            && index["members"].get("native/model.json").is_some())
+        .then_some("native/model.json")
+    });
+    let scenarios = metadata["scenario_ids"]
+        .as_array()
+        .ok_or("scenario_ids missing")?;
+    if native_model.is_none() && !scenarios.is_empty() {
+        return Err("Runnable scenarios require a native model".into());
+    }
+    let has_fitting = index["members"]
+        .as_object()
+        .is_some_and(|m| m.contains_key("fitting.json"));
+    if (metadata["fit_ready"] == true || metadata["fitting_supported"] == true) && !has_fitting {
+        return Err("Fitting-enabled archive must hash-index fitting.json".into());
+    }
+    for path in native_model
+        .into_iter()
+        .chain(has_fitting.then_some("fitting.json"))
+        .map(str::to_owned)
+        .chain(
+            metadata["scenario_ids"]
+                .as_array()
+                .ok_or("scenario_ids missing")?
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|id| format!("native/scenarios/{id}.json")),
+        )
+    {
+        if !index["members"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(&path))
+        {
+            return Err(format!(
+                "Required native member is not hash-indexed: {path}"
+            ));
+        }
+    }
+    for (path, digest) in index["members"]
+        .as_object()
+        .ok_or("index members missing")?
+    {
+        let f = z.by_name(path).map_err(|e| e.to_string())?;
+        if f.size() > 4_000_000 {
+            return Err("Archive member too large".into());
+        }
+        let mut b = Vec::new();
+        f.take(4_000_001)
+            .read_to_end(&mut b)
+            .map_err(|e| e.to_string())?;
+        if digest.as_str() != Some(hash(&b).as_str()) {
+            return Err(format!("Member checksum failed: {path}"));
+        }
+    }
+    *check = "availability_record";
+    if let Some(registry) = availability {
+        let record = registry.for_model(&metadata)?;
+        let fitting = if has_fitting {
+            zip_json(&mut z, "fitting.json")?
+        } else {
+            json!({})
+        };
+        record.verify_archive(&index, &archive_hash, &fitting)?;
+        let evidence_path = Path::new(metadata["archive"].as_str().ok_or("Archive path missing")?)
+            .with_file_name("evidence.json")
+            .to_string_lossy()
+            .into_owned();
+        if !record.evidence_matches(&read(&evidence_path)?) {
+            return Err("Availability evidence digest mismatch".into());
+        }
+        metadata["availability"] = record.describe();
+        metadata["availability_record_status"] = json!("verified");
+    } else {
+        metadata["availability_record_status"] = json!("unavailable");
+    }
+    metadata["execution_available"] = json!(native_model.is_some());
+    *check = "archive_declarations";
+    if inspection_only {
+        if metadata.get("source_interpretations").is_some() {
+            return Err(
+                "Inspection-only archives cannot declare native structural interpretations".into(),
+            );
+        }
+        if metadata.get("scientific_assessments").is_some() {
+            return Err(
+                "Inspection-only archives cannot declare native scientific assessments".into(),
+            );
+        }
+        if metadata.get("protocol_initialization").is_some() {
+            return Err(
+                "Inspection-only archives must not declare executable protocol initialization"
+                    .into(),
+            );
+        }
+        if metadata.get("precision_profiles").is_some() {
+            return Err(
+                "Inspection-only archives must not declare executable precision profiles".into(),
+            );
+        }
+        let mut held = metadata.clone();
+        held["execution_available"] = json!(false);
+        held["execution_blocker"] = json!("This archive retains source material without a qualified native projection. Select another runnable model; source-only scenarios cannot be simulated.");
+        return Ok(Record {
+            metadata: held,
+            model: Value::Null,
+            index,
+            scenarios: BTreeMap::new(),
+            archive_hash,
+            fitting: json!({"supported":false}),
+            source: None,
+            precision_profiles: None,
+        });
+    }
+    *check = "native_model";
+    let model = if let Some(path) = native_model {
+        zip_json(&mut z, path)?
+    } else {
+        Value::Null
+    };
+    *check = "source_interpretations";
+    crate::interpretations::validate(&metadata, &model, &index, &archive_hash)?;
+    *check = "fitting_evidence";
+    let mut fitting = if has_fitting {
+        zip_json(&mut z, "fitting.json")?
+    } else {
+        json!({"supported":false,"reason":"This archive supplies simulation scenarios, without fitting scenarios."})
+    };
+    if let Err(message) =
+        crate::fitting::validate_archive(&fitting, &metadata, &model, &index, |path| {
+            let mut file = z.by_name(path).map_err(|e| e.to_string())?;
+            if file.size() > 1_000_000 {
+                return Err("Fitting data/evidence exceeds 1 MB".into());
+            }
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+            Ok(bytes)
+        })
+    {
+        if checks == ArchiveChecks::Strict {
+            return Err(message);
+        }
+        // Fitting rests on its own recorded evidence; inspection and
+        // simulation of the same archive do not depend on it.
+        let hold = ArchiveHold::new(&metadata, HoldScope::Fitting, check, message);
+        hold.report();
+        fitting = json!({"supported":false,"reason":hold.effect(),"archive_hold":hold});
+        withhold_fitting(&mut metadata, &hold);
+    }
+    *check = "stored_scenarios";
+    let mut scenarios = BTreeMap::new();
+    for id in metadata["scenario_ids"]
+        .as_array()
+        .ok_or("scenario_ids missing")?
+    {
+        let id = id.as_str().ok_or("scenario id must be text")?;
+        scenarios.insert(
+            id.into(),
+            zip_json(&mut z, &format!("native/scenarios/{id}.json"))?,
+        );
+    }
+    *check = "precision_profiles";
+    let precision_profiles = if let Some(descriptor) = metadata.get("precision_profiles") {
+        let descriptor: crate::precision::Descriptor =
+            serde_json::from_value(descriptor.clone())
+                .map_err(|e| format!("Precision profile descriptor: {e}"))?;
+        if descriptor.path.contains(['\\', ':'])
+            || descriptor
+                .path
+                .split('/')
+                .any(|p| matches!(p, "" | "." | ".."))
+        {
+            return Err("Unsafe precision profile path".into());
+        }
+        let native_hash = native_model
+            .and_then(|p| index["members"][p].as_str())
+            .ok_or("Precision profiles require a hash-indexed native model")?;
+        Some(std::sync::Arc::new(crate::precision::Profiles::load(
+            &read(&descriptor.path)?,
+            &descriptor,
+            &metadata,
+            &model,
+            native_hash,
+            &scenarios,
+        )?))
+    } else {
+        None
+    };
+    *check = "scientific_assessments";
+    if let Some(descriptor) = metadata.get("scientific_assessments") {
+        let descriptor: crate::scientific::Descriptor = serde_json::from_value(descriptor.clone())
+            .map_err(|e| format!("Scientific assessment descriptor: {e}"))?;
+        if descriptor.path.contains(['\\', ':'])
+            || descriptor
+                .path
+                .split('/')
+                .any(|p| matches!(p, "" | "." | ".."))
+        {
+            return Err("Unsafe scientific assessment path".into());
+        }
+        let native_hash = native_model
+            .and_then(|p| index["members"][p].as_str())
+            .ok_or("Scientific assessments require a hash-indexed native model")?;
+        let declaration = crate::scientific::Declaration::load(
+            &read(&descriptor.path)?,
+            &descriptor,
+            &metadata,
+            &model,
+            native_hash,
+        )?;
+        metadata["scientific_assessment_contract"] = json!(declaration);
+    }
+    *check = "protocol_initialization";
+    if let Some(descriptor) = metadata.get("protocol_initialization") {
+        let descriptor: crate::initialization::Descriptor =
+            serde_json::from_value(descriptor.clone())
+                .map_err(|e| format!("Protocol initialization descriptor: {e}"))?;
+        if descriptor.path.contains(['\\', ':'])
+            || descriptor
+                .path
+                .split('/')
+                .any(|p| matches!(p, "" | "." | ".."))
+        {
+            return Err("Unsafe protocol initialization path".into());
+        }
+        let native_hash = native_model
+            .and_then(|p| index["members"][p].as_str())
+            .ok_or("Protocol initialization requires a hash-indexed native model")?;
+        let declaration = crate::initialization::Declaration::load(
+            &read(&descriptor.path)?,
+            &descriptor,
+            &metadata,
+            &model,
+            &index,
+            &scenarios,
+            native_hash,
+        )?;
+        metadata["protocol_initialization_contract"] = json!(declaration);
+    }
+    if let Some(sidecar) = parameter_metadata(&metadata, &archive_hash, read) {
+        metadata["parameter_metadata"] = sidecar;
+    }
+    Ok(Record {
+        metadata: metadata.clone(),
+        model,
+        index,
+        scenarios,
+        archive_hash,
+        fitting,
+        source: None,
+        precision_profiles,
+    })
+}
+
+/// Optional `parameters.json` beside an archive: readable names, roles, variability and
+/// provenance (`qspquest.models.parameter-metadata/v1`). It is not checksum-pinned; it is used
+/// only when it names this exact archive, and a missing or mismatched sidecar means "no
+/// metadata", never a load failure.
+fn parameter_metadata(
+    metadata: &Value,
+    archive_hash: &str,
+    read: &impl Fn(&str) -> Result<Vec<u8>, String>,
+) -> Option<Value> {
+    let path = Path::new(metadata["archive"].as_str()?)
+        .with_file_name("parameters.json")
+        .to_string_lossy()
+        .into_owned();
+    let raw = read(&path).ok()?;
+    if raw.len() > 1_000_000 {
+        eprintln!("Ignoring {path}: parameter metadata exceeds 1 MB");
+        return None;
+    }
+    let value: Value = serde_json::from_slice(&raw).ok()?;
+    let matches = value["schema"] == "qspquest.models.parameter-metadata/v1"
+        && value["model_id"] == metadata["id"]
+        && value["archive_sha256"].as_str() == Some(archive_hash);
+    if !matches {
+        eprintln!("Ignoring {path}: parameter metadata does not describe this archive");
+        return None;
+    }
+    Some(value)
+}
+
+/// A candidate record for one user-supplied `.qsp` or model JSON source, as served from a
+/// source directory. It carries no stored scenarios, archive evidence or qualification.
+pub fn source_record(source: &str) -> Result<Record, String> {
+    let document = crate::core::compute::model(source).map_err(|e| e.to_string())?;
+    let id = document.model_id.clone();
+    let model = serde_json::to_value(document).map_err(|e| e.to_string())?;
+    let digest = hash(source.as_bytes());
+    Ok(Record {
+        metadata: json!({"id":id,"version":digest,"name":id,"description":"User directory candidate; scientific qualification and redistribution rights are not assumed","license":"user supplied","candidate":true,"availability_record_status":"unavailable","execution_available":true,"fit_ready":false,"fitting_supported":false,"scenario_ids":[]}),
+        model,
+        index: json!({}),
+        scenarios: BTreeMap::new(),
+        archive_hash: digest,
+        fitting: json!({}),
+        source: Some(source.to_owned()),
+        precision_profiles: None,
+    })
+}
+
 impl Library {
+    /// A one-record library for inspecting an inline source with the ordinary card builders.
+    pub fn single(record: Record) -> Self {
+        Self {
+            version: hash(record.metadata.to_string().as_bytes()),
+            records: vec![record],
+            availability_counts: Value::Null,
+        }
+    }
     fn source_directory(dir: &Path) -> Result<Self, String> {
         let mut records = Vec::new();
         let mut entries = std::fs::read_dir(dir)
@@ -1232,13 +1820,13 @@ impl Library {
                 );
             }
             let source = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            let document = crate::core::compute::model(&source).map_err(|e| e.to_string())?;
-            let id = document.model_id.clone();
-            if records.iter().any(|r: &Record| r.metadata["id"] == id) {
+            let mut record = source_record(&source)?;
+            if records
+                .iter()
+                .any(|r: &Record| r.metadata["id"] == record.metadata["id"])
+            {
                 return Err("Duplicate directory model_id".into());
             }
-            let model = serde_json::to_value(document).map_err(|e| e.to_string())?;
-            let digest = hash(source.as_bytes());
             let mut scenarios = BTreeMap::new();
             let sidecar = path.with_extension("request.json");
             if sidecar.exists() {
@@ -1252,7 +1840,9 @@ impl Library {
                         .map_err(|e| e.to_string())?,
                 );
             }
-            records.push(Record{metadata:json!({"id":id,"version":digest,"name":id,"description":"User directory candidate; scientific qualification and redistribution rights are not assumed","license":"user supplied","candidate":true,"availability_record_status":"unavailable","execution_available":true,"fit_ready":false,"fitting_supported":false,"scenario_ids":scenarios.keys().collect::<Vec<_>>()}),model,index:json!({}),scenarios,archive_hash:digest,fitting:json!({}),source:Some(source),precision_profiles:None});
+            record.metadata["scenario_ids"] = json!(scenarios.keys().collect::<Vec<_>>());
+            record.scenarios = scenarios;
+            records.push(record);
         }
         if records.is_empty() {
             return Err("Directory contains no .qsp or model JSON files".into());

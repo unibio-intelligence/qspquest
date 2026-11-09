@@ -412,6 +412,8 @@ pub struct CapabilityDocument {
     pub library_version: String,
     pub model_records: usize,
     pub availability_counts: Option<AvailabilityCounts>,
+    /// Archives, or archive capabilities, withheld at library load; every other model is served.
+    pub archive_holds: Vec<crate::library::ArchiveHold>,
     pub current_engine_qualification: ArchiveQualification,
     pub qualification_notice: String,
 }
@@ -584,6 +586,8 @@ pub struct ModelMetadata {
     pub fit_ready: Option<bool>,
     pub scenario_ids: Option<Vec<String>>,
     pub availability: Option<AvailabilityDescription>,
+    /// Present when this archive, or its fitting capability, is withheld.
+    pub archive_hold: Option<crate::library::ArchiveHold>,
 }
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct DiscoveryPayload {
@@ -592,6 +596,8 @@ pub struct DiscoveryPayload {
     pub offset: usize,
     pub next_offset: Option<usize>,
     pub availability_counts: Option<AvailabilityCounts>,
+    /// Every hold in the library, independent of the search filters.
+    pub archive_holds: Option<Vec<crate::library::ArchiveHold>>,
     /// Authorized provider metadata with a closed MCP discovery projection.
     pub platform_models: Option<Vec<crate::discovery::PlatformDiscoveryModel>>,
 }
@@ -864,7 +870,54 @@ pub struct ComparisonPayload {
     pub result_artifact: Option<crate::artifacts::Descriptor>,
     pub plan_hash: String,
     pub effective_request_hash: String,
-    pub regimens: Vec<RegimenRecord>,
+    /// Deterministic comparisons: one simulation record per named condition.
+    pub regimens: Option<Vec<RegimenRecord>>,
+    /// With output, the native qspquest.regimen-comparison/v0.2 record of the solved members: one subject, variability none, exposure metrics and paired differences against the first regimen. A population comparison keeps its record under population.analysis.
+    #[schemars(with = "Option<JsonValueSchema>")]
+    pub comparison: Option<Value>,
+    /// Scalar exposure percentiles and paired differences, kept when larger fields are compacted.
+    #[schemars(with = "Option<JsonValueSchema>")]
+    pub comparison_summary: Option<Value>,
+    /// Why no paired exposure comparison was formed, for example a single-point grid.
+    pub comparison_notice: Option<String>,
+    /// Population comparisons: paired virtual subjects across every regimen.
+    #[cfg(feature = "analysis")]
+    pub population: Option<PopulationComparisonRecord>,
+}
+#[cfg(feature = "analysis")]
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct PopulationMember {
+    pub name: String,
+    /// Digest of this member's simulation preparation inside the comparison plan.
+    pub member_plan_hash: String,
+    pub input_receipt: crate::planning::ComparisonInputReceipt,
+}
+#[cfg(feature = "analysis")]
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct PopulationComparisonRecord {
+    pub members: Vec<PopulationMember>,
+    /// Native qspquest.regimen-comparison/v0.2 record, verbatim: curve and metric percentiles, per-subject metrics, paired differences against the first regimen, subject streams and identity.
+    #[schemars(with = "JsonValueSchema")]
+    pub analysis: Value,
+}
+/// A native analysis result; the record is kept verbatim under `analysis`.
+#[cfg(feature = "analysis")]
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct AnalysisPayload {
+    /// The qspquest.analysis/v0.2 operation that produced the record.
+    pub analysis_operation: String,
+    /// The record's own status (for example converged, complete or an iteration limit), or null.
+    #[schemars(with = "JsonValueSchema")]
+    pub analysis_status: Value,
+    /// Native v0.2 analysis record, verbatim. Its identity records the engine, compiler source, backend, model and analysis request.
+    #[schemars(with = "JsonValueSchema")]
+    pub analysis: Value,
+    #[schemars(with = "JsonValueSchema")]
+    pub effective_request: Value,
+    pub scientific_assessment: Option<crate::scientific::Receipt>,
+    pub plan_hash: Option<String>,
+    pub full_result_resource: Option<String>,
+    pub result_artifact: Option<crate::artifacts::Descriptor>,
 }
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct InterfaceParameter {
@@ -1166,6 +1219,15 @@ fn plan_payload_schema() -> Value {
         alternatives.push(json!({"type":"object","additionalProperties":false,
             "required":["kind","plan"],"properties":{"kind":{"const":kind},"plan":native}}));
     }
+    #[cfg(feature = "analysis")]
+    alternatives.push(json!({"type":"object","additionalProperties":false,
+        "required":["kind","plan"],"properties":{"kind":{"const":"analyze"},"plan":{
+            "type":"object",
+            "description":"Native qspquest.analysis-plan/v0.2: argument, specification and embedded-run admission without simulation or random draws.",
+            "required":["schema","operation","analysis_version","request_hash","simulations","random_draws","stochastic","max_simulations","runs","deferred_checks"],
+            "properties":{"schema":{"const":"qspquest.analysis-plan/v0.2"},"operation":{"type":"string"},
+                "simulations":{"const":0},"random_draws":{"const":0},"runs":{"type":"array"},
+                "deferred_checks":{"type":"array","items":{"type":"string"}}}}}}));
     let mut comparison = native_schema(
         &schema::<crate::planning::ComparisonPreparation>().to_string(),
         "Compared",
@@ -1187,6 +1249,25 @@ fn plan_payload_schema() -> Value {
     payload["$defs"]["RequestPlan"]["properties"]["native_preparation"] =
         json!({"oneOf":alternatives});
     payload
+}
+
+/// The schema advertised in tools/list: the result envelope only. Complete per-tool schemas
+/// are large (tens to hundreds of kilobytes each) and would be paid on every connection, so
+/// they are served on demand as `qspquest://schema/tools/<tool>`.
+pub fn advertised_output_schema(tool: &str) -> Arc<serde_json::Map<String, Value>> {
+    json!({
+        "type": "object",
+        "description": format!("QSPQuest result for {tool}. contract (qspquest.mcp-result/v1) carries status (success, scientific_failure, unsupported, async_required, request_failure), completeness and linked resources; error carries code, message, a JSON-pointer expression and a suggestion. The complete JSON Schema is the resource qspquest://schema/tools/{tool}."),
+        "properties": {
+            "contract": {"type": "object", "description": "Result contract: status, completeness, identity, resources and failure."},
+            "error": {"type": "object", "description": "Present on refusals and failures: code, message, expression (JSON pointer) and suggestion."}
+        },
+        "required": ["contract"]
+    })
+    .as_object()
+    .unwrap()
+    .clone()
+    .into()
 }
 
 pub fn output_schema_for(tool: &str) -> Arc<serde_json::Map<String, Value>> {
@@ -1237,6 +1318,8 @@ pub fn output_schema_for(tool: &str) -> Arc<serde_json::Map<String, Value>> {
             "format_response" => Some(schema::<crate::response_format::FormatPayload>()),
             "get_patient_parameters" => Some(schema::<PatientPayload>()),
             "compare_regimens" => Some(schema::<ComparisonPayload>()),
+            #[cfg(feature = "analysis")]
+            "analyze" => Some(schema::<AnalysisPayload>()),
             #[cfg(feature = "managed")]
             "preview_job" => Some(schema::<crate::jobs::PreviewPayload>()),
             #[cfg(feature = "managed")]

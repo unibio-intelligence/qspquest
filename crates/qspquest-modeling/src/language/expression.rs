@@ -150,17 +150,14 @@ impl Parser {
         } else {
             self.atom()?
         };
-        loop {
-            let (operator, l, r) = match &self.tokens[self.index].0 {
-                Token::Op(op) => match op.as_str() {
-                    "+" => (Binary::Add, 1, 2),
-                    "-" => (Binary::Subtract, 1, 2),
-                    "*" => (Binary::Multiply, 3, 4),
-                    "/" => (Binary::Divide, 3, 4),
-                    "%" => (Binary::Modulo, 3, 4),
-                    "^" => (Binary::Power, 6, 6),
-                    _ => break,
-                },
+        while let Token::Op(op) = &self.tokens[self.index].0 {
+            let (operator, l, r) = match op.as_str() {
+                "+" => (Binary::Add, 1, 2),
+                "-" => (Binary::Subtract, 1, 2),
+                "*" => (Binary::Multiply, 3, 4),
+                "/" => (Binary::Divide, 3, 4),
+                "%" => (Binary::Modulo, 3, 4),
+                "^" => (Binary::Power, 6, 6),
                 _ => break,
             };
             if l < min {

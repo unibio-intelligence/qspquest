@@ -14,13 +14,14 @@ python -m pip install qspquest
 ```
 
 Prebuilt wheels cover Linux x86_64 and ARM64 (glibc 2.28+), macOS Apple
-Silicon and Intel, and Windows x86_64, so no Rust compiler is needed. Optional
-extras add workflows: `qspquest[analysis]` (NumPy, SciPy), `qspquest[notebook]`
-(pandas, matplotlib, JupyterLab) and `qspquest[interchange]` (SBML/OMEX).
+Silicon and Intel, and Windows x86_64, so no Rust compiler is needed. Analysis
+workflows run natively and need no extra. Optional extras add
+`qspquest[notebook]` (pandas, matplotlib, JupyterLab), `qspquest[plot]`
+(pandas, plotnine; journal figures) and `qspquest[interchange]` (SBML/OMEX).
 
 ### Build from source
 
-On other platforms pip builds the source archive, which needs Rust 1.98.1,
+On other platforms pip builds the source archive, which needs Rust 1.89 or newer,
 Cargo and a native C/C++ compiler on `PATH`, and network access to fetch locked
 dependencies (one from GitHub). From the complete project checkout or an
 extracted Python source archive:
@@ -41,7 +42,7 @@ python -c "import qspquest; print(qspquest.__version__)"
 qspquest-doctor --json
 ```
 
-Expect version `0.1.0`. The doctor runs a small synthetic model and reports
+Expect version `0.1.1`. The doctor runs a small synthetic model and reports
 its checks and any missing optional dependencies. An import error usually means
 you installed into a different Python interpreter or the native extension could
 not load; use `python -m pip` with the same interpreter. A wheel platform error
@@ -84,13 +85,14 @@ This is an illustrative synthetic model, not a clinical or drug-specific model.
 
 ## Optional workflows
 
-The `analysis` extra supplies NumPy/SciPy for analysis helpers. `notebook` adds
-analysis packages, pandas, matplotlib and JupyterLab. `interchange` supplies
+Analysis workflows need no extra. `notebook` adds pandas, matplotlib and
+JupyterLab for data frames and plots. `plot` supplies pandas and plotnine for
+`qspquest.plot` figures and `qspquest.to_frame` tables. `interchange` supplies
 python-libsbml for SBML/OMEX import and export. Install only the extras needed;
 for example with the same local source archive:
 
 ```sh
-python -m pip install './qspquest-0.1.0.tar.gz[analysis,interchange]'
+python -m pip install './qspquest-0.1.1.tar.gz[interchange]'
 qspquest-doctor --analysis --interchange --json
 ```
 

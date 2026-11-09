@@ -182,6 +182,7 @@ pub(super) fn population(request: &PopulationFitRequest) -> PopulationPreparatio
         centered_covariates: Vec::new(),
         initial_covariate_coefficients: Vec::new(),
         residual: None,
+        proportional_residual: None,
     }
 }
 

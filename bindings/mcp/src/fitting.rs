@@ -382,25 +382,61 @@ impl Declaration {
                         index,
                         read,
                     )?;
-                    if evidence["schema"] != "qspquest.fitting-qualification/v1"
-                        || evidence["status"] != "passed"
-                        || evidence["model_id"] != self.model_id
-                        || evidence["model_version"] != self.model_version
-                        || evidence["native_model_sha256"] != self.native_model_sha256
-                        || evidence["native_request_sha256"] != hash(&request_bytes)
-                        || evidence["synthetic_observations_sha256"]
-                            != workflow.synthetic_observations.sha256
-                        || evidence["workflow_id"] != workflow.id
-                        || evidence["operation"] != workflow.operation.name()
-                        || evidence["source_population_reproduction"] != false
-                        || !evidence["engine_identity"]["compiler_source_sha256"]
-                            .as_str()
-                            .is_some_and(|s| s.strip_prefix("sha256:").is_some_and(digest))
-                        || !evidence["engine_identity"]["target"]
-                            .as_str()
-                            .is_some_and(|s| !s.is_empty())
-                    {
-                        return Err("Recorded fitting evidence differs from native source, request, observations or operation".into());
+                    let differing = [
+                        (
+                            "schema",
+                            evidence["schema"] != "qspquest.fitting-qualification/v1",
+                        ),
+                        ("status", evidence["status"] != "passed"),
+                        ("model_id", evidence["model_id"] != self.model_id),
+                        (
+                            "model_version",
+                            evidence["model_version"] != self.model_version,
+                        ),
+                        (
+                            "native_model_sha256",
+                            evidence["native_model_sha256"] != self.native_model_sha256,
+                        ),
+                        (
+                            "native_request_sha256",
+                            evidence["native_request_sha256"] != hash(&request_bytes),
+                        ),
+                        (
+                            "synthetic_observations_sha256",
+                            evidence["synthetic_observations_sha256"]
+                                != workflow.synthetic_observations.sha256,
+                        ),
+                        ("workflow_id", evidence["workflow_id"] != workflow.id),
+                        (
+                            "operation",
+                            evidence["operation"] != workflow.operation.name(),
+                        ),
+                        (
+                            "source_population_reproduction",
+                            evidence["source_population_reproduction"] != false,
+                        ),
+                        (
+                            "engine_identity.compiler_source_sha256",
+                            !evidence["engine_identity"]["compiler_source_sha256"]
+                                .as_str()
+                                .is_some_and(|s| s.strip_prefix("sha256:").is_some_and(digest)),
+                        ),
+                        (
+                            "engine_identity.target",
+                            !evidence["engine_identity"]["target"]
+                                .as_str()
+                                .is_some_and(|s| !s.is_empty()),
+                        ),
+                    ]
+                    .into_iter()
+                    .filter_map(|(field, differs)| differs.then_some(field))
+                    .collect::<Vec<_>>();
+                    if !differing.is_empty() {
+                        return Err(format!(
+                            "Workflow {}: recorded fitting evidence differs from the native source, request, observations or operation in {}",
+                            workflow.id,
+                            differing.join(", ")
+                        ));
                     }
                     ready = true;
                     let result_descriptor: Member =
@@ -432,19 +468,43 @@ impl Declaration {
                             serde_json::to_value(result.fit).map_err(|e| e.to_string())?
                         }
                     };
-                    if result["status"] != "converged"
-                        || result["objective"]["identity"] != evidence["engine_identity"]
-                        || result["objective"]["identity"]["model_content_hash"]
-                            != model_content_hash
-                        || !result["evaluations"].as_u64().is_some_and(|n| n > 0)
-                        || result["objective"]["observations"].as_u64()
-                            != Some(observations.len() as u64)
-                        || result["fit_request_hash"] != evidence["fit_request_hash"]
-                        || !result["fit_request_hash"]
-                            .as_str()
-                            .is_some_and(|s| s.strip_prefix("sha256:").is_some_and(digest))
-                    {
-                        return Err("Recorded fitting result status, observations, request hash or engine identity differs".into());
+                    let differing = [
+                        ("status", result["status"] != "converged"),
+                        (
+                            "objective.identity",
+                            result["objective"]["identity"] != evidence["engine_identity"],
+                        ),
+                        (
+                            "objective.identity.model_content_hash",
+                            result["objective"]["identity"]["model_content_hash"]
+                                != model_content_hash,
+                        ),
+                        (
+                            "evaluations",
+                            !result["evaluations"].as_u64().is_some_and(|n| n > 0),
+                        ),
+                        (
+                            "objective.observations",
+                            result["objective"]["observations"].as_u64()
+                                != Some(observations.len() as u64),
+                        ),
+                        (
+                            "fit_request_hash",
+                            result["fit_request_hash"] != evidence["fit_request_hash"]
+                                || !result["fit_request_hash"]
+                                    .as_str()
+                                    .is_some_and(|s| s.strip_prefix("sha256:").is_some_and(digest)),
+                        ),
+                    ]
+                    .into_iter()
+                    .filter_map(|(field, differs)| differs.then_some(field))
+                    .collect::<Vec<_>>();
+                    if !differing.is_empty() {
+                        return Err(format!(
+                            "Workflow {}: recorded fitting result differs in {}",
+                            workflow.id,
+                            differing.join(", ")
+                        ));
                     }
                     if let Operation::FitIndividual = workflow.operation {
                         let gradient = result["projected_gradient_norm"]

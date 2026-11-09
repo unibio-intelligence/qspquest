@@ -36,7 +36,7 @@ path; text diagnostics point to the declaration. This is a minimum-capability
 check, not proof that arbitrary stiff models or nonsmooth expressions will solve.
 
 Requirements are part of the model content and affect its hash. The default
-record is always written out, so existing documents get new model hashes under
+record is always written out, so existing documents receive new model hashes under
 this compiler version. The schema and hashes are not guaranteed stable across
 versions.
 

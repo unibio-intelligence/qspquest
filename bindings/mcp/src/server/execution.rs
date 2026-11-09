@@ -1,7 +1,35 @@
 //! Native and isolated execution dispatch, permits, deadlines and compilation reuse.
 use super::*;
 
+/// The WASM sandbox accepts 2 MB of envelope; keep room for its framing.
+const SANDBOX_INPUT: usize = 1_900_000;
+
 impl Server {
+    pub(super) fn hosted_time_remaining(&self) -> std::time::Duration {
+        self.hosted_deadline
+            .map_or(policy::HOSTED_DEADLINE, |deadline| {
+                deadline.saturating_duration_since(tokio::time::Instant::now())
+            })
+    }
+
+    pub(super) async fn within_hosted_deadline(
+        &self,
+        work: impl std::future::Future<Output = Value>,
+    ) -> Value {
+        if self.hosted {
+            tokio::time::timeout(self.hosted_time_remaining(), work)
+                .await
+                .unwrap_or_else(|_| {
+                    policy::error(
+                        "deadline",
+                        "Hosted request exceeded its aggregate 45-second limit. Active isolated or native work retains its slot until it exits.",
+                    )
+                })
+        } else {
+            work.await
+        }
+    }
+
     pub(super) async fn compute(
         &self,
         source: String,
@@ -21,7 +49,30 @@ impl Server {
         trusted: bool,
         library_version: &str,
     ) -> Result<Value, Value> {
-        policy::admit(&mut request, self.hosted)?;
+        let deadline = self.hosted.then(|| {
+            self.hosted_deadline
+                .unwrap_or_else(|| tokio::time::Instant::now() + policy::HOSTED_DEADLINE)
+        });
+        if deadline.is_some_and(|limit| tokio::time::Instant::now() >= limit) {
+            return Err(policy::error(
+                "deadline",
+                "Hosted request ran out of time before starting computation.",
+            ));
+        }
+        if matches!(operation, "analyze" | "plan_analyze") {
+            crate::execution_policy::admit_analysis(
+                &mut request,
+                crate::execution_policy::Profile::from_hosted(self.hosted),
+            )?;
+        } else {
+            policy::admit(&mut request, self.hosted)?;
+        }
+        if self.hosted && !trusted && source.len() + request.to_string().len() > SANDBOX_INPUT {
+            return Err(policy::error(
+                "input_limit",
+                "Model source plus request exceed the isolated engine's 1.9 MB input. Use a smaller request or source, or run locally.",
+            ));
+        }
         let operation = operation.to_owned();
         let tenant_permit = self
             .tenant_semaphore
@@ -49,10 +100,18 @@ impl Server {
                         "Hosted user-source compute requires a built sandbox",
                     )
                 })?;
+                let deadline = deadline.expect("hosted execution has a deadline");
                 return tokio::task::spawn_blocking(move || {
                     let _permit = permit;
                     let _tenant_permit = tenant_permit;
-                    sandbox.execute(&source, &operation, request)
+                    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+                    if remaining.is_zero() {
+                        return Err(policy::error(
+                            "deadline",
+                            "Hosted request ran out of time before starting isolated computation.",
+                        ));
+                    }
+                    sandbox.execute_for(&source, &operation, request, remaining)
                 })
                 .await
                 .map_err(|e| policy::error("sandbox", e.to_string()))?;
@@ -71,6 +130,12 @@ impl Server {
         let task = tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let _tenant_permit = tenant_permit;
+            if deadline.is_some_and(|limit| tokio::time::Instant::now() >= limit) {
+                return Err(policy::error(
+                    "deadline",
+                    "Hosted request ran out of time before starting native computation.",
+                ));
+            }
             (if trusted {
                 serde_json::from_str(&source)
                     .map_err(|e| json!({"code":"invalid_library","message":e.to_string()}))
@@ -94,8 +159,8 @@ impl Server {
             .map_err(|e| json!({"error":e}))
         });
         // The owned permit remains with blocking compute after timeout/cancellation.
-        if self.hosted {
-            tokio::time::timeout(std::time::Duration::from_secs(45),task).await.map_err(|_|policy::error("deadline","Hosted 45-second deadline exceeded. Native computation retains its slot until it finishes; run locally or use a managed job."))?.map_err(|e|policy::error("engine",e.to_string()))?
+        if let Some(deadline) = deadline {
+            tokio::time::timeout_at(deadline,task).await.map_err(|_|policy::error("deadline","Hosted 45-second deadline exceeded. Native computation retains its slot until it finishes; run locally or use a managed job."))?.map_err(|e|policy::error("engine",e.to_string()))?
         } else {
             task.await
                 .map_err(|e| policy::error("engine", e.to_string()))?

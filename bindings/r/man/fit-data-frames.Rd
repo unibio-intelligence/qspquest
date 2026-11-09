@@ -9,8 +9,8 @@ fit_parameter_data_frame(fitted)
 fit_observation_data_frame(model, fitted)
 }
 \arguments{
-\item{fitted}{A result returned by \code{fit_data}.}
-\item{model}{The compiled model used by \code{fit_data}.}
+\item{fitted}{A result returned by \code{fit_individual_data}.}
+\item{model}{The compiled model used by \code{fit_individual_data}.}
 }
 \value{\code{fit_parameter_data_frame} returns ID, PARAMETER, ESTIMATE, UNIT,
 STATUS and OBJECTIVE columns. Pooled fits have a missing ID because estimates
@@ -21,10 +21,10 @@ values. Row order matches the source observations within each subject.}
 \details{Prediction replay runs one simulation per subject on demand, using the
 fitted parameters and the original request. It requires every fit to have
 \code{status == "converged"}. Original subject-specific execution results remain
-available in the \code{fit_data} result. These helpers cover the individual and
+available in the \code{fit_individual_data} result. These helpers cover the individual and
 pooled fixed-error Gaussian dataset adapter; they do not infer random effects,
 covariates, censoring, or residual-error models.}
-\seealso{\code{\link{fit_data_requests}}, \code{\link{nonmem_requests}}}
+\seealso{\code{\link{individual_fit_data_requests}}, \code{\link{nonmem_requests}}}
 \examples{
 q <- function(value, unit) list(value = value, unit = unit)
 model <- compile_model(paste(
@@ -54,8 +54,8 @@ template <- list(schema = "qspquest.fit/v0.1", problem = list(
     max_evaluations = 400L, max_iterations = 100L, gradient_tolerance = 1e-5)))
 endpoints <- list("2" = list(output = "cp", value_unit = "mg/L",
   error = list(additive_sd = q(0.1, "mg/L"), proportional_sd = 0)))
-prepared <- fit_data_requests(dataset, template, endpoints, mode = "pooled")
-fitted <- fit_data(model, prepared)
+prepared <- individual_fit_data_requests(dataset, template, endpoints, mode = "pooled")
+fitted <- fit_individual_data(model, prepared)
 stopifnot(fitted$results[[1]]$fit$status == "converged")
 print(fit_parameter_data_frame(fitted))
 print(fit_observation_data_frame(model, fitted))

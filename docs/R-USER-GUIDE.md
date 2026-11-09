@@ -5,11 +5,11 @@ observations using QSPQuest's R package. The native engine runs locally;
 these examples require no Ubi account, Julia runtime, or simulation service.
 All parameter values and data in this guide are synthetic.
 
-This guide uses the 0.1.0 R API. Install the standalone source archive;
+This guide uses the 0.1.1 R API. Install the standalone source archive;
 QSPQuest is not yet published to CRAN or R-universe.
 Run the R blocks in order in one session. The complete
 [example script](examples/r_quickstart.R) runs the same workflow and saves its
-outputs. Keep this guide with the source version you use.
+outputs. Use the version of this guide that matches the installed source version.
 
 ## Contents
 
@@ -22,14 +22,15 @@ outputs. Keep this guide with the source version you use.
 7. [Fit an individual model](#fit-an-individual-model)
 8. [Simulate and fit NONMEM style rows](#simulate-and-fit-nonmem-style-rows)
 9. [Fit population data](#fit-population-data)
-10. [Save a reproducible analysis](#save-a-reproducible-analysis)
-11. [Handle errors and troubleshoot](#handle-errors-and-troubleshoot)
-12. [API reference and further reading](#api-reference-and-further-reading)
+10. [Run analysis workflows](#run-analysis-workflows)
+11. [Save a reproducible analysis](#save-a-reproducible-analysis)
+12. [Handle errors and troubleshoot](#handle-errors-and-troubleshoot)
+13. [API reference and further reading](#api-reference-and-further-reading)
 
 ## Install and verify
 
-You need R, its compatible C compiler, Rust 1.98.1 and Cargo on `PATH`,
-and the standalone R archive `qspquest_0.1.0.tar.gz`. The archive contains its
+Installation requires R, a compatible C compiler, Rust 1.89 or newer and Cargo on `PATH`,
+and the standalone R archive `qspquest_0.1.1.tar.gz`. The archive contains its
 Rust workspace; no separate QSPQuest source checkout is required.
 Install `jsonlite` 2.0.0 or newer to preserve numeric request precision.
 
@@ -37,7 +38,7 @@ In R or RStudio, from the directory containing the archive:
 
 ```r
 install.packages("jsonlite", repos = "https://cloud.r-project.org")
-install.packages("qspquest_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages("qspquest_0.1.1.tar.gz", repos = NULL, type = "source")
 ```
 
 Then verify the installation:
@@ -48,7 +49,7 @@ library(jsonlite)
 packageVersion("qspquest")
 ```
 
-Expected version: `0.1.0`. Cargo downloads locked dependencies on first
+Expected version: `0.1.1`. Cargo downloads locked dependencies on first
 installation, so network access is required unless they are already cached.
 The Linux/macOS archive prepared with `scripts/prepare-r-source.py --cran`
 instead bundles those dependency sources and compiles offline with two jobs.
@@ -64,8 +65,8 @@ guide's native simulation and fitting workflow.
 ## Quickstart
 
 The model stores central drug amount in mg and reports concentration `cp` in
-mg/L. Clearance is 0.3 L/h and volume is 3 L, so the elimination rate is
-0.1 per hour. After a 6 mg bolus, `cp(t) = 2 exp(-0.1 t)`.
+mg/L. Clearance is 0.3 L/h and volume is 3 L, so the elimination rate constant
+`cl/v` is 0.1 per hour. After a 6 mg bolus, `cp(t) = 2 exp(-0.1 t)`.
 
 ### Compile the model
 
@@ -276,7 +277,8 @@ The available 80 mg enters the depot and reaches central through first-order
 absorption. The depot permits bolus delivery only; there is no infusion
 forcing in its equation. Adding the three amount derivatives cancels internal
 transfers and leaves central elimination. These are simple synthetic mechanism
-assumptions, not drug-specific parameter estimates. For larger PBPK/QSP
+assumptions, not drug-specific parameter estimates. For larger physiologically
+based pharmacokinetic (PBPK) and quantitative systems pharmacology (QSP)
 systems, inspect conservation and domains and use state-specific tolerances.
 
 ## Choose sampling and solver settings
@@ -299,15 +301,15 @@ sampling, omit `observations` and populate `samples`; event boundaries may
 add rows. Always inspect returned times and sides. Do not combine nonempty
 `samples` with an observation plan, or supply an empty observation plan.
 
-This guide uses BDF. Simulation also supports `diffsol_tsit45`,
-`diffsol_esdirk34`, and `diffsol_tr_bdf2` within their supported ODE scope. No unknown method selects
-a fallback. Sensitivity-based fitting currently requires BDF. An
+This guide uses a backward differentiation formula (BDF) method. Simulation also supports `diffsol_tsit45`,
+`diffsol_esdirk34`, and `diffsol_tr_bdf2` within their supported ordinary differential equation (ODE) scope. An unknown
+method name does not select a fallback. Sensitivity-based fitting currently requires BDF. An
 `analytic_linear_pk` run needs a model that declares `linear_pk`; an arbitrary
 linear-looking differential equation does not select that engine automatically.
 
 `rtol` is dimensionless, while scalar `atol` uses each state's numeric unit.
 For differing state scales, remove `atol` and supply a complete quantity map:
-`absolute_tolerances = list(central = q(1e-12, "mg"))` for our single state.
+`absolute_tolerances = list(central = q(1e-12, "mg"))` for the single state in this model.
 Use exactly one absolute-tolerance mode. Check numerical stability by comparing
 tighter tolerances and an independent or analytic reference where possible.
 
@@ -373,7 +375,7 @@ runner; `fit_model()` compiles the sensitivity selection needed for a fit.
 
 This example estimates clearance and volume from exact synthetic observations
 generated with `cl = 0.6 L/h` and `v = 4.5 L`. It uses a fixed additive
-normal SD of 0.1 mg/L. A real analysis needs an error model justified for its
+normal standard deviation (SD) of 0.1 mg/L. A real analysis needs an error model justified for its
 measurement process.
 
 ```r
@@ -415,23 +417,23 @@ replay$parameters <- fitted$fit$parameters
 fit_predictions <- simulate_model(model, replay)
 ```
 
-Native `row` values start at zero even in R. Our explicit observation plan
+Native `row` values start at zero even in R. The explicit observation plan
 makes `row = 0` the post-dose measurement at 0 h. Derivative absolute
-tolerances have state-unit divided by parameter-unit, rather than the state's
+tolerances have units of state unit divided by parameter unit, rather than the state's
 unit alone. The selected parameter order must match the fitting contract.
 
 The engine can return a result with `evaluation_limit`; inspect the status
 before using estimates. Review objective, work count, boundaries and prediction
-replay. A fit to noiseless synthetic data only checks the software; it says
-nothing about interval calibration or clinical validity.
-`priors = list()` requests likelihood fitting. Supported priors produce MAP
-fits; see [Gaussian objectives](GAUSSIAN-OBJECTIVE.md) for details. The R binding does not currently expose Python's derivative-free
+replay. A fit to noiseless synthetic data tests only the software; it does
+not assess interval calibration or clinical validity.
+`priors = list()` requests likelihood fitting. Supported priors produce
+maximum a posteriori (MAP) fits; see [Gaussian objectives](GAUSSIAN-OBJECTIVE.md) for details. The R binding does not currently expose Python's derivative-free
 scalar fitting method.
 
 ## Simulate and fit NONMEM style rows
 
 The R helpers convert a restricted record format into explicit requests.
-They are useful for tabular PK workflows, but do not import a NONMEM control
+They are useful for tabular pharmacokinetic (PK) workflows, but do not import a NONMEM control
 stream or infer endpoint, covariate, censoring or missing-value semantics.
 
 To use an existing CSV instead, read and validate it before calling the adapters.
@@ -497,8 +499,8 @@ endpoints <- list("2" = list(
   output = "cp", value_unit = "mg/L",
   error = list(additive_sd = q(0.1, "mg/L"), proportional_sd = 0)
 ))
-prepared <- fit_data_requests(dataset, fit_template, endpoints, mode = "pooled")
-data_fit <- fit_data(model, prepared)
+prepared <- individual_fit_data_requests(dataset, fit_template, endpoints, mode = "pooled")
+data_fit <- fit_individual_data(model, prepared)
 stopifnot(data_fit$results[[1]]$fit$status == "converged")
 print(fit_parameter_data_frame(data_fit))
 diagnostics <- fit_observation_data_frame(model, data_fit)
@@ -520,10 +522,11 @@ differ; the table does not silently convert them for subtraction.
 
 ## Fit population data
 
-FOCEI and SAEM use one population request with per-subject regimens and a
-lognormal random-effect contract. This four-subject example estimates typical
-clearance, holding volume and eta variance fixed. Fixing `omega = 0.04`
-means eta SD is 0.2 on the log scale; it is not a clearance-unit variance.
+First-order conditional estimation with interaction (FOCEI) and stochastic
+approximation expectation-maximization (SAEM) use one population request with
+per-subject regimens and a lognormal random-effect contract. This four-subject example estimates typical
+clearance, holding volume and the variance of the between-subject random effect
+(eta) fixed. Fixing `omega = 0.04` means that the SD of eta is 0.2 on the log scale; it is not a clearance-unit variance.
 
 ```r
 etas <- c(-0.22, -0.08, 0.08, 0.22)
@@ -626,6 +629,49 @@ requests; the row adapter does not infer them. See [the SAEM guide](SAEM.md)
 for exact combinations and limitations. Record seeds, examine stability across
 seeds, and verify recovery on a cohort representative of your intended use.
 
+## Run analysis workflows
+
+The analysis workflows run in the native engine and give the same results in R
+and Python. They fit residual standard deviations and dosing-time quantities,
+fit population models with up to eight random effects, and compute exposure
+summaries, likelihood profiles, visual predictive checks, subject bootstraps
+and paired regimen comparisons. Fitting specifications are named lists; their
+order defines the order of `omega`.
+
+The example reuses `model`, `request` and `q` from the quickstart. It fits
+clearance and the additive residual SD to the analytic concentrations, then
+profiles clearance:
+
+```r
+observations <- lapply(seq_along(times) - 1L, function(row) list(
+  row = row, output = "cp", value = q(2 * exp(-0.1 * times[row + 1L]), "mg/L")))
+bounds <- list(cl = list(initial = 0.5, lower = 0.05, upper = 2, unit = "L/h"))
+fitted <- fit_data(model, request, observations, bounds,
+  list(additive = list(initial = 0.1, lower = 1e-4, upper = 1)))
+stopifnot(identical(fitted$status, "converged"),
+          abs(fitted$parameters$cl$value - 0.3) < 1e-4)
+diagnostics <- fit_diagnostics(fitted)
+profile <- profile_likelihood(model, request, observations, bounds,
+  list(additive = 0.01), "cl", seq(0.29, 0.31, length.out = 9))
+stopifnot(identical(profile$status, "complete"))
+exposure <- exposure_summary(result, "cp")
+print(c(cl = fitted$parameters$cl$value, auc = exposure$auc))
+```
+
+The fit reports `converged` with clearance within 1e-4 of 0.3 L/h. The profile
+interval contains 0.3 L/h. `exposure$auc` is the trapezoidal AUC on the six
+sampled times, not an extrapolated AUC.
+
+`fit_data` is the same analysis as the Python `fit_data`.
+`fit_individual_data` instead fits the native requests that
+`individual_fit_data_requests` prepares from data frames. `visual_predictive_check`, `bootstrap_population` and
+`compare_regimens` accept `seed` and `workers`; each replicate or virtual
+subject draws from its own random substream, so the worker count does not
+change results. `fit_population` returns a complete-data surrogate objective,
+not a marginal likelihood. Checkpoints and progress callbacks are available
+from Python only. See [analysis workflows](ANALYSIS.md) for the inputs,
+limits and interpretation of each workflow.
+
 ## Save a reproducible analysis
 
 Preserve source, requests, complete results, rows, mappings, and software
@@ -716,8 +762,8 @@ line/column information rather than exact expression spans.
 | Morris screening | `morris_model(model, request)` | Design and elementary effects |
 | Prepare dose and measurement rows | `nonmem_requests(...)` | Per-subject requests and source data |
 | Simulate prepared rows | `simulate_data(model, dataset)` | Subject results and combined data |
-| Prepare individual or pooled fit | `fit_data_requests(...)` | Fit requests and source mapping |
-| Execute prepared fits | `fit_data(model, prepared)` | Fit results and mappings |
+| Prepare individual or pooled fit | `individual_fit_data_requests(...)` | Fit requests and source mapping |
+| Execute prepared fits | `fit_individual_data(model, prepared)` | Fit results and mappings |
 | Tabulate estimates | `fit_parameter_data_frame(fitted)` | Estimates, units, statuses and objective |
 | Replay fitted observations | `fit_observation_data_frame(model, fitted)` | Converged-fit observation diagnostics |
 | Prepare population rows | `population_fit_data_requests(...)` | One population request and mapping |
@@ -726,10 +772,10 @@ line/column information rather than exact expression spans.
 | Tabulate population observations | `population_fit_observation_data_frame(fitted)` | Fitted-observation diagnostics or NULL |
 
 Installed help is available through `?compile_model`, `?nonmem_requests`,
-`?fit_data_requests`, and `?population_fit_data_requests`. Read the
+`?individual_fit_data_requests`, and `?population_fit_data_requests`. Read the
 [model language](../spec/language.md), [regimen contract](../spec/regimens.md),
 [run and result identity](../spec/run-results.md),
 [parameter scans](PARAMETER-SCANS.md), [Morris screening](MORRIS-SENSITIVITY.md),
 [Gaussian objectives](GAUSSIAN-OBJECTIVE.md), and [JSON schemas](../spec/schema/README.md)
-when adapting examples. For Python colleagues, use
+when adapting examples. For Python, see
 [the Python user guide](PYTHON-USER-GUIDE.md).

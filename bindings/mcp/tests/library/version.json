@@ -1,1 +1,6 @@
-{"catalog_sha256":"9b3d543755e112c67208ec86fcf91646b09a375adfa8659729eb2f648dcd8861","release_status":"release_candidate","selected_fitting_model":"qspquest_diffdose_2026_idr_benchmark@0.3.1","selected_large_model":"qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp@2.1.2"}
+{
+  "catalog_sha256": "7791195d32d9b0fb9737f9dd8257d2c7a5f42c7daefb83edab9554599c31759d",
+  "release_status": "release_candidate",
+  "selected_fitting_model": "qspquest_diffdose_2026_idr_benchmark@0.3.1",
+  "selected_large_model": "qspquest_liu_2026_aav_mab_targetx_rat_brain_full_qsp@2.2.0"
+}

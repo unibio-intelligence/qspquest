@@ -88,6 +88,8 @@ def check(root):
                 owner = 'exposure'
             elif name == 'write_analysis_report':
                 owner = 'report'
+            elif name in ('to_frame', 'read_table'):
+                owner = 'tables'
             elif name == 'population_fit_dataset':
                 owner = 'dataset'
             elif name == 'individual_fit_dataset':

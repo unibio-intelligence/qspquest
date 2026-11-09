@@ -79,14 +79,20 @@ end
     if analysis:
 
         def analysis_tools():
-            from ._analysis import dependencies
+            from . import exposure_summary
 
-            np, _, special, _ = dependencies()
-            if not np.isfinite(special.log_ndtr(-40)):
-                raise RuntimeError("censored likelihood numerical dependency failed")
-            return {m: importlib.metadata.version(m) for m in ["numpy", "scipy"]}
+            result = {
+                "times": [0.0, 1.0, 2.0],
+                "sides": ["post", "post", "post"],
+                "time_unit": "h",
+                "outputs": [{"name": "cp", "unit": "mg/L", "values": [0.0, 2.0, 0.0]}],
+            }
+            summary = exposure_summary(result, "cp", threshold=1.0)
+            if summary["auc"] != 2.0 or summary["time_above_threshold"]["duration"] != 1.0:
+                raise RuntimeError("native analysis self-check failed")
+            return {"native_analysis": "available"}
 
-        check("analysis_dependencies", analysis_tools)
+        check("native_analysis", analysis_tools)
     if interchange:
 
         def interchange_tools():
@@ -162,7 +168,7 @@ def main(argv=None):
     parser.add_argument(
         "--analysis",
         action="store_true",
-        help="also require the optional NumPy/SciPy analysis layer",
+        help="also run a native analysis self-check",
     )
     parser.add_argument(
         "--json", action="store_true", help="emit a machine-readable report"

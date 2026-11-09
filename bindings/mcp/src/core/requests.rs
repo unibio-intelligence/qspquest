@@ -28,8 +28,12 @@ pub fn dose(v: &Value) -> Result<Value, String> {
     if let Some(lag) = v.get("lag") {
         d["lag"] = quantity(lag, "dose.lag")?
     }
-    let count = match v.get("count") {
+    let count = match v.get("count").filter(|n| !n.is_null()) {
         Some(n) => n.as_u64().ok_or("dose.count must be a positive integer")?,
+        // An interval alone is ambiguous; never turn a maintenance schedule into one dose.
+        None if v.get("every").is_some_and(|e| !e.is_null()) => {
+            return Err("dose.every needs dose.count, the total number of doses including the first (for example every 14 d with count 4 gives doses at 0, 14, 28 and 42 d)".into())
+        }
         None => 1,
     };
     if !(1..=10000).contains(&count) {
@@ -78,6 +82,17 @@ pub fn run(args: &Value, base: Option<&Value>, model: &Value) -> Result<Value, S
             }
         }
     }
+    if let Some(covariates) = args.get("covariates").filter(|v| !v.is_null()) {
+        let m = covariates
+            .as_object()
+            .ok_or("covariates must map names to quantities")?;
+        if !m.is_empty() && !r["regimen"]["covariates"].is_object() {
+            r["regimen"]["covariates"] = json!({});
+        }
+        for (name, q) in m {
+            r["regimen"]["covariates"][name] = quantity(q, &format!("covariates.{name}"))?
+        }
+    }
     if let Some(s) = args.get("solver") {
         r["solver"] = s.clone()
     }
@@ -121,7 +136,11 @@ pub fn run_notes(args: &Value, effective: &Value, base: Option<&Value>) -> Vec<S
             notes.push("solver omitted: diffsol_bdf is used".into());
         }
         notes.push("friendly run defaults: start 0, rtol 1e-8, atol 1e-10; model initial states and parameters apply unless overridden".into());
-        if effective.get("times").is_none() {
+        let timed_observations = args["observations"].as_array().is_some_and(|o| {
+            o.iter()
+                .any(|x| x.get("time").is_some_and(|t| !t.is_null()))
+        });
+        if effective.get("times").is_none() && !timed_observations {
             notes.push(
                 "times omitted: 101 evenly spaced samples from zero through end are used".into(),
             );
@@ -165,4 +184,63 @@ pub fn individual(args: &Value, run: Value, model: &Value) -> Result<Value, Stri
 /// Prepare explicit record mappings through the typed, side-effect-free adapter.
 pub fn population(args: &Value, hosted: bool) -> Result<(Value, Value), Value> {
     super::population_records::prepare(args, hosted)
+}
+
+/// Move covariate names supplied among `parameters` into `covariates` and check every
+/// covariate against the model's declarations, so friendly calls never need a native request.
+pub(crate) fn route_covariates(
+    args: &mut Value,
+    model: &Value,
+) -> Result<(), super::input_shapes::Failure> {
+    let declared: Vec<String> = model["covariates"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| c["name"].as_str().map(str::to_owned))
+        .collect();
+    let mut covariates = match args.get("covariates").filter(|v| !v.is_null()) {
+        Some(v) => v.as_object().cloned().ok_or_else(|| {
+            super::input_shapes::Failure::at(
+                "/covariates".into(),
+                "covariates must map names to quantities",
+                "Supply an object mapping declared covariate names to quantity objects.",
+            )
+        })?,
+        None => serde_json::Map::new(),
+    };
+    if let Some(parameters) = args.get_mut("parameters").and_then(Value::as_object_mut) {
+        let moved: Vec<String> = parameters
+            .keys()
+            .filter(|k| declared.iter().any(|d| d == *k))
+            .cloned()
+            .collect();
+        for name in moved {
+            if covariates.contains_key(&name) {
+                return Err(super::input_shapes::Failure::at(
+                    super::input_shapes::child("/parameters", &name),
+                    format!("covariate '{name}' is supplied in both parameters and covariates"),
+                    "Supply each covariate once, preferably under covariates.",
+                ));
+            }
+            covariates.insert(name.clone(), parameters.remove(&name).unwrap());
+        }
+    }
+    for name in covariates.keys() {
+        if !declared.iter().any(|d| d == name) {
+            let list = if declared.is_empty() {
+                "none".to_owned()
+            } else {
+                declared.join(", ")
+            };
+            return Err(super::input_shapes::Failure::at(
+                super::input_shapes::child("/covariates", name),
+                format!("'{name}' is not a declared covariate; this model declares: {list}"),
+                "Use a covariate name from get_model interface.covariates; parameters go under parameters.",
+            ));
+        }
+    }
+    if !covariates.is_empty() {
+        args["covariates"] = Value::Object(covariates);
+    }
+    Ok(())
 }

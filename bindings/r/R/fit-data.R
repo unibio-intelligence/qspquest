@@ -1,5 +1,5 @@
 # DV records are explicitly mapped to model readouts through observation CMT.
-fit_data_requests <- function(dataset, template, endpoints, mode = c("individual", "pooled")) {
+individual_fit_data_requests <- function(dataset, template, endpoints, mode = c("individual", "pooled")) {
   mode <- match.arg(mode)
   fail <- function(message) stop(message, call. = FALSE)
   if (!inherits(dataset, "qspquest_dataset") || !length(dataset$subjects))
@@ -62,9 +62,9 @@ fit_data_requests <- function(dataset, template, endpoints, mode = c("individual
     class = "qspquest_fit_dataset")
 }
 
-fit_data <- function(model, dataset) {
+fit_individual_data <- function(model, dataset) {
   if (!inherits(dataset, "qspquest_fit_dataset"))
-    stop("dataset must come from fit_data_requests", call. = FALSE)
+    stop("dataset must come from individual_fit_data_requests", call. = FALSE)
   results <- lapply(dataset$requests, function(request) fit_model(model, request))
   list(mode = dataset$mode, results = results, mapping = dataset$mapping,
        subject_ids = dataset$subject_ids, source = dataset$source,
@@ -76,7 +76,7 @@ fit_data <- function(model, dataset) {
 fit_parameter_data_frame <- function(fitted) {
   if (!is.list(fitted) || is.null(fitted$mode) || is.null(fitted$results) ||
       !fitted$mode %in% c("individual", "pooled"))
-    stop("fitted must be a result from fit_data", call. = FALSE)
+    stop("fitted must be a result from fit_individual_data", call. = FALSE)
   if (fitted$mode == "individual" &&
       length(fitted$results) != length(fitted$subject_ids))
     stop("individual result count differs from subject count", call. = FALSE)
@@ -110,7 +110,7 @@ fit_observation_data_frame <- function(model, fitted) {
       is.null(fitted$mode) || !fitted$mode %in% c("individual", "pooled") ||
       is.null(fitted$requests) || is.null(fitted$mapping) ||
       is.null(fitted$subject_ids) || is.null(fitted$source))
-    stop("model and fitted must come from compile_model and fit_data", call. = FALSE)
+    stop("model and fitted must come from compile_model and fit_individual_data", call. = FALSE)
   if ((fitted$mode == "individual" && length(fitted$results) != length(fitted$subject_ids)) ||
       (fitted$mode == "pooled" && length(fitted$results) != 1L))
     stop("fit result count differs from fit mode", call. = FALSE)

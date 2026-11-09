@@ -149,6 +149,16 @@ fn nonnegative_invariants_apply_to_primal_states_only() {
     assert!(bound.check_state(0., &[1., -5.]).is_ok());
     assert!(bound.check_state(0., &[-1., 5.]).is_err());
     assert!(bound.check_state(0., &[1.]).is_err());
+    assert!(bound
+        .check_integrated_state(0., &[1., -5.], &[0., 0.])
+        .is_ok());
+    assert_eq!(
+        bound
+            .check_integrated_state(0., &[1., -5.], &[0., f64::NAN])
+            .unwrap_err()
+            .code,
+        qspquest_core::ErrorCode::InvalidInput,
+    );
 }
 
 #[test]

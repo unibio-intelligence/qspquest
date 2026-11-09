@@ -68,7 +68,11 @@ def main():
         names={t["name"] for t in tools["tools"]}
         assert {"search_models","fit_population","simulate"}<=names
         assert rpc("resources/list",{})
-        assert len(rpc("prompts/list",{})["prompts"])==4
+        prompts = {item["name"] for item in rpc("prompts/list", {})["prompts"]}
+        assert prompts == {
+            "find-model", "simulate-regimen", "compare-dosing", "extend-library-model",
+            "build-model-from-paper", "fit-observations", "build-pk-model",
+        }, prompts
         model_id="qspquest_diffdose_2026_idr_benchmark"
         hits=call("find turnover model","search_models",{"query":"turnover"})
         assert any(m["id"]==model_id for m in hits["models"])

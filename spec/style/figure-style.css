@@ -1,0 +1,68 @@
+/* Generated from spec/style/figure-style.json by scripts/generate_figure_style.py. Do not edit. */
+:root {
+  --figure-surface: #FFFFFF;
+  --figure-ink: #351E29;
+  --figure-muted: #5B4A52;
+  --figure-grid: #E4E9E7;
+  --figure-fill: #6DD3CE;
+  --figure-categorical-1: #00A39B;
+  --figure-categorical-2: #A13D63;
+  --figure-categorical-3: #D9773F;
+  --figure-sequential-1: #F2FBFA;
+  --figure-sequential-2: #BFEAE6;
+  --figure-sequential-3: #6DD3CE;
+  --figure-sequential-4: #00A39B;
+  --figure-sequential-5: #00706A;
+  --figure-sequential-6: #1F3B3A;
+  --figure-diverging-1: #00706A;
+  --figure-diverging-2: #6DD3CE;
+  --figure-diverging-3: #EDEDEB;
+  --figure-diverging-4: #D99AB2;
+  --figure-diverging-5: #A13D63;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --figure-surface: #1A1A19;
+    --figure-ink: #F3EEF0;
+    --figure-muted: #B9AEB3;
+    --figure-grid: #3A3937;
+    --figure-fill: #6DD3CE;
+    --figure-categorical-1: #00A39B;
+    --figure-categorical-2: #B44A74;
+    --figure-categorical-3: #D9773F;
+    --figure-sequential-1: #1F3B3A;
+    --figure-sequential-2: #00706A;
+    --figure-sequential-3: #00A39B;
+    --figure-sequential-4: #6DD3CE;
+    --figure-sequential-5: #BFEAE6;
+    --figure-sequential-6: #F2FBFA;
+    --figure-diverging-1: #6DD3CE;
+    --figure-diverging-2: #00A39B;
+    --figure-diverging-3: #3A3937;
+    --figure-diverging-4: #B44A74;
+    --figure-diverging-5: #E08FB0;
+  }
+}
+
+:root[data-theme="dark"] {
+  --figure-surface: #1A1A19;
+  --figure-ink: #F3EEF0;
+  --figure-muted: #B9AEB3;
+  --figure-grid: #3A3937;
+  --figure-fill: #6DD3CE;
+  --figure-categorical-1: #00A39B;
+  --figure-categorical-2: #B44A74;
+  --figure-categorical-3: #D9773F;
+  --figure-sequential-1: #1F3B3A;
+  --figure-sequential-2: #00706A;
+  --figure-sequential-3: #00A39B;
+  --figure-sequential-4: #6DD3CE;
+  --figure-sequential-5: #BFEAE6;
+  --figure-sequential-6: #F2FBFA;
+  --figure-diverging-1: #6DD3CE;
+  --figure-diverging-2: #00A39B;
+  --figure-diverging-3: #3A3937;
+  --figure-diverging-4: #B44A74;
+  --figure-diverging-5: #E08FB0;
+}

@@ -1,0 +1,32 @@
+# Synthetic oral one-compartment PK with a direct sigmoid Emax effect.
+model synthetic_oral_direct_emax
+time_unit = h
+description = "Synthetic oral PK with a direct sigmoid Emax effect on plasma concentration"
+
+parameters
+  cl = 2.4 [L/h] log
+  v = 60 [L] log
+  ka = 0.9 [1/h] log
+  f_oral = 0.7 [1] fixed
+  emax = 80 [%] log
+  ec50 = 2.5 [mg/L] log
+  hill = 1.5 [1] log
+
+states
+  depot = 0 [mg]
+  central = 0 [mg]
+
+definitions
+  conc = central / v [mg/L]
+
+dynamics
+  d/dt(depot) = -ka * depot
+  d/dt(central) = ka * depot - cl / v * central
+
+outputs
+  cp = conc [mg/L]
+  effect = emax * (conc / ec50)^hill / (1 + (conc / ec50)^hill) [%]
+
+dosing
+  depot [mg] bolus = f_oral
+end

@@ -222,8 +222,8 @@ endpoints <- list("2" = list(
   output = "cp", value_unit = "mg/L",
   error = list(additive_sd = q(0.1, "mg/L"), proportional_sd = 0)
 ))
-prepared <- fit_data_requests(dataset, fit_template, endpoints, mode = "pooled")
-data_fit <- fit_data(model, prepared)
+prepared <- individual_fit_data_requests(dataset, fit_template, endpoints, mode = "pooled")
+data_fit <- fit_individual_data(model, prepared)
 stopifnot(data_fit$results[[1]]$fit$status == "converged")
 print(fit_parameter_data_frame(data_fit))
 diagnostics <- fit_observation_data_frame(model, data_fit)

@@ -1,4 +1,5 @@
 //! Pharmacology execution engine. Native simulation and bounded fitting API.
+pub mod analysis;
 mod capabilities;
 pub mod compile;
 pub mod discrete_fit;
@@ -20,6 +21,10 @@ use std::cell::{Cell, RefCell};
 /// Diffsol package and source: an exact Git revision in QSPQuest builds, or
 /// the crates.io release selected by the consuming workspace.
 pub(crate) const DIFFSOL_BACKEND_VERSION: &str = env!("QSPQUEST_DIFFSOL_BACKEND");
+
+/// SHA-256 of the engine source inputs, computed by `build.rs` for this build.
+/// Run identities report the same value as `compiler_source_sha256`.
+pub const COMPILER_SOURCE_SHA256: &str = env!("QSPQUEST_SOURCE_SHA256");
 
 /// Constant-coefficient interval propagation used by the common event driver.
 /// The driver retains ownership of event ordering, observations and budgets.
@@ -66,6 +71,18 @@ pub trait Model {
     /// updates. This deliberately excludes Newton iterates and rejected steps.
     fn check_state(&self, _time: f64, _state: &[f64]) -> Result<(), Error> {
         Ok(())
+    }
+    /// Validate a state that numerical integration produced or carried forward.
+    /// `absolute_tolerances` holds the per-state absolute tolerance of the solve.
+    /// A model may accept bound violations no larger than that tolerance; values
+    /// are never altered. The default applies the strict `check_state`.
+    fn check_integrated_state(
+        &self,
+        time: f64,
+        state: &[f64],
+        _absolute_tolerances: &[f64],
+    ) -> Result<(), Error> {
+        self.check_state(time, state)
     }
 
     fn dose_scale(&self, state: usize) -> Option<f64>;
@@ -125,6 +142,24 @@ pub trait Model {
         v: &[f64],
         out: &mut [f64],
     ) -> Result<(), Error>;
+}
+
+/// Invariant slack permits zero for strict discrete updates.
+pub(crate) fn validate_invariant_tolerances(
+    tolerances: &[f64],
+    state_count: usize,
+) -> Result<(), Error> {
+    if tolerances.len() != state_count
+        || tolerances
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+    {
+        return Err(Error::new(
+            ErrorCode::InvalidInput,
+            "invariant tolerances must be finite, nonnegative and match every state",
+        ));
+    }
+    Ok(())
 }
 
 fn sorted_unique(values: &mut Vec<f64>) {
@@ -422,6 +457,13 @@ where
     let n = state.len();
     let scalar = [protocol.atol];
     let tolerances = absolute_tolerances.unwrap_or(&scalar);
+    // Use the solve's per-state absolute tolerances as invariant slack;
+    // this does not establish a bound on the trajectory's global error.
+    let invariant_tolerances = if tolerances.len() == n {
+        tolerances.to_vec()
+    } else {
+        vec![protocol.atol; n]
+    };
     let callbacks = Cell::new(0u64);
     let first_error = RefCell::new(None::<Error>);
     let guarded =
@@ -462,7 +504,7 @@ where
     let mut output = Vec::new();
     let mut stopped_infusions = std::collections::BTreeSet::new();
     for (index, &t) in boundaries.iter().enumerate() {
-        model.check_state(t, &state)?;
+        model.check_integrated_state(t, &state, &invariant_tolerances)?;
         if protocol.has_event(t) || model.discontinuities().contains(&t) {
             output.push(Sample {
                 time: t,
@@ -488,7 +530,13 @@ where
         resets.sort_by_key(|(order, ..)| *order);
         for (_, target, value, active_inputs) in resets {
             model.apply_reset(t, target, value, &mut state)?;
-            model.check_state(t, &state)?;
+            // The reset value itself is checked strictly; other states keep
+            // the tolerance of the integration that produced them.
+            let mut reset_tolerances = invariant_tolerances.clone();
+            if let Some(tolerance) = reset_tolerances.get_mut(target) {
+                *tolerance = 0.0;
+            }
+            model.check_integrated_state(t, &state, &reset_tolerances)?;
             if active_inputs == qspquest_core::ActiveInputs::StopTarget {
                 for (id, event) in protocol.events.iter().enumerate() {
                     if matches!(event,Event::Infusion{time,target:input_target,duration,..} if *input_target==target&&*time<t&&t<*time+*duration)
@@ -507,7 +555,7 @@ where
             {
                 if *time == t {
                     model.apply_bolus(t, *target, *amount, &mut state)?;
-                    model.check_state(t, &state)?;
+                    model.check_integrated_state(t, &state, &invariant_tolerances)?;
                 }
             }
         }
@@ -669,7 +717,11 @@ where
                         return Err(error);
                     }
                     let reached = solver.state().t;
-                    model.check_state(t + reached, &solver.state().y.clone_as_vec())?;
+                    model.check_integrated_state(
+                        t + reached,
+                        &solver.state().y.clone_as_vec(),
+                        &invariant_tolerances,
+                    )?;
                     if !reached.is_finite() || reached <= previous_time {
                         let mut error = Error::new(
                             ErrorCode::Solver,
@@ -684,7 +736,7 @@ where
                             .interpolate(time - t)
                             .map_err(&solver_error)?
                             .clone_as_vec();
-                        model.check_state(time, &values)?;
+                        model.check_integrated_state(time, &values, &invariant_tolerances)?;
                         column += 1;
                         if values.iter().any(|x| !x.is_finite()) {
                             return Err("nonfinite solve".into());

@@ -1,6 +1,6 @@
 use qspquest_mcp::{
     deployment::{Inputs, Profile, Settings},
-    library::Library,
+    library::{ArchiveChecks, Library},
     policy::Tier,
     server::Server,
 };
@@ -23,6 +23,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut artifact_dir: Option<String> = None;
     let mut jobs_dir: Option<String> = None;
     let mut dir = std::env::var("QSPQUEST_LIBRARY_DIR").ok();
+    let mut strict_library = match std::env::var("QSPQUEST_STRICT_LIBRARY").as_deref() {
+        Err(_) | Ok("" | "0" | "false") => false,
+        Ok("1" | "true") => true,
+        Ok(_) => return Err("QSPQUEST_STRICT_LIBRARY must be 1, true, 0 or false".into()),
+    };
     let mut tier = std::env::var("QSPQUEST_MCP_TIER").unwrap_or("free".into());
     let mut concurrency = std::env::var("QSPQUEST_MCP_CONCURRENCY")
         .unwrap_or("2".into())
@@ -46,13 +51,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--http" => addr = Some(args.next().ok_or("--http requires ADDR")?),
             "--library-dir" => dir = Some(args.next().ok_or("--library-dir requires PATH")?),
+            "--strict-library" => strict_library = true,
             "--tier" => tier = args.next().ok_or("--tier requires VALUE")?,
             "--concurrency" => {
                 concurrency = args.next().ok_or("--concurrency requires VALUE")?.parse()?
             }
             "--help" => {
                 eprintln!(
-                    "qspquest-mcp [--profile local|public|managed] [--http ADDR] [--library-dir PATH] [--output-dir PATH] [--artifact-dir PATH] [--jobs-dir PATH] [--tier free|pro|enterprise|admin] [--concurrency N]"
+                    "qspquest-mcp [--profile local|public|managed] [--http ADDR] [--library-dir PATH] [--strict-library] [--output-dir PATH] [--artifact-dir PATH] [--jobs-dir PATH] [--tier free|pro|enterprise|admin] [--concurrency N]"
                 );
                 return Ok(());
             }
@@ -122,6 +128,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     deployment.diagnostics();
     let resolver_ready = deployment.profile == Profile::Managed;
+    // Holding failing archives is a local convenience; public and managed servers refuse them.
+    ArchiveChecks::for_profile(deployment.profile, strict_library).configure()?;
     let lib = if let Some(dir) = dir {
         Library::directory(std::path::Path::new(&dir))?
     } else {
